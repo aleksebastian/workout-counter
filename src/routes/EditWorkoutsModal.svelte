@@ -14,7 +14,6 @@
 	function handleModalOpen() {
 		name = editingWorkout?.name ?? '';
 		modalEle?.showModal();
-		inputEle?.focus();
 	}
 
 	function handleKeyDown(event: KeyboardEvent) {

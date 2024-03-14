@@ -10,8 +10,11 @@
 	let workoutName = '';
 	let workoutAlreadyExistsError = false;
 
-	$: open && modalEle?.showModal();
-	$: open && inputEle?.focus();
+	$: open && handleModalOpen();
+
+	function handleModalOpen() {
+		modalEle?.showModal();
+	}
 
 	function clearWorkoutNameField() {
 		workoutName = '';

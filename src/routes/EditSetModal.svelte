@@ -14,7 +14,6 @@
 	function handleModalOpen() {
 		reps = $selectedWorkout$!.sets.find((set) => set.id === editSetId)!.reps;
 		modalEle?.showModal();
-		inputEle?.focus();
 	}
 
 	function handleKeyDown(event: KeyboardEvent) {

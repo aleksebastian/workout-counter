@@ -37,7 +37,7 @@
 		<SetsHistoryTable />
 	{:else if $workouts$.length}
 		<p>Select a workout to begin</p>
-		<ul class="menu w-56 rounded-box">
+		<ul class="menu flex w-56 flex-col gap-4 rounded-box">
 			{#each $workouts$ as workout}
 				<li>
 					<button class="btn" on:click={() => ($selectedWorkout$ = workout)}>{workout.name}</button>
