@@ -17,7 +17,7 @@
 <Navbar bind:isDrawerOpen />
 
 <Drawer bind:isDrawerOpen>
-	<div class="prose mx-auto p-4">
+	<div class="mx-auto p-4">
 		<slot />
 	</div>
 </Drawer>

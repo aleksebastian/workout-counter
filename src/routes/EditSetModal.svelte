@@ -7,13 +7,21 @@
 
 	let modalEle: HTMLDialogElement | undefined = undefined;
 	let inputEle: HTMLInputElement | undefined = undefined;
-	let reps = 0;
+	let reps = 10;
 
-	$: open && modalEle?.showModal();
-	$: open && inputEle?.focus();
+	$: open && handleModalOpen();
 
-	function clearSetCountField() {
-		reps = 0;
+	function handleModalOpen() {
+		reps = $selectedWorkout$!.sets.find((set) => set.id === editSetId)!.reps;
+		modalEle?.showModal();
+		inputEle?.focus();
+	}
+
+	function handleKeyDown(event: KeyboardEvent) {
+		if (event.key === 'Enter' && open) {
+			handleSaveSetBtnClick();
+			modalEle?.close();
+		}
 	}
 
 	function handleSaveSetBtnClick() {
@@ -24,28 +32,18 @@
 		$selectedWorkout$ = $selectedWorkout$;
 
 		localStorage.setItem('workouts', JSON.stringify($workouts$));
-
-		clearSetCountField();
-	}
-
-	function handleKeyDown(event: KeyboardEvent) {
-		if (event.key === 'Enter' && open) {
-			handleSaveSetBtnClick();
-			modalEle?.close();
-			clearSetCountField();
-		}
 	}
 </script>
 
 <dialog bind:this={modalEle} class="modal" on:close={() => (open = false)}>
 	<div class="modal-box flex w-96 flex-col gap-6">
 		<div class="flex items-center justify-between">
-			<h3 class="text-lg font-bold">Edit set</h3>
+			<h3 class="text-lg font-bold">Edit Set</h3>
 			<button class="btn" on:click={() => modalEle?.close()}>{@html CloseIcon}</button>
 		</div>
 		<input
 			bind:this={inputEle}
-			type="text"
+			type="number"
 			class="input w-full max-w-xs"
 			bind:value={reps}
 			on:keydown={handleKeyDown}

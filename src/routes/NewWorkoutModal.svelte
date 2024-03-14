@@ -50,7 +50,7 @@
 <dialog bind:this={modalEle} class="modal" on:close={() => (open = false)}>
 	<div class="modal-box flex w-96 flex-col gap-6">
 		<div class="flex items-center justify-between">
-			<h3 class="text-lg font-bold">Workout name</h3>
+			<h3 class="text-lg font-bold">Workout Name</h3>
 			<button class="btn btn-ghost" on:click={() => modalEle?.close()}>{@html CloseIcon}</button>
 		</div>
 		<input

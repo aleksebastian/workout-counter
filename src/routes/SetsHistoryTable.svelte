@@ -3,8 +3,10 @@
 	import EditIcon from '$lib/icons/edit.svg?raw';
 	import DeleteIcon from '$lib/icons/delete.svg?raw';
 	import EditSetModal from './EditSetModal.svelte';
+	import DeleteSetModal from './DeleteSetModal.svelte';
 
 	let isEditSetModalOpen = false;
+	let isDeleteSetModalOpen = false;
 	let editSetId: string | undefined = undefined;
 
 	function organizeSetsByDate(sets: Set[]) {
@@ -31,6 +33,12 @@
 		editSetId = set.id;
 		isEditSetModalOpen = true;
 	}
+
+	function handleDeleteSetModalOpen(set: Set) {
+		console.log('hi');
+		editSetId = set.id;
+		isDeleteSetModalOpen = true;
+	}
 </script>
 
 {#if organizedSets}
@@ -54,12 +62,16 @@
 						<tr>
 							<td>{set.reps}</td>
 							<td>{time}</td>
-							<td>
+							<td class="pl-0.5 pr-0">
 								<button class="btn btn-ghost" on:click={() => handleEditSetModalOpen(set)}>
 									{@html EditIcon}
 								</button>
 							</td>
-							<td><button class="btn btn-ghost">{@html DeleteIcon}</button></td>
+							<td
+								><button class="btn btn-ghost" on:click={() => handleDeleteSetModalOpen(set)}
+									>{@html DeleteIcon}</button
+								></td
+							>
 						</tr>
 					{/each}
 				</tbody>
@@ -69,3 +81,4 @@
 {/if}
 
 <EditSetModal bind:open={isEditSetModalOpen} {editSetId} />
+<DeleteSetModal bind:open={isDeleteSetModalOpen} {editSetId} />
