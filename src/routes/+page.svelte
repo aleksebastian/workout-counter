@@ -7,7 +7,7 @@
 
 	let reps = 10;
 
-	function handleRecordSetBtnClick() {
+	function handleRecordSetClick() {
 		$selectedWorkout$!.sets = [
 			...$selectedWorkout$!.sets,
 			{
@@ -29,10 +29,15 @@
 		<h1>{$selectedWorkout$.name}</h1>
 		<div class="flex gap-4">
 			<button class="btn w-16" on:click={() => (reps -= 1)}>{@html RemoveIcon}</button>
-			<input type="number" placeholder="Reps" class="input w-20 text-center" bind:value={reps} />
+			<input
+				type="number"
+				placeholder="Reps"
+				class="input input-bordered w-20 text-center"
+				bind:value={reps}
+			/>
 			<button class="btn w-16" on:click={() => (reps += 1)}>{@html AddIcon}</button>
 		</div>
-		<button class="btn w-40" on:click={handleRecordSetBtnClick}>Record set</button>
+		<button class="btn w-40" on:click={handleRecordSetClick}>Record set</button>
 
 		<SetsHistoryTable />
 	{:else if $workouts$.length}
