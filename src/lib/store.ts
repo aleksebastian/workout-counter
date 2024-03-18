@@ -13,5 +13,4 @@ export type Workout = {
 };
 
 export const workouts$: Writable<Workout[]> = writable([]);
-export const selectedWorkout$: Writable<Workout | undefined> = writable(undefined);
 export const isMobileDevice$: Writable<boolean> = writable(false);

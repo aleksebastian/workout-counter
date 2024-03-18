@@ -1,10 +1,12 @@
 <script lang="ts">
-	import { isMobileDevice$, selectedWorkout$, workouts$, type Set } from '$lib/store';
+	import { isMobileDevice$, workouts$, type Set, type Workout } from '$lib/store';
 	import EditIcon from '$lib/icons/edit.svg?raw';
 	import DeleteIcon from '$lib/icons/delete.svg?raw';
 	import EditSetDialog from './EditSetDialog.svelte';
 	import ConfirmationDialog from '$lib/components/ConfimationDialog.svelte';
 	import { tick } from 'svelte';
+
+	export let workout: Workout;
 
 	let deleteSetDialog: HTMLDialogElement;
 	let editSetDialog: HTMLDialogElement;
@@ -12,7 +14,7 @@
 
 	let editSetId: string | undefined = undefined;
 
-	$: organizedSets = organizeSetsByDate($selectedWorkout$!.sets);
+	$: organizedSets = organizeSetsByDate(workout.sets);
 
 	type DaySets = { date: string; sets: Set[]; totalReps?: number };
 
@@ -61,14 +63,12 @@
 
 	function handleDeleteSetResult() {
 		if (deleteSetDialog.returnValue === 'default') {
-			$workouts$ = $workouts$.map((workout) => {
-				if (workout.id === $selectedWorkout$!.id) {
-					workout.sets = workout.sets.filter((set) => set.id !== editSetId);
+			$workouts$ = $workouts$.map((currWorkout) => {
+				if (currWorkout.id === workout!.id) {
+					currWorkout.sets = currWorkout.sets.filter((set) => set.id !== editSetId);
 				}
-				return workout;
+				return currWorkout;
 			});
-
-			$selectedWorkout$ = $selectedWorkout$;
 
 			localStorage.setItem('workouts', JSON.stringify($workouts$));
 		}
@@ -77,11 +77,10 @@
 	let reps = 0;
 	function handleEditSetResult() {
 		if (editSetDialog.returnValue === 'default') {
-			$selectedWorkout$!.sets.find((set) => set.id === editSetId)!.reps = reps;
-			const index = $workouts$.findIndex((workout) => workout.id === $selectedWorkout$!.id);
+			workout!.sets.find((set) => set.id === editSetId)!.reps = reps;
+			const index = $workouts$.findIndex((currWorkout) => currWorkout.id === workout!.id);
 
-			$workouts$[index] = $selectedWorkout$!;
-			$selectedWorkout$ = $selectedWorkout$;
+			$workouts$[index] = workout!;
 
 			localStorage.setItem('workouts', JSON.stringify($workouts$));
 		}

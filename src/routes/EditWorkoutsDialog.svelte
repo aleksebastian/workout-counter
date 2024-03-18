@@ -39,7 +39,7 @@
 
 	<DialogAction>
 		<div class="flex gap-4">
-			<button class="btn bg-red-500" value="delete">Delete</button>
+			<button class="btn btn-primary" value="delete">Delete</button>
 			<button class="btn" value="edit">Save</button>
 		</div>
 	</DialogAction>

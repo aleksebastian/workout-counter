@@ -3,16 +3,17 @@
 	import NewWorkoutDialog from './NewWorkoutDialog.svelte';
 	import AddIcon from '$lib/icons/add.svg?raw';
 	import { createEventDispatcher, tick } from 'svelte';
-	import { isMobileDevice$, selectedWorkout$, workouts$ } from '$lib/store';
+	import { isMobileDevice$, workouts$ } from '$lib/store';
 	import { v4 as uuidv4 } from 'uuid';
 	import MenuIcon from '$lib/icons/menu.svg?raw';
+	import { goto } from '$app/navigation';
 
 	const dispatch = createEventDispatcher<{
-		toggleDrawer: null;
+		'toggle-drawer': null;
 	}>();
 
 	function toggleDrawer() {
-		dispatch('toggleDrawer');
+		dispatch('toggle-drawer');
 	}
 
 	let newWorkoutDialog: HTMLDialogElement;
@@ -31,7 +32,7 @@
 			}
 
 			$workouts$ = [...$workouts$, { id: uuidv4(), name: newWorkoutName, sets: [] }];
-			$selectedWorkout$ = $workouts$[$workouts$.length - 1];
+			goto(`/workout/${$workouts$[$workouts$.length - 1].id}`);
 			localStorage.setItem('workouts', JSON.stringify($workouts$));
 			clearWorkoutNameField();
 		}

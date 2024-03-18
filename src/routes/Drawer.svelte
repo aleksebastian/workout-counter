@@ -1,44 +1,38 @@
 <script lang="ts">
-	import { isMobileDevice$, selectedWorkout$, workouts$, type Workout } from '$lib/store';
+	import { isMobileDevice$, workouts$, type Workout } from '$lib/store';
 	import EditWorkoutsDialog from './EditWorkoutsDialog.svelte';
 	import EditIcon from '$lib/icons/edit.svg?raw';
 	import { tick } from 'svelte';
+	import { page } from '$app/stores';
+	import { goto } from '$app/navigation';
 
-	export let isDrawerOpen = false;
+	export let open = false;
 	let editWorkoutsDialog: HTMLDialogElement;
 	let inputEle: HTMLInputElement;
 	let isEditingWorkouts = false;
 	let editingWorkout: Workout | undefined = undefined;
 	let newWorkoutName = '';
 
-	$: !isDrawerOpen && (isEditingWorkouts = false);
+	$: !open && (isEditingWorkouts = false);
 
 	async function handleWorkoutClick(workout: Workout) {
-		if (isEditingWorkouts) {
-			editingWorkout = workout;
-			editWorkoutsDialog.showModal();
+		editingWorkout = workout;
+		editWorkoutsDialog.showModal();
 
-			if ($isMobileDevice$) {
-				return;
-			}
-
-			await tick();
-
-			inputEle.focus();
-			inputEle.select();
-		} else {
-			$selectedWorkout$ = workout;
-			isDrawerOpen = false;
+		if ($isMobileDevice$) {
+			return;
 		}
+
+		await tick();
+
+		inputEle.focus();
+		inputEle.select();
 	}
 
 	function handleWorkoutEditClick() {
 		const index = $workouts$.findIndex((currWorkout) => currWorkout.id === editingWorkout?.id);
-
 		$workouts$[index].name = newWorkoutName;
-
 		$workouts$ = $workouts$;
-		$selectedWorkout$ = $workouts$[index];
 
 		localStorage.setItem('workouts', JSON.stringify($workouts$));
 	}
@@ -48,8 +42,8 @@
 		$workouts$.splice(index, 1);
 		$workouts$ = $workouts$;
 
-		if ($selectedWorkout$?.id === editingWorkout?.id) {
-			$selectedWorkout$ = undefined;
+		if ($page.params.workoutId === editingWorkout?.id) {
+			goto('/');
 		}
 
 		localStorage.setItem('workouts', JSON.stringify($workouts$));
@@ -65,7 +59,7 @@
 </script>
 
 <div class="drawer">
-	<input id="my-drawer" type="checkbox" class="drawer-toggle" bind:checked={isDrawerOpen} />
+	<input id="my-drawer" type="checkbox" class="drawer-toggle" bind:checked={open} />
 	<div class="drawer-content">
 		<slot />
 	</div>
@@ -84,10 +78,22 @@
 			</div>
 			{#each $workouts$ as workout}
 				<li class="mb-1 mt-1">
-					<button
-						class:btn-active={workout.id === $selectedWorkout$?.id}
-						on:click={() => handleWorkoutClick(workout)}>{workout.name}</button
-					>
+					{#if isEditingWorkouts}
+						<button
+							class:btn-active={$page.params.workoutId === workout.id}
+							on:click={() => handleWorkoutClick(workout)}
+						>
+							{workout.name}
+						</button>
+					{:else}
+						<a
+							class:btn-active={$page.params.workoutId === workout.id}
+							href={'/workout/' + workout.id}
+							on:click={() => (open = false)}
+						>
+							{workout.name}
+						</a>
+					{/if}
 				</li>
 			{:else}
 				<li class="mb-1 mt-1">Add a workout to begin</li>
