@@ -59,13 +59,19 @@
 </script>
 
 <div class="drawer">
-	<input id="my-drawer" type="checkbox" class="drawer-toggle" bind:checked={open} />
+	<input
+		aria-label="Toggle Drawer"
+		id="my-drawer"
+		type="checkbox"
+		class="drawer-toggle"
+		bind:checked={open}
+	/>
 	<div class="drawer-content">
 		<slot />
 	</div>
-	<div class="drawer-side mt-[80px]">
+	<div class="drawer-side mt-20">
 		<label for="my-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
-		<ul class="menu min-h-full w-80 bg-base-200 p-4 text-base-content">
+		<div class="menu min-h-full w-80 bg-base-200 p-4 text-base-content">
 			<div class="mb-4 flex items-center justify-between">
 				<p class="text-lg font-semibold">Workouts</p>
 				{#if $workouts$.length}
@@ -76,29 +82,31 @@
 					>
 				{/if}
 			</div>
-			{#each $workouts$ as workout}
-				<li class="mb-1 mt-1">
-					{#if isEditingWorkouts}
-						<button
-							class:btn-active={$page.params.workoutId === workout.id}
-							on:click={() => handleWorkoutClick(workout)}
-						>
-							{workout.name}
-						</button>
-					{:else}
-						<a
-							class:btn-active={$page.params.workoutId === workout.id}
-							href={'/workout/' + workout.id}
-							on:click={() => (open = false)}
-						>
-							{workout.name}
-						</a>
-					{/if}
-				</li>
-			{:else}
-				<li class="mb-1 mt-1">Add a workout to begin</li>
-			{/each}
-		</ul>
+			<ul>
+				{#each $workouts$ as workout}
+					<li class="mb-1 mt-1">
+						{#if isEditingWorkouts}
+							<button
+								class:btn-active={$page.params.workoutId === workout.id}
+								on:click={() => handleWorkoutClick(workout)}
+							>
+								{workout.name}
+							</button>
+						{:else}
+							<a
+								class:btn-active={$page.params.workoutId === workout.id}
+								href={'/workout/' + workout.id}
+								on:click={() => (open = false)}
+							>
+								{workout.name}
+							</a>
+						{/if}
+					</li>
+				{:else}
+					<li class="mb-1 mt-1">Add a workout to begin</li>
+				{/each}
+			</ul>
+		</div>
 	</div>
 </div>
 

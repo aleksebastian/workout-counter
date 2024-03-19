@@ -42,6 +42,7 @@
 
 	<input
 		bind:this={inputEle}
+		aria-label="Workout Name"
 		type="text"
 		class="input input-bordered w-full max-w-xs"
 		bind:value={newWorkoutName}

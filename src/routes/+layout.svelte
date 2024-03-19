@@ -9,6 +9,11 @@
 	}
 </script>
 
+<svelte:head>
+	<title>Workout Counter</title>
+	<meta name="description" content="The best way to count your workouts' reps" />
+</svelte:head>
+
 <Navbar on:toggle-drawer={handleDrawerToggle} />
 
 <Drawer bind:open={isDrawerOpen}>

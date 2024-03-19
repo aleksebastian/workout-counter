@@ -17,6 +17,8 @@
 <div class="flex items-center justify-between">
 	<h3 class="heigh text-lg font-bold">{header}</h3>
 	{#if closeButton}
-		<button class="btn btn-ghost" on:click={handleCloseClick}>{@html CloseIcon}</button>
+		<button aria-label="Close Dialog" class="btn btn-ghost" on:click={handleCloseClick}>
+			{@html CloseIcon}
+		</button>
 	{/if}
 </div>

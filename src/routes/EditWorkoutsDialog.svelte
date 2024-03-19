@@ -30,6 +30,7 @@
 	<DialogHeader header="Edit Workout" closeButton on:close-click={() => dialog.close()} />
 
 	<input
+		aria-label="Workout Name"
 		bind:this={inputEle}
 		type="text"
 		class="input input-bordered w-full max-w-xs"

@@ -20,6 +20,7 @@
 	<DialogHeader header="Edit Set" closeButton on:close-click={() => dialog.close()} />
 
 	<input
+		aria-label="Reps"
 		class="input input-bordered w-full max-w-xs"
 		type="number"
 		bind:this={inputEle}
