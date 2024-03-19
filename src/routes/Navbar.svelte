@@ -1,12 +1,7 @@
 <script lang="ts">
 	import '../app.css';
-	import NewWorkoutDialog from './NewWorkoutDialog.svelte';
-	import AddIcon from '$lib/icons/add.svg?raw';
-	import { createEventDispatcher, tick } from 'svelte';
-	import { isMobileDevice$, workouts$ } from '$lib/store';
-	import { v4 as uuidv4 } from 'uuid';
+	import { createEventDispatcher } from 'svelte';
 	import MenuIcon from '$lib/icons/menu.svg?raw';
-	import { goto } from '$app/navigation';
 
 	const dispatch = createEventDispatcher<{
 		'toggle-drawer': null;
@@ -14,45 +9,6 @@
 
 	function toggleDrawer() {
 		dispatch('toggle-drawer');
-	}
-
-	let newWorkoutDialog: HTMLDialogElement;
-	let inputEle: HTMLInputElement;
-	let newWorkoutName = '';
-	let newWorkoutError: string | undefined = undefined;
-
-	function handleNewWorkoutDialogResult() {
-		if (newWorkoutDialog.returnValue === 'add') {
-			if ($workouts$.some((workout) => workout.name === newWorkoutName)) {
-				newWorkoutError = 'Workout already exists';
-				return;
-			} else if (!newWorkoutName.length) {
-				newWorkoutError = 'Workout name missing';
-				return;
-			}
-
-			$workouts$ = [...$workouts$, { id: uuidv4(), name: newWorkoutName, sets: [] }];
-			goto(`/workout/${$workouts$[$workouts$.length - 1].id}`);
-			localStorage.setItem('workouts', JSON.stringify($workouts$));
-			clearWorkoutNameField();
-		}
-	}
-
-	function clearWorkoutNameField() {
-		newWorkoutName = '';
-	}
-
-	async function handleNewWorkoutDialogOpen() {
-		newWorkoutDialog.showModal();
-
-		if ($isMobileDevice$) {
-			return;
-		}
-
-		await tick();
-
-		inputEle.focus();
-		inputEle.select();
 	}
 </script>
 
@@ -65,15 +21,7 @@
 		</button>
 		<a class="btn btn-ghost text-xl" href="/">Workout Counter</a>
 	</div>
-	<div>
+	<!-- <div>
 		<button class="btn" on:click={handleNewWorkoutDialogOpen}>{@html AddIcon} Workout</button>
-	</div>
+	</div> -->
 </div>
-
-<NewWorkoutDialog
-	bind:dialog={newWorkoutDialog}
-	bind:inputEle
-	bind:newWorkoutName
-	bind:newWorkoutError
-	on:close={handleNewWorkoutDialogResult}
-/>

@@ -1,21 +1,29 @@
 <script lang="ts">
-	import { isMobileDevice$, workouts$, type Workout } from '$lib/store';
-	import EditWorkoutsDialog from './EditWorkoutsDialog.svelte';
-	import EditIcon from '$lib/icons/edit.svg?raw';
 	import { tick } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
+	import { v4 as uuidv4 } from 'uuid';
+	import { isMobileDevice$, workouts$, type Workout } from '$lib/store';
+	import EditIcon from '$lib/icons/edit.svg?raw';
+	import AddIcon from '$lib/icons/add.svg?raw';
+	import EditWorkoutsDialog from './EditWorkoutsDialog.svelte';
+	import NewWorkoutDialog from './NewWorkoutDialog.svelte';
 
 	export let open = false;
-	let editWorkoutsDialog: HTMLDialogElement;
-	let inputEle: HTMLInputElement;
+
 	let isEditingWorkouts = false;
+	let editWorkoutsDialog: HTMLDialogElement;
+	let editWorkoutsInputEle: HTMLInputElement;
+	let newWorkoutDialog: HTMLDialogElement;
+	let newWorkoutNameInputEle: HTMLInputElement;
 	let editingWorkout: Workout | undefined = undefined;
+
 	let newWorkoutName = '';
+	let newWorkoutError: string | undefined = undefined;
 
 	$: !open && (isEditingWorkouts = false);
 
-	async function handleWorkoutClick(workout: Workout) {
+	async function handleWorkoutEditClick(workout: Workout) {
 		editingWorkout = workout;
 		editWorkoutsDialog.showModal();
 
@@ -25,35 +33,55 @@
 
 		await tick();
 
-		inputEle.focus();
-		inputEle.select();
+		editWorkoutsInputEle.focus();
+		editWorkoutsInputEle.select();
 	}
 
-	function handleWorkoutEditClick() {
+	function handleEditWorkoutResult() {
 		const index = $workouts$.findIndex((currWorkout) => currWorkout.id === editingWorkout?.id);
-		$workouts$[index].name = newWorkoutName;
-		$workouts$ = $workouts$;
 
-		localStorage.setItem('workouts', JSON.stringify($workouts$));
-	}
+		if (editWorkoutsDialog.returnValue === 'edit') {
+			$workouts$[index].name = newWorkoutName;
+			$workouts$ = $workouts$;
+		} else if (editWorkoutsDialog.returnValue === 'delete') {
+			$workouts$.splice(index, 1);
+			$workouts$ = $workouts$;
 
-	function handleWorkoutDeleteClick() {
-		const index = $workouts$.findIndex((currWorkout) => currWorkout.id === editingWorkout?.id);
-		$workouts$.splice(index, 1);
-		$workouts$ = $workouts$;
-
-		if ($page.params.workoutId === editingWorkout?.id) {
-			goto('/');
+			if ($page.params.workoutId === editingWorkout?.id) {
+				goto('/');
+			}
 		}
 
 		localStorage.setItem('workouts', JSON.stringify($workouts$));
 	}
 
-	function handleEditWorkoutResult() {
-		if (editWorkoutsDialog.returnValue === 'edit') {
-			handleWorkoutEditClick();
-		} else if (editWorkoutsDialog.returnValue === 'delete') {
-			handleWorkoutDeleteClick();
+	async function handleNewWorkoutDialogOpen() {
+		newWorkoutDialog.showModal();
+
+		if ($isMobileDevice$) {
+			return;
+		}
+
+		await tick();
+
+		editWorkoutsInputEle.focus();
+		editWorkoutsInputEle.select();
+	}
+
+	function handleNewWorkoutDialogResult() {
+		if (newWorkoutDialog.returnValue === 'add') {
+			if ($workouts$.some((workout) => workout.name === newWorkoutName)) {
+				newWorkoutError = 'Workout already exists';
+				return;
+			} else if (!newWorkoutName.length) {
+				newWorkoutError = 'Workout name missing';
+				return;
+			}
+
+			$workouts$ = [...$workouts$, { id: uuidv4(), name: newWorkoutName, sets: [] }];
+			goto(`/workout/${$workouts$[$workouts$.length - 1].id}`);
+			localStorage.setItem('workouts', JSON.stringify($workouts$));
+			newWorkoutName = '';
 		}
 	}
 </script>
@@ -74,11 +102,16 @@
 		<div class="menu min-h-full w-80 bg-base-200 p-4 text-base-content">
 			<div class="mb-4 flex items-center justify-between">
 				<p class="text-lg font-semibold">Workouts</p>
+				<div>
+					<button class="btn btn-ghost" on:click={handleNewWorkoutDialogOpen}
+						>{@html AddIcon} Add</button
+					>
+				</div>
 				{#if $workouts$.length}
 					<button
-						class="rounded-md p-2"
+						class="btn btn-ghost"
 						class:btn-active={isEditingWorkouts}
-						on:click={() => (isEditingWorkouts = !isEditingWorkouts)}>{@html EditIcon}</button
+						on:click={() => (isEditingWorkouts = !isEditingWorkouts)}>{@html EditIcon} Edit</button
 					>
 				{/if}
 			</div>
@@ -88,7 +121,7 @@
 						{#if isEditingWorkouts}
 							<button
 								class:btn-active={$page.params.workoutId === workout.id}
-								on:click={() => handleWorkoutClick(workout)}
+								on:click={() => handleWorkoutEditClick(workout)}
 							>
 								{workout.name}
 							</button>
@@ -113,7 +146,15 @@
 <EditWorkoutsDialog
 	bind:dialog={editWorkoutsDialog}
 	bind:name={newWorkoutName}
-	bind:inputEle
+	bind:inputEle={editWorkoutsInputEle}
 	on:close={handleEditWorkoutResult}
 	{editingWorkout}
+/>
+
+<NewWorkoutDialog
+	bind:dialog={newWorkoutDialog}
+	bind:inputEle={newWorkoutNameInputEle}
+	bind:newWorkoutName
+	bind:newWorkoutError
+	on:close={handleNewWorkoutDialogResult}
 />
