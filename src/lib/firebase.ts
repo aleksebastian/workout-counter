@@ -7,7 +7,7 @@ import type { Workout } from './store';
 
 const firebaseConfig = {
 	apiKey: 'AIzaSyB2Wxz_yyr7spT7MrwhxpGPK9XXbo8SDmU',
-	authDomain: 'https://workout-counter-two.vercel.app/',
+	authDomain: 'workout-counter-99d56.firebaseapp.com',
 	projectId: 'workout-counter-99d56',
 	storageBucket: 'workout-counter-99d56.appspot.com',
 	messagingSenderId: '478354387280',
