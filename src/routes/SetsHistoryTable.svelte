@@ -37,7 +37,7 @@
 			set.totalReps = set.sets.reduce((acc, curr) => acc + curr.reps, 0);
 		});
 
-		return setsByDate;
+		return setsByDate.reverse();
 	}
 
 	async function handleEditSetModalOpen(set: Set) {
@@ -90,7 +90,7 @@
 {#if organizedSets}
 	{#each organizedSets as organizedSet}
 		<div class="overflow-x-auto">
-			<h3 class="text-center">{organizedSet.date}</h3>
+			<h3 class="text-right">{organizedSet.date}</h3>
 			<table class="table table-zebra">
 				<!-- head -->
 				<thead>
@@ -100,7 +100,7 @@
 					</tr>
 				</thead>
 				<tbody>
-					{#each organizedSet.sets as set}
+					{#each organizedSet.sets.reverse() as set}
 						{@const time = new Date(set.date).toLocaleTimeString([], {
 							hour: 'numeric',
 							minute: '2-digit'
