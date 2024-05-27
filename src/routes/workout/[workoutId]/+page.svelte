@@ -5,6 +5,8 @@
 	import AddIcon from '$lib/icons/add.svg?raw';
 	import RemoveIcon from '$lib/icons/remove.svg?raw';
 	import SetsHistoryTable from '../../SetsHistoryTable.svelte';
+	import { db, userData, user } from '$lib/firebase';
+	import { doc, updateDoc } from 'firebase/firestore';
 
 	export let data: PageData;
 
@@ -12,7 +14,8 @@
 
 	let reps = 10;
 
-	function handleRecordSetClick() {
+	async function handleRecordSetClick() {
+		if (!$userData) return;
 		workout!.sets = [
 			...workout!.sets,
 			{
@@ -22,10 +25,15 @@
 			}
 		];
 
-		const index = $workouts$.findIndex((workout) => workout.id === workout!.id);
-		$workouts$[index] = workout!;
+		const workouts = $userData.workouts;
+		const index = workouts.findIndex((workout) => workout.id === workout!.id);
+		workouts[index] = workout!;
 
-		localStorage.setItem('workouts', JSON.stringify($workouts$));
+		const userRef = doc(db, 'users', $user!.uid);
+
+		await updateDoc(userRef, {
+			workouts
+		});
 	}
 </script>
 

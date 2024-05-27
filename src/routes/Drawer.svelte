@@ -8,6 +8,9 @@
 	import AddIcon from '$lib/icons/add.svg?raw';
 	import EditWorkoutsDialog from './EditWorkoutsDialog.svelte';
 	import NewWorkoutDialog from './NewWorkoutDialog.svelte';
+	import { arrayRemove, arrayUnion, doc, setDoc, updateDoc, writeBatch } from 'firebase/firestore';
+	import { db, user } from '$lib/firebase';
+	import { userData } from '$lib/firebase';
 
 	export let open = false;
 
@@ -37,30 +40,37 @@
 		editWorkoutsInputEle.select();
 	}
 
-	function handleEditWorkoutResult() {
-		const index = $workouts$.findIndex((currWorkout) => currWorkout.id === editingWorkout?.id);
+	async function handleEditWorkoutResult() {
+		if (!$userData) return;
+
+		const userRef = doc(db, 'users', $user!.uid);
+		const workoutIndex = $userData.workouts.findIndex(
+			(currWorkout) => currWorkout.id === editingWorkout?.id
+		);
+		const workouts = $userData.workouts;
 
 		if (editWorkoutsDialog.returnValue === 'edit') {
-			$workouts$[index].name = newWorkoutName;
-			$workouts$ = $workouts$;
+			workouts[workoutIndex].name = newWorkoutName;
+
+			await updateDoc(userRef, {
+				workouts
+			});
 		} else if (editWorkoutsDialog.returnValue === 'delete') {
-			$workouts$.splice(index, 1);
-			$workouts$ = $workouts$;
+			$userData.workouts.splice(workoutIndex, 1);
+			await updateDoc(userRef, {
+				workouts
+			});
 
 			if ($page.params.workoutId === editingWorkout?.id) {
 				goto('/');
 			}
 		}
-
-		localStorage.setItem('workouts', JSON.stringify($workouts$));
 	}
 
 	async function handleNewWorkoutDialogOpen() {
 		newWorkoutDialog.showModal();
 
-		if ($isMobileDevice$) {
-			return;
-		}
+		if ($isMobileDevice$) return;
 
 		await tick();
 
@@ -68,9 +78,11 @@
 		editWorkoutsInputEle.select();
 	}
 
-	function handleNewWorkoutDialogResult() {
+	async function handleNewWorkoutDialogResult() {
+		if (!$userData) return;
+
 		if (newWorkoutDialog.returnValue === 'add') {
-			if ($workouts$.some((workout) => workout.name === newWorkoutName)) {
+			if ($userData.workouts.some((workout) => workout.name === newWorkoutName)) {
 				newWorkoutError = 'Workout already exists';
 				return;
 			} else if (!newWorkoutName.length) {
@@ -78,15 +90,20 @@
 				return;
 			}
 
-			$workouts$ = [...$workouts$, { id: uuidv4(), name: newWorkoutName, sets: [] }];
-			goto(`/workout/${$workouts$[$workouts$.length - 1].id}`);
-			localStorage.setItem('workouts', JSON.stringify($workouts$));
+			const userRef = doc(db, 'users', $user!.uid);
+
+			await updateDoc(userRef, {
+				workouts: arrayUnion({ id: uuidv4(), name: newWorkoutName, sets: [] })
+			});
+
+			goto(`/workout/${$userData.workouts[$userData.workouts.length - 1].id}`);
+			console.log($userData);
 			newWorkoutName = '';
 		}
 	}
 </script>
 
-<div class="drawer">
+<div class="drawer static">
 	<input
 		aria-label="Toggle Drawer"
 		id="my-drawer"

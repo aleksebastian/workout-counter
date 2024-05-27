@@ -1,18 +1,36 @@
 <script lang="ts">
+	import { user, userData } from '$lib/firebase';
 	import { workouts$ } from '$lib/store';
+	import { onMount } from 'svelte';
+
+	let showSpinner = false;
+	onMount(() => {
+		setTimeout(() => {
+			showSpinner = true;
+		}, 500);
+	});
 </script>
 
-<div class="flex flex-col items-center gap-6">
-	{#if $workouts$.length}
-		<p>Select a workout to begin</p>
-		<ul class="menu flex w-56 flex-col gap-4 rounded-box">
-			{#each $workouts$ as workout}
-				<li>
-					<a class="btn" href={'/workout/' + workout.id}>{workout.name}</a>
-				</li>
-			{/each}
-		</ul>
-	{:else}
-		<p>Add a workout to begin</p>
+{#if $user === undefined}
+	{#if showSpinner}
+		<span class="loading loading-spinner loading-md"></span>
 	{/if}
-</div>
+{:else if $user && $userData}
+	<div class="flex flex-col items-center gap-6">
+		<p>Welcome {$user.displayName?.split(' ')[0]}!</p>
+		{#if $userData.workouts.length}
+			<p>Select a workout to begin</p>
+			<ul class="menu flex w-56 flex-col gap-4 rounded-box">
+				{#each $userData.workouts as workout}
+					<li>
+						<a class="btn" href={'/workout/' + workout.id}>{workout.name}</a>
+					</li>
+				{/each}
+			</ul>
+		{:else}
+			<p>Add a workout to begin</p>
+		{/if}
+	</div>
+{:else}
+	<p>Sign in to get started</p>
+{/if}

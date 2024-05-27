@@ -25,15 +25,18 @@
 	}
 
 	function handleAddClick(event: MouseEvent) {
+		event.preventDefault();
 		if ($workouts$.some((workout) => workout.name === newWorkoutName)) {
-			event.preventDefault();
 			newWorkoutError = 'Workout already exists';
 			return;
 		} else if (!newWorkoutName.length) {
-			event.preventDefault();
 			newWorkoutError = 'Workout name missing';
 			return;
 		}
+	}
+
+	function handleInput() {
+		newWorkoutError = undefined;
 	}
 </script>
 
@@ -46,7 +49,7 @@
 		type="text"
 		class="input input-bordered w-full max-w-xs"
 		bind:value={newWorkoutName}
-		on:input={() => (newWorkoutError = undefined)}
+		on:input={handleInput}
 		on:keydown={handleKeyDown}
 	/>
 

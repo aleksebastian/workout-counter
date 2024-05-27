@@ -2,6 +2,10 @@
 	import { onNavigate } from '$app/navigation';
 	import Navbar from './Navbar.svelte';
 	import Drawer from './Drawer.svelte';
+	import { user, userData } from '$lib/firebase';
+	import { workouts$ } from '$lib/store';
+	import { auth } from '$lib/firebase';
+	import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 
 	onNavigate((navigation) => {
 		if (!document.startViewTransition) return;
@@ -19,6 +23,31 @@
 	function handleDrawerToggle() {
 		isDrawerOpen = !isDrawerOpen;
 	}
+
+	async function signInWithGoogle() {
+		const provider = new GoogleAuthProvider();
+		try {
+			// await signInWithRedirect(auth, provider);
+			// const user = await getRedirectResult(auth);
+			const user = await signInWithPopup(auth, provider);
+		} catch (error) {
+			console.error(error);
+		}
+
+		return user;
+	}
+
+	async function handleSignIn() {
+		await signInWithGoogle();
+	}
+
+	async function handleSignOut() {
+		await signOut(auth);
+	}
+
+	$: if ($user && $userData) {
+		workouts$.set($userData.workouts);
+	}
 </script>
 
 <svelte:head>
@@ -26,10 +55,15 @@
 	<meta name="description" content="The best way to count your workouts' reps" />
 </svelte:head>
 
-<Navbar on:toggle-drawer={handleDrawerToggle} />
+<Navbar
+	on:toggle-drawer={handleDrawerToggle}
+	{isDrawerOpen}
+	on:sign-in={handleSignIn}
+	on:sign-out={handleSignOut}
+/>
 
 <Drawer bind:open={isDrawerOpen}>
-	<div class=" mx-auto p-4">
+	<div class="mx-auto p-4">
 		<slot />
 	</div>
 </Drawer>

@@ -5,6 +5,8 @@
 	import EditSetDialog from './EditSetDialog.svelte';
 	import ConfirmationDialog from '$lib/components/ConfimationDialog.svelte';
 	import { tick } from 'svelte';
+	import { db, userData, user } from '$lib/firebase';
+	import { doc, updateDoc } from 'firebase/firestore';
 
 	export let workout: Workout;
 
@@ -61,28 +63,42 @@
 		deleteSetDialog.showModal();
 	}
 
-	function handleDeleteSetResult() {
+	async function handleDeleteSetResult() {
+		if (!$userData) return;
+
 		if (deleteSetDialog.returnValue === 'default') {
-			$workouts$ = $workouts$.map((currWorkout) => {
+			let workouts = $userData.workouts.map((currWorkout) => {
 				if (currWorkout.id === workout!.id) {
 					currWorkout.sets = currWorkout.sets.filter((set) => set.id !== editSetId);
 				}
 				return currWorkout;
 			});
 
-			localStorage.setItem('workouts', JSON.stringify($workouts$));
+			const userRef = doc(db, 'users', $user!.uid);
+
+			await updateDoc(userRef, {
+				workouts
+			});
 		}
 	}
 
 	let reps = 0;
-	function handleEditSetResult() {
+	async function handleEditSetResult() {
+		if (!$userData) return;
+
+		const workouts = $userData.workouts;
+
 		if (editSetDialog.returnValue === 'default') {
 			workout!.sets.find((set) => set.id === editSetId)!.reps = reps;
-			const index = $workouts$.findIndex((currWorkout) => currWorkout.id === workout!.id);
+			const index = $userData.workouts.findIndex((currWorkout) => currWorkout.id === workout!.id);
 
-			$workouts$[index] = workout!;
+			workouts[index] = workout!;
 
-			localStorage.setItem('workouts', JSON.stringify($workouts$));
+			const userRef = doc(db, 'users', $user!.uid);
+
+			await updateDoc(userRef, {
+				workouts
+			});
 		}
 	}
 </script>

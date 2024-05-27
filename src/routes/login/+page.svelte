@@ -9,12 +9,13 @@
 
 			// await signInWithRedirect(auth, provider);
 			// const user = await getRedirectResult(auth);
-			console.log(user);
 		} catch (error) {
 			console.error(error);
 		}
 	}
 </script>
 
-<h2>Login</h2>
-<button class="btn" on:click={signInWithGoogle}>Sign in with Google</button>
+<div class="flex flex-col justify-center gap-4">
+	<h2 class="text-center">Login</h2>
+	<button class="btn w-64 self-center" on:click={signInWithGoogle}>Sign in with Google</button>
+</div>
