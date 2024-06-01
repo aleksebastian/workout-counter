@@ -75,7 +75,7 @@ export function docStore<T>(path: string) {
 	};
 }
 
-interface UserData {
+export interface UserData {
 	username: string;
 	bio: string;
 	photoURL: string;

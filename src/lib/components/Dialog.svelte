@@ -3,7 +3,7 @@
 </script>
 
 <dialog bind:this={dialog} on:close class="modal">
-	<div class="modal-box flex w-80 flex-col gap-6">
+	<form method="dialog" class="modal-box flex w-80 flex-col gap-6">
 		<slot />
-	</div>
+	</form>
 </dialog>

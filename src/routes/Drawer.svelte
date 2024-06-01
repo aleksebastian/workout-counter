@@ -8,7 +8,7 @@
 	import AddIcon from '$lib/icons/add.svg?raw';
 	import EditWorkoutsDialog from './EditWorkoutsDialog.svelte';
 	import NewWorkoutDialog from './NewWorkoutDialog.svelte';
-	import { arrayRemove, arrayUnion, doc, setDoc, updateDoc, writeBatch } from 'firebase/firestore';
+	import { arrayUnion, doc, updateDoc } from 'firebase/firestore';
 	import { db, user } from '$lib/firebase';
 	import { userData } from '$lib/firebase';
 
@@ -23,6 +23,7 @@
 
 	let newWorkoutName = '';
 	let newWorkoutError: string | undefined = undefined;
+	let editWorkoutError: string | undefined = undefined;
 
 	$: !open && (isEditingWorkouts = false);
 
@@ -50,6 +51,14 @@
 		const workouts = $userData.workouts;
 
 		if (editWorkoutsDialog.returnValue === 'edit') {
+			if ($userData.workouts.some((workout) => workout.name === newWorkoutName)) {
+				editWorkoutError = 'Workout already exists';
+				return;
+			} else if (!newWorkoutName.length) {
+				editWorkoutError = 'Workout name missing';
+				return;
+			}
+
 			workouts[workoutIndex].name = newWorkoutName;
 
 			await updateDoc(userRef, {
@@ -82,14 +91,6 @@
 		if (!$userData) return;
 
 		if (newWorkoutDialog.returnValue === 'add') {
-			if ($userData.workouts.some((workout) => workout.name === newWorkoutName)) {
-				newWorkoutError = 'Workout already exists';
-				return;
-			} else if (!newWorkoutName.length) {
-				newWorkoutError = 'Workout name missing';
-				return;
-			}
-
 			const userRef = doc(db, 'users', $user!.uid);
 
 			await updateDoc(userRef, {
@@ -97,7 +98,6 @@
 			});
 
 			goto(`/workout/${$userData.workouts[$userData.workouts.length - 1].id}`);
-			console.log($userData);
 			newWorkoutName = '';
 		}
 	}
@@ -164,6 +164,7 @@
 	bind:dialog={editWorkoutsDialog}
 	bind:name={newWorkoutName}
 	bind:inputEle={editWorkoutsInputEle}
+	bind:editWorkoutError
 	on:close={handleEditWorkoutResult}
 	{editingWorkout}
 />

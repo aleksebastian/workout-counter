@@ -49,7 +49,7 @@
 				</button>
 				<!-- svelte-ignore a11y-no-noninteractive-tabindex -->
 				<ul tabindex="0" class="menu dropdown-content z-10 w-52 rounded-box bg-base-100 p-2 shadow">
-					<li><a href="profile">Profile Settings</a></li>
+					<!-- <li><a href="profile">Profile Settings</a></li> -->
 					<li><button on:click={handleSignOut}>Log out</button></li>
 				</ul>
 			</div>

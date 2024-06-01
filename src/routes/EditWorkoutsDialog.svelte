@@ -8,6 +8,7 @@
 	export let inputEle: HTMLInputElement;
 	export let editingWorkout: Workout | undefined;
 	export let name: string;
+	export let editWorkoutError: string | undefined;
 
 	$: editingWorkout && getEditingWorkoutName();
 
@@ -40,6 +41,9 @@
 
 	<DialogAction>
 		<div class="flex gap-4">
+			{#if editWorkoutError}
+				<p class="text-red-500">{editWorkoutError}</p>
+			{/if}
 			<button class="btn btn-primary" value="delete">Delete</button>
 			<button class="btn" value="edit">Save</button>
 		</div>

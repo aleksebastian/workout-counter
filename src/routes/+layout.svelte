@@ -2,10 +2,10 @@
 	import { onNavigate } from '$app/navigation';
 	import Navbar from './Navbar.svelte';
 	import Drawer from './Drawer.svelte';
-	import { user, userData } from '$lib/firebase';
 	import { workouts$ } from '$lib/store';
-	import { auth } from '$lib/firebase';
-	import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
+	import { handleSignIn, handleSignOut } from '$lib/logic/auth';
+
+	export let data;
 
 	onNavigate((navigation) => {
 		if (!document.startViewTransition) return;
@@ -24,30 +24,7 @@
 		isDrawerOpen = !isDrawerOpen;
 	}
 
-	async function signInWithGoogle() {
-		const provider = new GoogleAuthProvider();
-		try {
-			// await signInWithRedirect(auth, provider);
-			// const user = await getRedirectResult(auth);
-			const user = await signInWithPopup(auth, provider);
-		} catch (error) {
-			console.error(error);
-		}
-
-		return user;
-	}
-
-	async function handleSignIn() {
-		await signInWithGoogle();
-	}
-
-	async function handleSignOut() {
-		await signOut(auth);
-	}
-
-	$: if ($user && $userData) {
-		workouts$.set($userData.workouts);
-	}
+	workouts$.set(data.workouts ?? []);
 </script>
 
 <svelte:head>
@@ -56,8 +33,8 @@
 </svelte:head>
 
 <Navbar
-	on:toggle-drawer={handleDrawerToggle}
 	{isDrawerOpen}
+	on:toggle-drawer={handleDrawerToggle}
 	on:sign-in={handleSignIn}
 	on:sign-out={handleSignOut}
 />

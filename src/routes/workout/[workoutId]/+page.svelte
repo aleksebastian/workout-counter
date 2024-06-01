@@ -1,16 +1,13 @@
 <script lang="ts">
-	import type { PageData } from './$types';
 	import { v4 as uuidv4 } from 'uuid';
-	import { workouts$ } from '$lib/store';
 	import AddIcon from '$lib/icons/add.svg?raw';
 	import RemoveIcon from '$lib/icons/remove.svg?raw';
 	import SetsHistoryTable from '../../SetsHistoryTable.svelte';
 	import { db, userData, user } from '$lib/firebase';
 	import { doc, updateDoc } from 'firebase/firestore';
+	import { page } from '$app/stores';
 
-	export let data: PageData;
-
-	$: workout = $workouts$.find((workout) => workout.id === data.props.workoutId);
+	$: workout = $userData?.workouts.find((workout) => workout.id === $page.params.workoutId);
 
 	let reps = 10;
 
