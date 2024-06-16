@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { isMobileDevice$, workouts$, type Set, type Workout } from '$lib/store';
+	import { isMobileDevice$, type Set, type Workout } from '$lib/store';
 	import EditIcon from '$lib/icons/edit.svg?raw';
 	import DeleteIcon from '$lib/icons/delete.svg?raw';
 	import EditSetDialog from './EditSetDialog.svelte';
@@ -86,9 +86,9 @@
 	async function handleEditSetResult() {
 		if (!$userData) return;
 
-		const workouts = $userData.workouts;
-
 		if (editSetDialog.returnValue === 'default') {
+			const workouts = $userData.workouts;
+
 			workout!.sets.find((set) => set.id === editSetId)!.reps = reps;
 			const index = $userData.workouts.findIndex((currWorkout) => currWorkout.id === workout!.id);
 

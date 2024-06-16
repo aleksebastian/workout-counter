@@ -1,26 +1,24 @@
 <script lang="ts">
-	import { workouts$ } from '$lib/store';
-	import Dialog from '$lib/components/Dialog.svelte';
-	import DialogHeader from '$lib/components/DialogHeader.svelte';
+	import Dialog from '$lib/components/Dialog/Dialog.svelte';
+	import DialogHeader from '$lib/components/Dialog/DialogHeader.svelte';
+	import DialogAction from '$lib/components/Dialog/DialogAction.svelte';
+	import { userData } from '$lib/firebase';
+	import { getWorkoutNameValidationMsg } from '$lib/utils';
 
 	export let dialog: HTMLDialogElement;
 	export let inputEle: HTMLInputElement;
 	export let newWorkoutName: string;
-	export let newWorkoutError: string | undefined;
+
+	let newWorkoutValidationMsg: string | undefined;
 
 	function handleKeyDown(event: KeyboardEvent) {
+		newWorkoutValidationMsg = undefined;
 		if (event.key === 'Enter') {
 			event.preventDefault();
 
-			if (
-				$workouts$.some((workout) => workout.name.toLowerCase() === newWorkoutName.toLowerCase())
-			) {
-				newWorkoutError = 'Workout already exists';
-			} else if (!newWorkoutName.length) {
-				newWorkoutError = 'Workout name missing';
-			}
+			newWorkoutValidationMsg = getWorkoutNameValidationMsg(newWorkoutName, $userData?.workouts);
 
-			if (!newWorkoutError) {
+			if (!newWorkoutValidationMsg) {
 				dialog.returnValue = 'add';
 				dialog.close();
 			}
@@ -28,39 +26,38 @@
 	}
 
 	function handleAddClick(event: MouseEvent) {
-		if ($workouts$.some((workout) => workout.name.toLowerCase() === newWorkoutName.toLowerCase())) {
-			newWorkoutError = 'Workout already exists';
-		} else if (!newWorkoutName.length) {
-			newWorkoutError = 'Workout name missing';
-		}
+		newWorkoutValidationMsg = getWorkoutNameValidationMsg(newWorkoutName, $userData?.workouts);
 
-		if (newWorkoutError) {
+		if (newWorkoutValidationMsg) {
 			event.preventDefault();
 		}
 	}
 
-	function handleInput() {
-		newWorkoutError = undefined;
+	function handleClose() {
+		newWorkoutValidationMsg = undefined;
 	}
 </script>
 
-<Dialog bind:dialog on:close>
+<Dialog bind:dialog on:close on:close={handleClose}>
 	<DialogHeader header="Workout Name" closeButton />
 
-	<input
-		bind:this={inputEle}
-		aria-label="Workout Name"
-		type="text"
-		class="input input-bordered w-full max-w-xs"
-		bind:value={newWorkoutName}
-		on:input={handleInput}
-		on:keydown={handleKeyDown}
-	/>
-
-	<div class="modal-action mt-0.5 flex items-center gap-8">
-		{#if newWorkoutError}
-			<p class="text-red-500">{newWorkoutError}</p>
+	<div class="flex flex-col gap-2">
+		<input
+			bind:this={inputEle}
+			aria-label="Workout Name"
+			type="text"
+			class="input input-bordered w-full max-w-xs"
+			bind:value={newWorkoutName}
+			on:keydown={handleKeyDown}
+		/>
+		{#if newWorkoutValidationMsg}
+			<p class="text-red-500">{newWorkoutValidationMsg}</p>
+		{:else}
+			<div class="min-h-6"></div>
 		{/if}
-		<button class="btn" value="add" on:click={handleAddClick}>Add</button>
 	</div>
+
+	<DialogAction noTopMargin>
+		<button class="btn" value="add" on:click={handleAddClick}>Add</button>
+	</DialogAction>
 </Dialog>

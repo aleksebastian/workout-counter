@@ -1,7 +1,7 @@
 <script lang="ts">
 	import CloseIcon from '$lib/icons/close.svg?raw';
 
-	export let header: string;
+	export let header: string = '';
 	export let closeButton = false;
 </script>
 

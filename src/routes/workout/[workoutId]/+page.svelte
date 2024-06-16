@@ -23,7 +23,7 @@
 		];
 
 		const workouts = $userData.workouts;
-		const index = workouts.findIndex((workout) => workout.id === workout!.id);
+		const index = $userData.workouts.findIndex((currWorkout) => currWorkout.id === workout!.id);
 		workouts[index] = workout!;
 
 		const userRef = doc(db, 'users', $user!.uid);

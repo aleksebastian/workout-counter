@@ -2,10 +2,10 @@
 	import { onNavigate } from '$app/navigation';
 	import Navbar from './Navbar.svelte';
 	import Drawer from './Drawer.svelte';
-	import { workouts$ } from '$lib/store';
+
 	import { handleSignIn, handleSignOut } from '$lib/logic/auth';
 
-	export let data;
+	// export let data;
 
 	onNavigate((navigation) => {
 		if (!document.startViewTransition) return;
@@ -23,8 +23,6 @@
 	function handleDrawerToggle() {
 		isDrawerOpen = !isDrawerOpen;
 	}
-
-	workouts$.set(data.workouts ?? []);
 </script>
 
 <svelte:head>

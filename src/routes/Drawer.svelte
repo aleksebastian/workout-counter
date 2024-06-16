@@ -3,7 +3,7 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { v4 as uuidv4 } from 'uuid';
-	import { isMobileDevice$, workouts$, type Workout } from '$lib/store';
+	import { isMobileDevice$, type Workout } from '$lib/store';
 	import EditIcon from '$lib/icons/edit.svg?raw';
 	import AddIcon from '$lib/icons/add.svg?raw';
 	import EditWorkoutsDialog from './EditWorkoutsDialog.svelte';
@@ -22,8 +22,7 @@
 	let editingWorkout: Workout | undefined = undefined;
 
 	let newWorkoutName = '';
-	let newWorkoutError: string | undefined = undefined;
-	let editWorkoutError: string | undefined = undefined;
+	let editedWorkoutName = '';
 
 	$: !open && (isEditingWorkouts = false);
 
@@ -51,15 +50,7 @@
 		const workouts = $userData.workouts;
 
 		if (editWorkoutsDialog.returnValue === 'edit') {
-			if ($userData.workouts.some((workout) => workout.name === newWorkoutName)) {
-				editWorkoutError = 'Workout already exists';
-				return;
-			} else if (!newWorkoutName.length) {
-				editWorkoutError = 'Workout name missing';
-				return;
-			}
-
-			workouts[workoutIndex].name = newWorkoutName;
+			workouts[workoutIndex].name = editedWorkoutName;
 
 			await updateDoc(userRef, {
 				workouts
@@ -76,7 +67,7 @@
 		}
 	}
 
-	async function handleNewWorkoutDialogOpen() {
+	async function handleAddWorkoutClick() {
 		newWorkoutDialog.showModal();
 
 		if ($isMobileDevice$) return;
@@ -119,12 +110,14 @@
 		<div class="menu min-h-full w-80 bg-base-200 p-4 text-base-content">
 			<div class="mb-4 flex items-center justify-between">
 				<p class="text-lg font-semibold">Workouts</p>
-				<div>
-					<button class="btn btn-ghost" on:click={handleNewWorkoutDialogOpen}
-						>{@html AddIcon} Add</button
-					>
-				</div>
-				{#if $workouts$.length}
+				{#if $user}
+					<div>
+						<button class="btn btn-ghost" on:click={handleAddWorkoutClick}
+							>{@html AddIcon} Add</button
+						>
+					</div>
+				{/if}
+				{#if $userData?.workouts.length}
 					<button
 						class="btn btn-ghost"
 						class:btn-active={isEditingWorkouts}
@@ -133,28 +126,30 @@
 				{/if}
 			</div>
 			<ul>
-				{#each $workouts$ as workout}
-					<li class="mb-1 mt-1">
-						{#if isEditingWorkouts}
-							<button
-								class:btn-active={$page.params.workoutId === workout.id}
-								on:click={() => handleWorkoutEditClick(workout)}
-							>
-								{workout.name}
-							</button>
-						{:else}
-							<a
-								class:btn-active={$page.params.workoutId === workout.id}
-								href={'/workout/' + workout.id}
-								on:click={() => (open = false)}
-							>
-								{workout.name}
-							</a>
-						{/if}
-					</li>
-				{:else}
-					<li class="mb-1 mt-1">Add a workout to begin</li>
-				{/each}
+				{#if $userData}
+					{#each $userData.workouts as workout}
+						<li class="mb-1 mt-1">
+							{#if isEditingWorkouts}
+								<button
+									class:btn-active={$page.params.workoutId === workout.id}
+									on:click={() => handleWorkoutEditClick(workout)}
+								>
+									{workout.name}
+								</button>
+							{:else}
+								<a
+									class:btn-active={$page.params.workoutId === workout.id}
+									href={'/workout/' + workout.id}
+									on:click={() => (open = false)}
+								>
+									{workout.name}
+								</a>
+							{/if}
+						</li>
+					{:else}
+						<li class="mb-1 mt-1">Add a workout to begin</li>
+					{/each}
+				{/if}
 			</ul>
 		</div>
 	</div>
@@ -162,9 +157,8 @@
 
 <EditWorkoutsDialog
 	bind:dialog={editWorkoutsDialog}
-	bind:name={newWorkoutName}
+	bind:name={editedWorkoutName}
 	bind:inputEle={editWorkoutsInputEle}
-	bind:editWorkoutError
 	on:close={handleEditWorkoutResult}
 	{editingWorkout}
 />
@@ -173,6 +167,5 @@
 	bind:dialog={newWorkoutDialog}
 	bind:inputEle={newWorkoutNameInputEle}
 	bind:newWorkoutName
-	bind:newWorkoutError
 	on:close={handleNewWorkoutDialogResult}
 />

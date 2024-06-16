@@ -12,5 +12,5 @@ export type Workout = {
 	sets: Set[];
 };
 
-export const workouts$: Writable<Workout[]> = writable([]);
+// export const workouts$: Writable<Workout[]> = writable([]);
 export const isMobileDevice$: Writable<boolean> = writable(false);

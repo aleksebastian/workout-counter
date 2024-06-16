@@ -18,7 +18,6 @@
 	{:else if $user && $userData}
 		<p>Welcome {$user.displayName?.split(' ')[0]}!</p>
 		{#if $userData.workouts.length}
-			<p>Select a workout to begin</p>
 			<ul class="menu flex w-56 flex-col gap-4 rounded-box">
 				{#each $userData.workouts as workout}
 					<li>
