@@ -1,4 +1,4 @@
-<script lang="ts">
+<!-- <script lang="ts">
 	async function confirmUsername() {
 		const batch = writeBatch(db);
 		batch.set(doc(db, 'usernames', username), { uid: $user?.uid });
@@ -21,4 +21,4 @@
 		username = '';
 		isAvailable = false;
 	}
-</script>
+</script> -->
