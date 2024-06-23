@@ -4,6 +4,7 @@
 	import Drawer from './Drawer.svelte';
 	import { handleSignIn, handleSignOut } from '$lib/logic/auth';
 	import { onMount } from 'svelte';
+	import Toast from '$lib/components/Toast.svelte';
 
 	export let data;
 
@@ -48,6 +49,7 @@
 <Drawer bind:open={isDrawerOpen}>
 	<div class="mx-auto p-4">
 		<slot />
+		<Toast />
 	</div>
 </Drawer>
 
