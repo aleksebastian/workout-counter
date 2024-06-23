@@ -44,6 +44,7 @@
 	},
 	"type": "module",
 	"dependencies": {
+		"date-fns": "^3.6.0",
 		"firebase": "^10.12.2",
 		"firebase-admin": "^12.1.1",
 		"uuid": "^10.0.0",
