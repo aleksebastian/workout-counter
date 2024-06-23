@@ -6,6 +6,7 @@
 	import { getUserInitials } from '$lib/utils';
 
 	export let isDrawerOpen: boolean;
+	export let hasUser: boolean;
 
 	const dispatch = createEventDispatcher<{
 		'toggle-drawer': null;
@@ -36,7 +37,7 @@
 		<a class="btn btn-ghost text-xl" href="/">Workout Counter</a>
 	</div>
 	<div>
-		{#if $user}
+		{#if hasUser}
 			<div class="dropdown dropdown-end">
 				<button
 					tabindex="0"
@@ -44,7 +45,9 @@
 					on:click={() => isDrawerOpen && toggleDrawer()}
 				>
 					<div class="avatar placeholder">
-						<span>{getUserInitials($user)}</span>
+						{#if $user}
+							<span>{getUserInitials($user)}</span>
+						{/if}
 					</div>
 				</button>
 				<!-- svelte-ignore a11y-no-noninteractive-tabindex -->

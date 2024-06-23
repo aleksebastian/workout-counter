@@ -2,10 +2,18 @@
 	import { onNavigate } from '$app/navigation';
 	import Navbar from './Navbar.svelte';
 	import Drawer from './Drawer.svelte';
-
 	import { handleSignIn, handleSignOut } from '$lib/logic/auth';
+	import { onMount } from 'svelte';
 
-	// export let data;
+	export let data;
+
+	const hasUser = Object.hasOwn(data, 'username');
+
+	onMount(() => {
+		if (!hasUser) {
+			handleSignOut();
+		}
+	});
 
 	onNavigate((navigation) => {
 		if (!document.startViewTransition) return;
@@ -19,7 +27,6 @@
 	});
 
 	let isDrawerOpen = false;
-
 	function handleDrawerToggle() {
 		isDrawerOpen = !isDrawerOpen;
 	}
@@ -31,6 +38,7 @@
 </svelte:head>
 
 <Navbar
+	{hasUser}
 	{isDrawerOpen}
 	on:toggle-drawer={handleDrawerToggle}
 	on:sign-in={handleSignIn}

@@ -3,7 +3,7 @@ import { adminDB } from '$lib/server/admin';
 import { redirect } from '@sveltejs/kit';
 import type { UserData } from '$lib/firebase';
 
-export const load = (async ({ locals, params, url }) => {
+export const load = (async ({ locals, url }) => {
 	const uid = locals.userID;
 
 	if (!uid && !url.pathname.includes('/login')) {
