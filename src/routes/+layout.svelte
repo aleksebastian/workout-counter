@@ -8,7 +8,7 @@
 
 	export let data;
 
-	const hasUser = Object.hasOwn(data, 'username');
+	$: hasUser = Object.hasOwn(data, 'username');
 
 	onMount(() => {
 		if (!hasUser) {

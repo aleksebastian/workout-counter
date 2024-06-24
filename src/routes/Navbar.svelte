@@ -4,6 +4,7 @@
 	import MenuIcon from '$lib/icons/menu.svg?raw';
 	import { user } from '$lib/firebase';
 	import { getUserInitials } from '$lib/utils';
+	import { isMobileDevice$ } from '$lib/store';
 
 	export let isDrawerOpen: boolean;
 	export let hasUser: boolean;
@@ -27,15 +28,24 @@
 	}
 </script>
 
-<div class="navbar flex items-center justify-between bg-base-100 p-4">
-	<div>
+<div class="navbar flex justify-between bg-base-100 p-4">
+	{#if isMobileDevice$}
+		<div>
+			<button on:click={toggleDrawer}>
+				<label for="my-drawer-3" aria-label="open sidebar" class="btn btn-square btn-ghost">
+					{@html MenuIcon}
+				</label>
+			</button>
+			<a class="btn btn-ghost text-xl" href="/">Workout Counter</a>
+		</div>
+	{:else}
 		<button on:click={toggleDrawer}>
 			<label for="my-drawer-3" aria-label="open sidebar" class="btn btn-square btn-ghost">
 				{@html MenuIcon}
 			</label>
 		</button>
 		<a class="btn btn-ghost text-xl" href="/">Workout Counter</a>
-	</div>
+	{/if}
 	<div>
 		{#if hasUser}
 			<div class="dropdown dropdown-end">

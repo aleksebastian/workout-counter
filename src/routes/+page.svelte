@@ -34,7 +34,7 @@
 		delta -= minutes * 60;
 		const seconds = delta % 60;
 
-		if (minutes > 4 && minutes < 10) {
+		if (minutes > 8 && minutes < 10) {
 			lastSetDateText = formatDistanceToNow(new Date(date), {
 				addSuffix: true
 			});
@@ -47,10 +47,20 @@
 			clearInterval(secondsTimerIntervalHandle);
 			clearInterval(minutesTimerIntervalHandle);
 		} else if (minutes < 1) {
-			lastSetDateText = `${Math.floor(seconds)} seconds ago`;
-		} else if (seconds < 10) {
-			lastSetDateText = `${minutes} minutes and ${Math.floor(seconds)} seconds ago`;
-		} else if (seconds < 60) {
+			if (seconds < 2) {
+				lastSetDateText = `${Math.floor(seconds)} second ago`;
+			} else {
+				lastSetDateText = `${Math.floor(seconds)} seconds ago`;
+			}
+		} else if (!seconds) {
+			if (minutes === 1) {
+				lastSetDateText = `${minutes} minute ago`;
+			} else {
+				lastSetDateText = `${minutes} minutes ago`;
+			}
+		} else if (seconds < 2) {
+			lastSetDateText = `${minutes} minutes and ${Math.floor(seconds)} second ago`;
+		} else {
 			lastSetDateText = `${minutes} minutes and ${Math.floor(seconds)} seconds ago`;
 		}
 	}
@@ -59,7 +69,7 @@
 		getTimeDifference(lastSet?.date);
 	}, 1000);
 
-	let minutesTimerIntervalHandle: any;
+	let minutesTimerIntervalHandle: NodeJS.Timeout | undefined = undefined;
 
 	let startMinutesInterval = () =>
 		setInterval(() => {
