@@ -22,6 +22,7 @@
 
 	function getTimeDifference(date: string | undefined) {
 		if (!date) return;
+
 		const pastDate = new Date(date).getTime();
 		const dateNow = new Date().getTime();
 
@@ -82,31 +83,33 @@
 			clearInterval(minutesTimerIntervalHandle);
 		};
 	});
+
+	$: hasSets = $userData?.workouts.some((workout) => workout.sets.length);
 </script>
 
-{#if $user}
+{#if $user && $userData}
 	<div class="flex flex-col items-center gap-6">
-		{#if $userData}
-			<p>Welcome {$user.displayName?.split(' ')[0]}!</p>
-			{#if $userData.workouts.length}
-				<div class="flex flex-col items-center gap-1">
-					<p>Your last recorded set was</p>
+		{#if $userData?.workouts.length}
+			<div class="flex flex-col items-center gap-0">
+				{#if hasSets}
+					<small>Last set</small>
 					{#if lastSetDateText}
 						<p transition:fade>{lastSetDateText}</p>
 					{:else}
 						<p class="h-6"></p>
 					{/if}
-				</div>
-				<ul class="menu flex w-56 flex-col gap-4 rounded-box">
-					{#each $userData.workouts as workout}
-						<li>
-							<a class="btn" href={'/workout/' + workout.id}>{workout.name}</a>
-						</li>
-					{/each}
-				</ul>
-			{:else}
-				<p>Add a workout to begin</p>
-			{/if}
+				{/if}
+			</div>
+			<ul class="menu flex w-56 flex-col gap-4 rounded-box">
+				{#each $userData.workouts as workout}
+					<li>
+						<a class="btn" href={'/workout/' + workout.id}>{workout.name}</a>
+					</li>
+				{/each}
+			</ul>
+		{:else}
+			<p>Welcome {$user.displayName?.split(' ')[0]}!</p>
+			<p>Add a workout to begin</p>
 		{/if}
 	</div>
 {/if}

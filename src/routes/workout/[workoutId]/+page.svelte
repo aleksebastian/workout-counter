@@ -31,6 +31,8 @@
 		await updateDoc(userRef, {
 			workouts
 		});
+
+		document.dispatchEvent(new CustomEvent('startTimer'));
 	}
 </script>
 

@@ -5,6 +5,8 @@
 	import { handleSignIn, handleSignOut } from '$lib/logic/auth';
 	import { onMount } from 'svelte';
 	import Toast from '$lib/components/Toast.svelte';
+	import RestTimerToast from './RestTimerToast.svelte';
+	import { fade } from 'svelte/transition';
 
 	export let data;
 
@@ -13,7 +15,14 @@
 	onMount(() => {
 		if (!hasUser) {
 			handleSignOut();
+		} else {
+			document.addEventListener('startTimer', startTimer);
 		}
+
+		return () => {
+			if (restTimerHandle) clearInterval(restTimerHandle);
+			document.removeEventListener('startTimer', startTimer);
+		};
 	});
 
 	onNavigate((navigation) => {
@@ -27,6 +36,52 @@
 		});
 	});
 
+	let timer: string | undefined = undefined;
+	let originalRestTime = {
+		minutes: 1,
+		seconds: 30
+	};
+	let restTime = structuredClone(originalRestTime);
+
+	function resetRestTime() {
+		timer = undefined;
+		restTimerHandle = undefined;
+		restTime = structuredClone(originalRestTime);
+	}
+	let restTimerHandle: NodeJS.Timeout | undefined = undefined;
+	function startTimer() {
+		if (restTimerHandle) {
+			restTime = structuredClone(originalRestTime);
+			return;
+		}
+
+		restTimerHandle = setInterval(() => {
+			if (restTime.seconds === 0) {
+				restTime.seconds = 59;
+				restTime.minutes -= 1;
+			} else {
+				restTime.seconds -= 1;
+			}
+
+			if (!restTime.minutes && !restTime.seconds) {
+				timer = '0:00';
+				setTimeout(() => {
+					stopTimer();
+				}, 450);
+			} else {
+				let seconds = restTime.seconds < 10 ? `0${restTime.seconds}` : restTime.seconds;
+				timer = `${restTime.minutes}:${seconds}`;
+			}
+		}, 1000);
+	}
+
+	function stopTimer() {
+		clearInterval(restTimerHandle);
+		resetRestTime();
+	}
+
+	// startTimer();
+
 	let isDrawerOpen = false;
 	function handleDrawerToggle() {
 		isDrawerOpen = !isDrawerOpen;
@@ -34,7 +89,7 @@
 </script>
 
 <svelte:head>
-	<title>Workout Counter</title>
+	<title>SetCount</title>
 	<meta name="description" content="The best way to count your workouts' reps" />
 </svelte:head>
 
@@ -49,7 +104,11 @@
 <Drawer bind:open={isDrawerOpen}>
 	<div class="mx-auto p-4">
 		<slot />
-		<Toast />
+		{#if timer}
+			<div class="toast">
+				<RestTimerToast {timer} />
+			</div>
+		{/if}
 	</div>
 </Drawer>
 
@@ -60,6 +119,10 @@
 
 	:global(.drawer-side) {
 		view-transition-name: drawer;
+	}
+
+	.toast {
+		view-transition-name: toast;
 	}
 
 	@keyframes fade-in {

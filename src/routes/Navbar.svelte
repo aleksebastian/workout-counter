@@ -36,7 +36,7 @@
 					{@html MenuIcon}
 				</label>
 			</button>
-			<a class="btn btn-ghost text-xl" href="/">Workout Counter</a>
+			<a class="btn btn-ghost text-xl" href="/">SetCount</a>
 		</div>
 	{:else}
 		<button on:click={toggleDrawer}>
@@ -44,7 +44,7 @@
 				{@html MenuIcon}
 			</label>
 		</button>
-		<a class="btn btn-ghost text-xl" href="/">Workout Counter</a>
+		<a class="btn btn-ghost text-xl" href="/">SetCount</a>
 	{/if}
 	<div>
 		{#if hasUser}

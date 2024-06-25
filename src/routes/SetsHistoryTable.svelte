@@ -7,6 +7,7 @@
 	import { tick } from 'svelte';
 	import { db, userData, user } from '$lib/firebase';
 	import { doc, updateDoc } from 'firebase/firestore';
+	import { format } from 'date-fns';
 
 	export let workout: Workout;
 
@@ -24,8 +25,7 @@
 		const setsByDate: DaySets[] = [];
 
 		for (const set of sets) {
-			const date = new Date(set.date).toLocaleDateString();
-
+			const date = format(new Date(set.date), 'M/dd/yyyy');
 			const index = setsByDate.findIndex((set) => set.date === date);
 
 			if (index === -1) {
