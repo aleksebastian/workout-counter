@@ -4,9 +4,8 @@
 	import Drawer from './Drawer.svelte';
 	import { handleSignIn, handleSignOut } from '$lib/logic/auth';
 	import { onMount } from 'svelte';
-	import Toast from '$lib/components/Toast.svelte';
 	import RestTimerToast from './RestTimerToast.svelte';
-	import { fade } from 'svelte/transition';
+	import { add } from 'date-fns';
 
 	export let data;
 
@@ -17,6 +16,19 @@
 			handleSignOut();
 		} else {
 			document.addEventListener('startTimer', startTimer);
+
+			const restTimerExpirationDate = localStorage.getItem('restTimerExpirationDate');
+
+			if (restTimerExpirationDate) {
+				expirationDate = new Date(restTimerExpirationDate);
+				const now = new Date();
+				if (now < expirationDate) {
+					const diff = expirationDate.getTime() - now.getTime();
+					restTime.minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+					restTime.seconds = Math.floor((diff % (1000 * 60)) / 1000);
+					startTimer();
+				}
+			}
 		}
 
 		return () => {
@@ -48,27 +60,32 @@
 		restTimerHandle = undefined;
 		restTime = structuredClone(originalRestTime);
 	}
+
 	let restTimerHandle: NodeJS.Timeout | undefined = undefined;
+	let expirationDate: Date | undefined = undefined;
+
 	function startTimer() {
+		expirationDate = add(new Date(), { minutes: restTime.minutes, seconds: restTime.seconds });
+		localStorage.setItem('restTimerExpirationDate', expirationDate.toISOString());
+
 		if (restTimerHandle) {
 			restTime = structuredClone(originalRestTime);
+			stopTimer();
+			startTimer();
 			return;
 		}
 
 		restTimerHandle = setInterval(() => {
-			if (restTime.seconds === 0) {
-				restTime.seconds = 59;
-				restTime.minutes -= 1;
-			} else {
-				restTime.seconds -= 1;
-			}
-
-			if (!restTime.minutes && !restTime.seconds) {
+			const now = new Date();
+			if (now >= expirationDate!) {
 				timer = '0:00';
 				setTimeout(() => {
 					stopTimer();
 				}, 450);
 			} else {
+				const diff = expirationDate!.getTime() - now.getTime();
+				restTime.minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+				restTime.seconds = Math.floor((diff % (1000 * 60)) / 1000);
 				let seconds = restTime.seconds < 10 ? `0${restTime.seconds}` : restTime.seconds;
 				timer = `${restTime.minutes}:${seconds}`;
 			}
@@ -80,8 +97,6 @@
 		resetRestTime();
 	}
 
-	// startTimer();
-
 	let isDrawerOpen = false;
 	function handleDrawerToggle() {
 		isDrawerOpen = !isDrawerOpen;
@@ -90,7 +105,7 @@
 
 <svelte:head>
 	<title>SetCount</title>
-	<meta name="description" content="The best way to count your workouts' reps" />
+	<meta name="description" content="The best way to keep track of your workouts" />
 </svelte:head>
 
 <Navbar
