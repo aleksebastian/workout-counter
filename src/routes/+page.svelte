@@ -1,11 +1,27 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { user, userData } from '$lib/firebase';
 	import type { Workout } from '$lib/store';
 	import { formatDistanceToNow } from 'date-fns';
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 
+	let minutesTimerIntervalHandle: NodeJS.Timeout | undefined = undefined;
+	let secondsTimerIntervalHandle = setInterval(() => {
+		getTimeDifference(lastSet?.date);
+	}, 1000);
+	let lastSetDateText = '';
+
 	$: lastSet = getLastWorkoutSet($userData?.workouts);
+	$: hasSets = $userData?.workouts.some((workout) => workout.sets.length);
+	$: $userData && !$userData.preferences && goto('/preferences');
+
+	onMount(() => {
+		return () => {
+			clearInterval(secondsTimerIntervalHandle);
+			clearInterval(minutesTimerIntervalHandle);
+		};
+	});
 
 	function getLastWorkoutSet(workouts: Workout[] | undefined) {
 		if (workouts?.length) {
@@ -17,8 +33,6 @@
 			return workoutsLastSetSortedByDate[0];
 		}
 	}
-
-	let lastSetDateText = '';
 
 	function getTimeDifference(date: string | undefined) {
 		if (!date) return;
@@ -66,25 +80,11 @@
 		}
 	}
 
-	let secondsTimerIntervalHandle = setInterval(() => {
-		getTimeDifference(lastSet?.date);
-	}, 1000);
-
-	let minutesTimerIntervalHandle: NodeJS.Timeout | undefined = undefined;
-
-	let startMinutesInterval = () =>
-		setInterval(() => {
+	function startMinutesInterval() {
+		return setInterval(() => {
 			getTimeDifference(lastSet?.date);
 		}, 60000);
-
-	onMount(() => {
-		return () => {
-			clearInterval(secondsTimerIntervalHandle);
-			clearInterval(minutesTimerIntervalHandle);
-		};
-	});
-
-	$: hasSets = $userData?.workouts.some((workout) => workout.sets.length);
+	}
 </script>
 
 {#if $user && $userData}
