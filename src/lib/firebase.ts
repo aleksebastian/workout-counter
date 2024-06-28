@@ -80,6 +80,7 @@ export interface UserData {
 	bio: string;
 	photoURL: string;
 	workouts: Workout[];
+	settings: { timer: { minutes: number; seconds: number } };
 }
 
 export const userData: Readable<UserData | null> = derived(user, ($user, set) => {
