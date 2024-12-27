@@ -6,6 +6,7 @@
 	import { onMount } from 'svelte';
 	import RestTimerToast from './RestTimerToast.svelte';
 	import { add } from 'date-fns';
+	import { userData } from '$lib/firebase';
 
 	export let data;
 
@@ -49,11 +50,11 @@
 	});
 
 	let timer: string | undefined = undefined;
-	let originalRestTime = {
+	$: originalRestTime = $userData?.preferences.timer ?? {
 		minutes: 1,
 		seconds: 30
 	};
-	let restTime = structuredClone(originalRestTime);
+	$: restTime = structuredClone(originalRestTime);
 
 	function resetRestTime() {
 		timer = undefined;
