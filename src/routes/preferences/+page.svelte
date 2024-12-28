@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { applyAction, enhance } from '$app/forms';
+	import { goto } from '$app/navigation';
 	import { userData } from '$lib/firebase';
 
 	let minRestValue = 0;
@@ -39,6 +40,9 @@
 						toggleToast();
 					}
 					await applyAction(result);
+					if (!hasPreferences) {
+						goto('/');
+					}
 				};
 			}}
 		>
@@ -75,7 +79,9 @@
 				</dt>
 			</label>
 
-			<button class="btn w-32" type="submit" disabled={showSuccessToast}>Save</button>
+			<button class="btn w-48" type="submit" disabled={showSuccessToast}
+				>{hasPreferences ? 'Save' : 'Save and continue'}</button
+			>
 		</form>
 	</form>
 {/if}

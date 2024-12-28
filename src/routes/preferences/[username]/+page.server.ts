@@ -6,7 +6,6 @@ import { db } from '$lib/firebase';
 
 export const actions = {
 	default: async ({ request, locals, params }) => {
-		console.log('params: ', params);
 		const uid = locals.userID;
 
 		const data = await request.formData();
@@ -26,7 +25,5 @@ export const actions = {
 				seconds: Number(restSeconds)
 			}
 		});
-
-		console.log('update: ', update);
 	}
 } satisfies Actions;

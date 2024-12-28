@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import AuthCheck from '$lib/components/AuthCheck.svelte';
 	import { db, user, userData } from '$lib/firebase';
 	import { doc, getDoc, writeBatch } from 'firebase/firestore';
@@ -33,38 +34,35 @@
 	}
 
 	async function confirmUsername() {
-		const batch = writeBatch(db);
-		batch.set(doc(db, 'usernames', username), { uid: $user?.uid });
-		batch.set(doc(db, 'users', $user!.uid), {
-			username,
-			photoURL: $user?.photoURL ?? null,
-			published: true,
-			bio: 'I am the Walrus',
-			links: [
-				{
-					title: 'Test Link',
-					url: 'https://kung.foo',
-					icon: 'custom'
-				}
-			]
-		});
+		try {
+			const batch = writeBatch(db);
 
-		await batch.commit();
+			batch.set(doc(db, 'usernames', username), { uid: $user?.uid });
+			batch.set(doc(db, 'users', $user!.uid), {
+				username,
+				photoURL: $user?.photoURL ?? null,
+				bio: 'I am the Walrus',
+				workouts: []
+			});
 
-		username = '';
-		isAvailable = false;
+			await batch.commit();
+
+			goto('/');
+		} catch (error) {
+			console.error(error);
+		}
 	}
 </script>
 
 <AuthCheck>
 	{#if $userData?.username}
-		<p class="text-lg">
+		<!-- <p class="text-lg">
 			Your username is <span class="font-bold text-success">@{$userData.username}</span>
 		</p>
 		<p class="text-sm">(Usernames cannot be changed)</p>
-		<a class="btn btn-primary" href="/login/photo">Upload Profile Image</a>
+		<a class="btn btn-primary" href="/login/photo">Upload Profile Image</a> -->
 	{:else}
-		<form class="w-2/5" on:submit|preventDefault={confirmUsername}>
+		<form class=" md:w-2/5" on:submit|preventDefault={confirmUsername}>
 			<input
 				type="text"
 				placeholder="Username"
@@ -77,7 +75,7 @@
 			/>
 			<div class="my-4 min-h-16 w-full px-8">
 				{#if loading}
-					<p class="text-secondary">Checking availability of @{username}...</p>
+					<p class="text-accent">Checking availability of @{username}...</p>
 				{/if}
 
 				{#if !isValid && isTouched}
@@ -91,7 +89,7 @@
 				{/if}
 
 				{#if isAvailable}
-					<button class="btn btn-success">Confirm username @{username} </button>
+					<button class="btn btn-success text-center">Confirm username @{username} </button>
 				{/if}
 			</div>
 		</form>

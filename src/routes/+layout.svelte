@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { goto, onNavigate } from '$app/navigation';
+	import { onNavigate } from '$app/navigation';
 	import Navbar from './Navbar.svelte';
 	import Drawer from './Drawer.svelte';
 	import { handleSignIn, handleSignOut } from '$lib/logic/auth';
@@ -8,29 +8,27 @@
 	import { add } from 'date-fns';
 	import { userData } from '$lib/firebase';
 
-	export let data;
+	$: hasUser = $userData ? Object.hasOwn($userData, 'username') : false;
 
-	$: hasUser = Object.hasOwn(data, 'username');
+	$: if (!hasUser) {
+		// handleSignOut();
+	} else {
+		const restTimerExpirationDate = localStorage.getItem('restTimerExpirationDate');
 
-	onMount(() => {
-		if (!hasUser) {
-			handleSignOut();
-		} else {
-			document.addEventListener('startTimer', startTimer);
-
-			const restTimerExpirationDate = localStorage.getItem('restTimerExpirationDate');
-
-			if (restTimerExpirationDate) {
-				expirationDate = new Date(restTimerExpirationDate);
-				const now = new Date();
-				if (now < expirationDate) {
-					const diff = expirationDate.getTime() - now.getTime();
-					restTime.minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-					restTime.seconds = Math.floor((diff % (1000 * 60)) / 1000);
-					startTimer();
-				}
+		if (restTimerExpirationDate) {
+			expirationDate = new Date(restTimerExpirationDate);
+			const now = new Date();
+			if (now < expirationDate) {
+				const diff = expirationDate.getTime() - now.getTime();
+				restTime.minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+				restTime.seconds = Math.floor((diff % (1000 * 60)) / 1000);
+				startTimer();
 			}
 		}
+	}
+
+	onMount(() => {
+		document.addEventListener('startTimer', startTimer);
 
 		return () => {
 			if (restTimerHandle) clearInterval(restTimerHandle);
@@ -50,10 +48,11 @@
 	});
 
 	let timer: string | undefined = undefined;
-	$: originalRestTime = $userData?.preferences.timer ?? {
+	$: originalRestTime = $userData?.preferences?.timer ?? {
 		minutes: 1,
 		seconds: 30
 	};
+
 	$: restTime = structuredClone(originalRestTime);
 
 	function resetRestTime() {

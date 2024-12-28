@@ -117,7 +117,7 @@
 						>
 					</div>
 				{/if}
-				{#if $userData?.workouts.length}
+				{#if $userData?.workouts?.length}
 					<button
 						class="btn btn-ghost"
 						class:btn-active={isEditingWorkouts}

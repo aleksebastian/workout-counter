@@ -89,7 +89,7 @@
 
 {#if $user && $userData}
 	<div class="flex flex-col items-center gap-6">
-		{#if $userData?.workouts.length}
+		{#if $userData?.workouts?.length}
 			<div class="flex flex-col items-center gap-0">
 				{#if hasSets}
 					<small>Last set</small>
@@ -109,7 +109,7 @@
 			</ul>
 		{:else}
 			<p>Welcome {$user.displayName?.split(' ')[0]}!</p>
-			<p>Add a workout to begin</p>
+			<p>Add a workout by opening the left drawer to begin</p>
 		{/if}
 	</div>
 {/if}
