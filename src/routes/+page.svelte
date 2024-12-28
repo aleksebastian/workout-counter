@@ -100,10 +100,10 @@
 					{/if}
 				{/if}
 			</div>
-			<ul class="menu flex w-56 flex-col gap-4 rounded-box">
+			<ul class="flex w-56 flex-col gap-4 rounded-box">
 				{#each $userData.workouts as workout}
 					<li>
-						<a class="btn" href={'/workout/' + workout.id}>{workout.name}</a>
+						<a class="btn w-full" href={'/workout/' + workout.id}>{workout.name}</a>
 					</li>
 				{/each}
 			</ul>

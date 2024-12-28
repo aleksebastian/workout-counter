@@ -20,6 +20,7 @@
 	}
 </script>
 
+<div class="pb-4 text-center text-lg font-semibold">Preferences</div>
 {#if $userData}
 	<form class="flex flex-col items-center gap-6">
 		{#if !hasPreferences}

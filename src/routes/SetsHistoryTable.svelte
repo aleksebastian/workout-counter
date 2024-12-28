@@ -149,4 +149,6 @@
 	bind:dialog={deleteSetDialog}
 	on:close={handleDeleteSetResult}
 	actionLabel={'Delete'}
+	header="Delete Set"
+	content="Are you sure?"
 />

@@ -6,13 +6,16 @@
 	export let header = 'Are you sure?';
 	export let actionLabel = 'Ok';
 	export let cancelLabel = 'Cancel';
+	export let content: string | undefined = undefined;
 
 	export let dialog: HTMLDialogElement;
 </script>
 
 <Dialog bind:dialog on:close>
 	<DialogHeader {header} />
-
+	{#if content}
+		<div>{content}</div>
+	{/if}
 	<DialogAction>
 		<button class="btn" value="cancel">{cancelLabel}</button>
 		<button class="btn btn-primary" value="default">{actionLabel}</button>

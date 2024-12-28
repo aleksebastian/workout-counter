@@ -39,24 +39,24 @@
 			</div>
 		</button>
 		<!-- svelte-ignore a11y-no-noninteractive-tabindex -->
-		<ul tabindex="0" class="menu dropdown-content z-10 w-52 rounded-box bg-base-100 p-2 shadow">
+		<ul tabindex="0" class="menu dropdown-content z-[1] w-52 rounded-box bg-base-100 p-2 shadow">
 			<li>
-				<a href="/preferences">
+				<a class="py-4" href="/preferences">
 					<div>⚙️</div>
 					Preferences
 				</a>
 			</li>
 			<li>
-				<button on:click={handleSignOutClick}>
-					<div>🚪</div>
-					Log out
-				</button>
-			</li>
-			<li class="flex">
-				<a href="/upcoming">
+				<a class="py-4" href="/upcoming">
 					<div>🚀</div>
 					Upcoming features
 				</a>
+			</li>
+			<li>
+				<button class="py-4" on:click={handleSignOutClick}>
+					<div>🚪</div>
+					Log out
+				</button>
 			</li>
 		</ul>
 	</div>
