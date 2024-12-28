@@ -40,8 +40,24 @@
 		</button>
 		<!-- svelte-ignore a11y-no-noninteractive-tabindex -->
 		<ul tabindex="0" class="menu dropdown-content z-10 w-52 rounded-box bg-base-100 p-2 shadow">
-			<li><a href="/preferences">Preferences</a></li>
-			<li><button on:click={handleSignOutClick}>Log out</button></li>
+			<li>
+				<a href="/preferences">
+					<div>⚙️</div>
+					Preferences
+				</a>
+			</li>
+			<li>
+				<button on:click={handleSignOutClick}>
+					<div>🚪</div>
+					Log out
+				</button>
+			</li>
+			<li class="flex">
+				<a href="/upcoming">
+					<div>🚀</div>
+					Upcoming features
+				</a>
+			</li>
 		</ul>
 	</div>
 {:else}

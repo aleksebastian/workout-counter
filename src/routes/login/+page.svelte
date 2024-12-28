@@ -29,5 +29,7 @@
 </script>
 
 <div class="flex flex-col justify-center gap-4">
+	<div class="self-center">Keep track of your workout sets</div>
+	<div class="self-center">Get results</div>
 	<button class="btn w-64 self-center" on:click={handleSignIn}>Sign in with Google</button>
 </div>

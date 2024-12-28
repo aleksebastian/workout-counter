@@ -6,6 +6,7 @@
 	import { db, userData, user } from '$lib/firebase';
 	import { doc, updateDoc } from 'firebase/firestore';
 	import { page } from '$app/stores';
+	import BackButton from '$lib/components/Buttons/BackButton.svelte';
 
 	$: workout = $userData?.workouts.find((workout) => workout.id === $page.params.workoutId);
 
@@ -37,8 +38,12 @@
 </script>
 
 {#if workout}
-	<div class="flex flex-col items-center gap-6">
-		<h1>{workout.name}</h1>
+	<div class="mx-auto flex max-w-lg flex-col items-center gap-6">
+		<div class="flex w-full items-center justify-between">
+			<BackButton />
+			<h1>{workout.name}</h1>
+			<div class="btn btn-square invisible"></div>
+		</div>
 		<div class="flex gap-4">
 			<button class="btn w-16" on:click={() => (reps -= 1)}>{@html RemoveIcon}</button>
 			<input
