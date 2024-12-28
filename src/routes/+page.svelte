@@ -109,7 +109,7 @@
 			</ul>
 		{:else}
 			<p>Welcome {$user.displayName?.split(' ')[0]}!</p>
-			<p>Add a workout by opening the left drawer to begin</p>
+			<p>To start, open the left drawer to add a workout.</p>
 		{/if}
 	</div>
 {/if}

@@ -35,12 +35,13 @@
 			method="POST"
 			class="flex flex-col items-center gap-4"
 			use:enhance={() => {
+				const currentHasPreferences = !!$userData?.preferences;
 				return async ({ result }) => {
 					if (result.type === 'success') {
 						toggleToast();
 					}
 					await applyAction(result);
-					if (!hasPreferences) {
+					if (!currentHasPreferences) {
 						goto('/');
 					}
 				};
