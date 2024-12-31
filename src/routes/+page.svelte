@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import { user, userData } from '$lib/firebase';
 	import type { Workout } from '$lib/store';
 	import { formatDistanceToNow } from 'date-fns';
@@ -13,8 +12,7 @@
 	let lastSetDateText = '';
 
 	$: lastSet = getLastWorkoutSet($userData?.workouts);
-	$: hasSets = $userData?.workouts.some((workout) => workout.sets.length);
-	$: $userData && !$userData.preferences && goto('/preferences');
+	$: hasRecordedSets = $userData?.workouts.some((workout) => workout.sets.length);
 
 	onMount(() => {
 		return () => {
@@ -87,11 +85,12 @@
 	}
 </script>
 
-{#if $user && $userData}
+{#if $userData}
+	{@const hasWorkouts = $userData?.workouts?.length}
 	<div class="flex flex-col items-center gap-6">
-		{#if $userData?.workouts?.length}
+		{#if hasWorkouts}
 			<div class="flex flex-col items-center gap-0">
-				{#if hasSets}
+				{#if hasRecordedSets}
 					<small>Last set</small>
 					{#if lastSetDateText}
 						<p transition:fade>{lastSetDateText}</p>
@@ -107,7 +106,7 @@
 					</li>
 				{/each}
 			</ul>
-		{:else}
+		{:else if $user}
 			<p>Welcome {$user.displayName?.split(' ')[0]}!</p>
 			<p>To start, open the left drawer to add a workout.</p>
 		{/if}

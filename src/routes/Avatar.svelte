@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/stores';
 	import { getUserInitials } from '$lib/utils';
 	import type { User } from 'firebase/auth';
 	import { createEventDispatcher } from 'svelte';
@@ -60,6 +61,6 @@
 			</li>
 		</ul>
 	</div>
-{:else}
+{:else if $page.url.pathname === '/login'}
 	<button class="btn" on:click={handleSignInClick}>Log In</button>
 {/if}

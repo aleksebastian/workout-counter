@@ -5,6 +5,7 @@
 	import { user } from '$lib/firebase';
 	import { isMobileDevice$ } from '$lib/store';
 	import Avatar from './Avatar.svelte';
+	import { page } from '$app/stores';
 
 	export let isDrawerOpen: boolean;
 	export let hasUser: boolean;
@@ -37,6 +38,8 @@
 						{@html MenuIcon}
 					</label>
 				</button>
+			{:else if $page.url.pathname !== '/login'}
+				<button class="btn btn-square invisible"></button>
 			{/if}
 			<a class="btn btn-ghost text-xl" href="/">SetCount</a>
 		</div>
