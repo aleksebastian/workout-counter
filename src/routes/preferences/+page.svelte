@@ -2,6 +2,7 @@
 	import { applyAction, enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import { userData } from '$lib/firebase';
+	import { addToast } from '$lib/store';
 
 	let minRestValue = 0;
 	let maxRestValue = 59;
@@ -11,12 +12,20 @@
 
 	$: hasPreferences = !!$userData?.preferences;
 
-	let showSuccessToast = false;
+	let disableSaveBtn = false;
 	function toggleToast() {
-		showSuccessToast = true;
+		disableSaveBtn = true;
+
+		const timeout = 2000;
+		addToast({
+			type: 'success',
+			message: 'Preferences saved',
+			timeout
+		});
+
 		setTimeout(() => {
-			showSuccessToast = false;
-		}, 3000);
+			disableSaveBtn = false;
+		}, timeout);
 	}
 </script>
 
@@ -38,7 +47,7 @@
 			use:enhance={() => {
 				const currentHasPreferences = !!$userData?.preferences;
 				return async ({ result }) => {
-					if (result.type === 'success') {
+					if (currentHasPreferences && result.type === 'success') {
 						toggleToast();
 					}
 					await applyAction(result);
@@ -81,17 +90,9 @@
 				</dt>
 			</label>
 
-			<button class="btn w-48" type="submit" disabled={showSuccessToast}
+			<button class="btn w-48" type="submit" disabled={disableSaveBtn}
 				>{hasPreferences ? 'Save' : 'Save and continue'}</button
 			>
 		</form>
 	</form>
-{/if}
-
-{#if showSuccessToast}
-	<div class="toast">
-		<div class="alert alert-success">
-			<span>Preferences saved!</span>
-		</div>
-	</div>
 {/if}

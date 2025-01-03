@@ -3,10 +3,12 @@
 	import Navbar from './Navbar.svelte';
 	import Drawer from './Drawer.svelte';
 	import { handleSignIn, handleSignOut } from '$lib/logic/auth';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import RestTimerToast from './RestTimerToast.svelte';
 	import { add } from 'date-fns';
 	import { userData } from '$lib/firebase';
+	import Toasts from '$lib/components/Toasts.svelte';
+	import { addToast, restTimer$ } from '$lib/store';
 
 	$: hasUser = $userData ? Object.hasOwn($userData, 'username') : false;
 
@@ -47,7 +49,6 @@
 		});
 	});
 
-	let timer: string | undefined = undefined;
 	$: originalRestTime = $userData?.preferences?.timer ?? {
 		minutes: 1,
 		seconds: 30
@@ -56,7 +57,7 @@
 	$: restTime = structuredClone(originalRestTime);
 
 	function resetRestTime() {
-		timer = undefined;
+		$restTimer$ = undefined;
 		restTimerHandle = undefined;
 		restTime = structuredClone(originalRestTime);
 	}
@@ -64,7 +65,12 @@
 	let restTimerHandle: NodeJS.Timeout | undefined = undefined;
 	let expirationDate: Date | undefined = undefined;
 
-	function startTimer() {
+	async function startTimer() {
+		addToast({
+			id: 'rest',
+			type: 'rest',
+			message: 'Rest timer restarted'
+		});
 		expirationDate = add(new Date(), { minutes: restTime.minutes, seconds: restTime.seconds });
 		localStorage.setItem('restTimerExpirationDate', expirationDate.toISOString());
 
@@ -78,7 +84,7 @@
 		restTimerHandle = setInterval(() => {
 			const now = new Date();
 			if (now >= expirationDate!) {
-				timer = '0:00';
+				$restTimer$ = '0:00';
 				setTimeout(() => {
 					stopTimer();
 				}, 450);
@@ -87,7 +93,7 @@
 				restTime.minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
 				restTime.seconds = Math.floor((diff % (1000 * 60)) / 1000);
 				let seconds = restTime.seconds < 10 ? `0${restTime.seconds}` : restTime.seconds;
-				timer = `${restTime.minutes}:${seconds}`;
+				$restTimer$ = `${restTime.minutes}:${seconds}`;
 			}
 		}, 1000);
 	}
@@ -119,11 +125,7 @@
 <Drawer bind:open={isDrawerOpen}>
 	<div class="mx-auto p-4">
 		<slot />
-		{#if timer}
-			<div class="toast">
-				<RestTimerToast {timer} />
-			</div>
-		{/if}
+		<Toasts />
 	</div>
 </Drawer>
 
@@ -136,7 +138,7 @@
 		view-transition-name: drawer;
 	}
 
-	.toast {
+	:global(.toast) {
 		view-transition-name: toast;
 	}
 

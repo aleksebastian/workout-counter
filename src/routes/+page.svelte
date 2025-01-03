@@ -45,7 +45,7 @@
 		delta -= hours * 3600;
 		const minutes = Math.floor(delta / 60) % 60;
 		delta -= minutes * 60;
-		const seconds = delta % 60;
+		const seconds = Math.floor(delta % 60);
 
 		if (minutes > 8 && minutes < 10) {
 			lastSetDateText = formatDistanceToNow(new Date(date), {
@@ -66,15 +66,11 @@
 				lastSetDateText = `${Math.floor(seconds)} seconds ago`;
 			}
 		} else if (!seconds) {
-			if (minutes === 1) {
-				lastSetDateText = `${minutes} minute ago`;
-			} else {
-				lastSetDateText = `${minutes} minutes ago`;
-			}
+			lastSetDateText = `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
 		} else if (seconds < 2) {
-			lastSetDateText = `${minutes} minutes and ${Math.floor(seconds)} second ago`;
+			lastSetDateText = `${minutes} minute${minutes === 1 ? '' : 's'} and ${Math.floor(seconds)} second ago`;
 		} else {
-			lastSetDateText = `${minutes} minutes and ${Math.floor(seconds)} seconds ago`;
+			lastSetDateText = `${minutes} minute${minutes === 1 ? '' : 's'} and ${Math.floor(seconds)} seconds ago`;
 		}
 	}
 
