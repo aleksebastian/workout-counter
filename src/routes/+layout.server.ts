@@ -15,9 +15,6 @@ export const load = (async ({ locals, url }) => {
 	const userDoc = await adminDB.collection('users').doc(uid).get();
 	const userData = userDoc.data();
 
-	console.log('userData', userData);
-	console.log('url', url);
-
 	if (!userData && !url.pathname.includes('/login/username')) {
 		throw redirect(301, '/login/username');
 	}

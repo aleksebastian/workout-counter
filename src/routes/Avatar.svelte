@@ -1,29 +1,17 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { getUserInitials } from '$lib/utils';
-	import type { User } from 'firebase/auth';
-	import { createEventDispatcher } from 'svelte';
+	import { signOut, type User } from 'firebase/auth';
 
-	export let hasUser: Boolean;
-	export let user: User | null;
-
-	const dispatch = createEventDispatcher<{
-		'avatar-click': null;
-		'sign-in-click': null;
-		'sign-out-click': null;
-	}>();
-
-	function handleAvatarClick() {
-		dispatch('avatar-click');
+	interface Props {
+		hasUser: Boolean;
+		user: User | null;
+		avatarClick: () => void;
+		signInClick: () => void;
+		signOutClick: () => void;
 	}
 
-	function handleSignInClick() {
-		dispatch('sign-in-click');
-	}
-
-	function handleSignOutClick() {
-		dispatch('sign-out-click');
-	}
+	let { hasUser, user, avatarClick, signInClick, signOutClick }: Props = $props();
 </script>
 
 {#if hasUser}
@@ -31,7 +19,7 @@
 		<button
 			tabindex="0"
 			class="btn w-12 rounded-full bg-neutral text-neutral-content"
-			on:click={handleAvatarClick}
+			onclick={avatarClick}
 		>
 			<div class="avatar placeholder">
 				{#if user}
@@ -39,7 +27,7 @@
 				{/if}
 			</div>
 		</button>
-		<!-- svelte-ignore a11y-no-noninteractive-tabindex -->
+		<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 		<ul tabindex="0" class="menu dropdown-content z-[1] w-52 rounded-box bg-base-100 p-2 shadow">
 			<li>
 				<a class="py-4" href="/preferences">
@@ -54,7 +42,7 @@
 				</a>
 			</li>
 			<li>
-				<button class="py-4" on:click={handleSignOutClick}>
+				<button class="py-4" onclick={signOutClick}>
 					<div>🚪</div>
 					Log out
 				</button>
@@ -62,5 +50,5 @@
 		</ul>
 	</div>
 {:else if $page.url.pathname === '/login'}
-	<button class="btn" on:click={handleSignInClick}>Log In</button>
+	<button class="btn" onclick={signInClick}>Log In</button>
 {/if}

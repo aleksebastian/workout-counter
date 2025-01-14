@@ -5,12 +5,14 @@
 	import SetsHistoryTable from '../../SetsHistoryTable.svelte';
 	import { db, userData, user } from '$lib/firebase';
 	import { doc, updateDoc } from 'firebase/firestore';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import BackButton from '$lib/components/Buttons/BackButton.svelte';
 
-	$: workout = $userData?.workouts.find((workout) => workout.id === $page.params.workoutId);
+	let workout = $derived(
+		$userData?.workouts.find((workout) => workout.id === page.params.workoutId)
+	);
 
-	let reps = 10;
+	let reps = $state(10);
 
 	async function handleRecordSetClick() {
 		if (!$userData) return;
@@ -45,16 +47,16 @@
 			<div class="btn btn-square invisible"></div>
 		</div>
 		<div class="flex gap-4">
-			<button class="btn w-16" on:click={() => (reps -= 1)}>{@html RemoveIcon}</button>
+			<button class="btn w-16" onclick={() => (reps -= 1)}>{@html RemoveIcon}</button>
 			<input
 				type="number"
 				placeholder="Reps"
 				class="input input-bordered w-20 text-center"
 				bind:value={reps}
 			/>
-			<button class="btn w-16" on:click={() => (reps += 1)}>{@html AddIcon}</button>
+			<button class="btn w-16" onclick={() => (reps += 1)}>{@html AddIcon}</button>
 		</div>
-		<button class="btn w-40" on:click={handleRecordSetClick}>Record set</button>
+		<button class="btn w-40" onclick={handleRecordSetClick}>Record set</button>
 
 		<SetsHistoryTable {workout} />
 	</div>

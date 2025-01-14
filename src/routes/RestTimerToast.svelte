@@ -1,7 +1,11 @@
 <script lang="ts">
 	import Toast from '$lib/components/Toast.svelte';
 
-	export let timer: string | undefined;
+	interface Props {
+		timer: string | undefined;
+	}
+
+	let { timer }: Props = $props();
 
 	let toastStyles = 'min-w-36 justify-center';
 </script>

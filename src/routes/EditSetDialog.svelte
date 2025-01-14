@@ -3,9 +3,19 @@
 	import DialogHeader from '$lib/components/Dialog/DialogHeader.svelte';
 	import DialogAction from '$lib/components/Dialog/DialogAction.svelte';
 
-	export let dialog: HTMLDialogElement;
-	export let inputEle: HTMLInputElement;
-	export let reps: number;
+	interface Props {
+		dialog: HTMLDialogElement;
+		inputEle: HTMLInputElement;
+		reps: number;
+		onclose: (event: Event) => void;
+	}
+
+	let {
+		dialog = $bindable(),
+		inputEle = $bindable(),
+		reps = $bindable(),
+		onclose
+	}: Props = $props();
 
 	function handleKeyDown(event: KeyboardEvent) {
 		if (event.key === 'Enter') {
@@ -16,7 +26,7 @@
 	}
 </script>
 
-<Dialog bind:dialog on:close>
+<Dialog bind:dialog {onclose}>
 	<DialogHeader header="Edit Set" closeButton />
 
 	<input
@@ -25,7 +35,7 @@
 		type="number"
 		bind:this={inputEle}
 		bind:value={reps}
-		on:keydown={handleKeyDown}
+		onkeydown={handleKeyDown}
 	/>
 
 	<DialogAction>

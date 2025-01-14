@@ -3,15 +3,26 @@
 	import DialogAction from './Dialog/DialogAction.svelte';
 	import DialogHeader from './Dialog/DialogHeader.svelte';
 
-	export let header = 'Are you sure?';
-	export let actionLabel = 'Ok';
-	export let cancelLabel = 'Cancel';
-	export let content: string | undefined = undefined;
+	interface Props {
+		header?: string;
+		actionLabel?: string;
+		cancelLabel?: string;
+		content?: string | undefined;
+		dialog: HTMLDialogElement;
+		onclose: (event: Event) => void;
+	}
 
-	export let dialog: HTMLDialogElement;
+	let {
+		header = 'Are you sure?',
+		actionLabel = 'Ok',
+		cancelLabel = 'Cancel',
+		content = undefined,
+		dialog = $bindable(),
+		onclose
+	}: Props = $props();
 </script>
 
-<Dialog bind:dialog on:close>
+<Dialog bind:dialog {onclose}>
 	<DialogHeader {header} />
 	{#if content}
 		<div>{content}</div>

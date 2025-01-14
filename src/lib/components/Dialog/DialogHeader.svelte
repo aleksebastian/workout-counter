@@ -1,8 +1,12 @@
 <script lang="ts">
 	import CloseIcon from '$lib/icons/close.svg?raw';
 
-	export let header: string = '';
-	export let closeButton = false;
+	interface Props {
+		header?: string;
+		closeButton?: boolean;
+	}
+
+	let { header = '', closeButton = false }: Props = $props();
 </script>
 
 <div class="flex items-center justify-between">

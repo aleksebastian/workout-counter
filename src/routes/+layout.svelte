@@ -3,31 +3,17 @@
 	import Navbar from './Navbar.svelte';
 	import Drawer from './Drawer.svelte';
 	import { handleSignIn, handleSignOut } from '$lib/logic/auth';
-	import { onMount, tick } from 'svelte';
-	import RestTimerToast from './RestTimerToast.svelte';
+	import { onMount } from 'svelte';
 	import { add } from 'date-fns';
 	import { userData } from '$lib/firebase';
 	import Toasts from '$lib/components/Toasts.svelte';
 	import { addToast, restTimer$ } from '$lib/store';
 
-	$: hasUser = $userData ? Object.hasOwn($userData, 'username') : false;
-
-	$: if (!hasUser) {
-		// handleSignOut();
-	} else {
-		const restTimerExpirationDate = localStorage.getItem('restTimerExpirationDate');
-
-		if (restTimerExpirationDate) {
-			expirationDate = new Date(restTimerExpirationDate);
-			const now = new Date();
-			if (now < expirationDate) {
-				const diff = expirationDate.getTime() - now.getTime();
-				restTime.minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-				restTime.seconds = Math.floor((diff % (1000 * 60)) / 1000);
-				startTimer();
-			}
-		}
+	interface Props {
+		children?: import('svelte').Snippet;
 	}
+
+	let { children }: Props = $props();
 
 	onMount(() => {
 		document.addEventListener('startTimer', startTimer);
@@ -49,13 +35,6 @@
 		});
 	});
 
-	$: originalRestTime = $userData?.preferences?.timer ?? {
-		minutes: 1,
-		seconds: 30
-	};
-
-	$: restTime = structuredClone(originalRestTime);
-
 	function resetRestTime() {
 		$restTimer$ = undefined;
 		restTimerHandle = undefined;
@@ -63,7 +42,7 @@
 	}
 
 	let restTimerHandle: NodeJS.Timeout | undefined = undefined;
-	let expirationDate: Date | undefined = undefined;
+	let expirationDate: Date | undefined = $state(undefined);
 
 	async function startTimer() {
 		addToast({
@@ -103,10 +82,40 @@
 		resetRestTime();
 	}
 
-	let isDrawerOpen = false;
+	let isDrawerOpen = $state(false);
 	function handleDrawerToggle() {
 		isDrawerOpen = !isDrawerOpen;
 	}
+	let hasUser = $derived($userData ? Object.hasOwn($userData, 'username') : false);
+
+	onMount(() => {
+		if (hasUser) {
+			const restTimerExpirationDate = localStorage.getItem('restTimerExpirationDate');
+
+			if (restTimerExpirationDate) {
+				expirationDate = new Date(restTimerExpirationDate);
+				const now = new Date();
+				if (now < expirationDate) {
+					const diff = expirationDate.getTime() - now.getTime();
+					restTime.minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+					restTime.seconds = Math.floor((diff % (1000 * 60)) / 1000);
+					startTimer();
+				}
+			}
+		}
+	});
+
+	let originalRestTime = $derived(
+		$userData?.preferences?.timer ?? {
+			minutes: 1,
+			seconds: 30
+		}
+	);
+	let restTime: { minutes: number; seconds: number };
+
+	$effect(() => {
+		restTime = structuredClone(originalRestTime);
+	});
 </script>
 
 <svelte:head>
@@ -117,14 +126,14 @@
 <Navbar
 	{hasUser}
 	{isDrawerOpen}
-	on:toggle-drawer={handleDrawerToggle}
-	on:sign-in={handleSignIn}
-	on:sign-out={handleSignOut}
+	toggleDrawer={handleDrawerToggle}
+	signIn={handleSignIn}
+	signOut={handleSignOut}
 />
 
 <Drawer bind:open={isDrawerOpen}>
 	<div class="mx-auto p-4">
-		<slot />
+		{@render children?.()}
 		<Toasts />
 	</div>
 </Drawer>

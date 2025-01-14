@@ -1,14 +1,16 @@
 <script lang="ts">
-	import { createEventDispatcher } from 'svelte';
 	import CloseButton from './Buttons/CloseButton.svelte';
 	import { fade } from 'svelte/transition';
 	import { restTimer$, type Toast } from '$lib/store';
 
-	export let type: Toast['type'] = 'info';
-	export let message: Toast['message'];
-	export let dismissible: Toast['dismissible'];
+	interface Props {
+		type?: Toast['type'];
+		message: Toast['message'];
+		dismissible: Toast['dismissible'];
+		dismiss: () => void;
+	}
 
-	const dispatch = createEventDispatcher<{ dismiss: null }>();
+	let { type = 'info', message, dismissible, dismiss }: Props = $props();
 </script>
 
 {#if type === 'rest'}
@@ -25,7 +27,7 @@
 		<span class="flex items-center justify-between gap-2">
 			{message}
 			{#if dismissible}
-				<CloseButton on:click={() => dispatch('dismiss')} />
+				<CloseButton onclick={dismiss} />
 			{/if}
 		</span>
 	</div>

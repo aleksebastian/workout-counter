@@ -6,15 +6,24 @@
 	import { userData } from '$lib/firebase';
 	import { getWorkoutNameValidationMsg } from '$lib/utils';
 
-	export let dialog: HTMLDialogElement;
-	export let inputEle: HTMLInputElement;
-	export let editingWorkout: Workout | undefined;
-	export let name: string;
+	interface Props {
+		dialog: HTMLDialogElement;
+		inputEle: HTMLInputElement;
+		editingWorkout: Workout | undefined;
+		name: string;
+		onclose: (event: Event) => void;
+	}
 
-	$: editingWorkout && setEditingWorkoutName();
+	let {
+		dialog = $bindable(),
+		inputEle = $bindable(),
+		editingWorkout,
+		name = $bindable(),
+		onclose
+	}: Props = $props();
 
-	let editWorkoutError: string | undefined;
-	let confirmingDelete = false;
+	let editWorkoutError: string | undefined = $state();
+	let confirmingDelete = $state(false);
 
 	function setEditingWorkoutName() {
 		if (editingWorkout) {
@@ -29,7 +38,7 @@
 
 			editWorkoutError = getWorkoutNameValidationMsg(name, $userData?.workouts);
 
-			if (!editWorkoutError) {
+			if (dialog && !editWorkoutError) {
 				dialog.returnValue = 'edit';
 				dialog.close();
 			}
@@ -53,13 +62,18 @@
 		}
 	}
 
-	function handleClose() {
+	function handleClose(e: any) {
 		editWorkoutError = undefined;
 		confirmingDelete = false;
+		onclose(e);
 	}
+
+	$effect(() => {
+		editingWorkout && setEditingWorkoutName();
+	});
 </script>
 
-<Dialog bind:dialog on:close on:close={handleClose}>
+<Dialog bind:dialog onclose={handleClose}>
 	<DialogHeader header="Edit Workout" closeButton />
 	{#if confirmingDelete}
 		<p class="h-20 text-red-500">Are you sure you want to delete this workout?</p>
@@ -71,7 +85,7 @@
 				type="text"
 				class="input input-bordered w-full max-w-xs"
 				bind:value={name}
-				on:keydown={handleKeyDown}
+				onkeydown={handleKeyDown}
 			/>
 			{#if editWorkoutError}
 				<p class="min-h-6 px-2 text-red-500">{editWorkoutError}</p>
@@ -83,13 +97,13 @@
 
 	<DialogAction noTopMargin>
 		{#if confirmingDelete}
-			<button class="btn btn-primary" value="cancel" on:click={() => (confirmingDelete = false)}
+			<button class="btn btn-primary" value="cancel" onclick={() => (confirmingDelete = false)}
 				>Cancel</button
 			>
 			<button class="btn" value="delete">Delete</button>
 		{:else}
-			<button class="btn btn-primary" on:click={handleDeleteClick}>Delete</button>
-			<button class="btn w-20" value="edit" on:click={handleSaveClick}>Save</button>
+			<button class="btn btn-primary" onclick={handleDeleteClick}>Delete</button>
+			<button class="btn w-20" value="edit" onclick={handleSaveClick}>Save</button>
 		{/if}
 	</DialogAction>
 </Dialog>

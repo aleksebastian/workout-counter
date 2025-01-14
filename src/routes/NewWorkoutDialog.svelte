@@ -5,11 +5,21 @@
 	import { userData } from '$lib/firebase';
 	import { getWorkoutNameValidationMsg } from '$lib/utils';
 
-	export let dialog: HTMLDialogElement;
-	export let inputEle: HTMLInputElement;
-	export let newWorkoutName: string;
+	interface Props {
+		dialog: HTMLDialogElement;
+		inputEle: HTMLInputElement;
+		newWorkoutName: string;
+		onclose: (event: Event) => void;
+	}
 
-	let newWorkoutValidationMsg: string | undefined;
+	let {
+		dialog = $bindable(),
+		inputEle = $bindable(),
+		newWorkoutName = $bindable(),
+		onclose
+	}: Props = $props();
+
+	let newWorkoutValidationMsg: string | undefined = $state();
 
 	function handleKeyDown(event: KeyboardEvent) {
 		newWorkoutValidationMsg = undefined;
@@ -33,12 +43,13 @@
 		}
 	}
 
-	function handleClose() {
+	function handleClose(e: any) {
 		newWorkoutValidationMsg = undefined;
+		onclose(e);
 	}
 </script>
 
-<Dialog bind:dialog on:close on:close={handleClose}>
+<Dialog bind:dialog onclose={handleClose}>
 	<DialogHeader header="Workout Name" closeButton />
 
 	<div class="flex flex-col gap-2">
@@ -48,7 +59,7 @@
 			type="text"
 			class="input input-bordered w-full max-w-xs"
 			bind:value={newWorkoutName}
-			on:keydown={handleKeyDown}
+			onkeydown={handleKeyDown}
 		/>
 		{#if newWorkoutValidationMsg}
 			<p class="text-red-500">{newWorkoutValidationMsg}</p>
@@ -58,6 +69,6 @@
 	</div>
 
 	<DialogAction noTopMargin>
-		<button class="btn" value="add" on:click={handleAddClick}>Add</button>
+		<button class="btn" value="add" onclick={handleAddClick}>Add</button>
 	</DialogAction>
 </Dialog>

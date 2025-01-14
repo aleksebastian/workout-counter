@@ -1,4 +1,4 @@
-<a class="btn btn-square" href="/">
+<a class="btn btn-square" href="/" aria-label="back button">
 	<svg
 		xmlns="http://www.w3.org/2000/svg"
 		class="icon icon-tabler icon-tabler-arrow-back-up"

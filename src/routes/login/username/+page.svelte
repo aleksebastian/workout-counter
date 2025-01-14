@@ -3,16 +3,16 @@
 	import AuthCheck from '$lib/components/AuthCheck.svelte';
 	import { db, user, userData } from '$lib/firebase';
 	import { doc, getDoc, writeBatch } from 'firebase/firestore';
-	let username = '';
-	let loading = false;
-	let isAvailable = false;
+	let username = $state('');
+	let loading = $state(false);
+	let isAvailable = $state(false);
 	let debounceTimer: NodeJS.Timeout;
 
 	const re = /^(?=[a-zA-Z0-9._]{3,16}$)(?!.*[_.]{2})[^_.].*[^_.]$/;
 
-	$: isValid = username?.length > 2 && username.length < 16 && re.test(username);
-	$: isTouched = username.length > 0;
-	$: isTaken = isValid && !isAvailable && !loading;
+	let isValid = $derived(username?.length > 2 && username.length < 16 && re.test(username));
+	let isTouched = $derived(username.length > 0);
+	let isTaken = $derived(isValid && !isAvailable && !loading);
 
 	function checkAvailability() {
 		isAvailable = false;
@@ -33,7 +33,8 @@
 		}, 500);
 	}
 
-	async function confirmUsername() {
+	async function confirmUsername(e: SubmitEvent) {
+		e.preventDefault();
 		try {
 			const batch = writeBatch(db);
 
@@ -63,13 +64,13 @@
 		<a class="btn btn-primary" href="/login/photo">Upload Profile Image</a> -->
 	{:else}
 		<h1 class="text-2xl font-bold">Choose a username</h1>
-		<form class=" md:w-2/5" on:submit|preventDefault={confirmUsername}>
+		<form class=" md:w-2/5" onsubmit={confirmUsername}>
 			<input
 				type="text"
 				placeholder="Username"
 				class="input w-full"
 				bind:value={username}
-				on:input={checkAvailability}
+				oninput={checkAvailability}
 				class:input-error={!isValid && isTouched}
 				class:input-warning={isTaken}
 				class:input-success={isAvailable && isValid && !loading}

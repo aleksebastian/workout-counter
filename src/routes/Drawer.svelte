@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { tick } from 'svelte';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { v4 as uuidv4 } from 'uuid';
 	import { isMobileDevice$, type Workout } from '$lib/store';
@@ -12,23 +12,30 @@
 	import { db, user } from '$lib/firebase';
 	import { userData } from '$lib/firebase';
 
-	export let open = false;
+	interface Props {
+		open?: boolean;
+		children?: import('svelte').Snippet;
+	}
 
-	let isEditingWorkouts = false;
-	let editWorkoutsDialog: HTMLDialogElement;
-	let editWorkoutsInputEle: HTMLInputElement;
-	let newWorkoutDialog: HTMLDialogElement;
-	let newWorkoutNameInputEle: HTMLInputElement;
-	let editingWorkout: Workout | undefined = undefined;
+	let { open = $bindable(false), children }: Props = $props();
 
-	let newWorkoutName = '';
-	let editedWorkoutName = '';
+	let isEditingWorkouts = $state(false);
+	let editWorkoutsDialog: HTMLDialogElement = $state()!;
+	let editWorkoutsInputEle: HTMLInputElement = $state()!;
+	let newWorkoutDialog: HTMLDialogElement = $state()!;
+	let newWorkoutNameInputEle: HTMLInputElement = $state()!;
+	let editingWorkout: Workout | undefined = $state(undefined);
 
-	$: !open && (isEditingWorkouts = false);
+	let newWorkoutName = $state('');
+	let editedWorkoutName = $state('');
+
+	$effect(() => {
+		!open && (isEditingWorkouts = false);
+	});
 
 	async function handleWorkoutEditClick(workout: Workout) {
 		editingWorkout = workout;
-		editWorkoutsDialog.showModal();
+		editWorkoutsDialog?.showModal();
 
 		if ($isMobileDevice$) {
 			return;
@@ -36,8 +43,8 @@
 
 		await tick();
 
-		editWorkoutsInputEle.focus();
-		editWorkoutsInputEle.select();
+		editWorkoutsInputEle?.focus();
+		editWorkoutsInputEle?.select();
 	}
 
 	async function handleEditWorkoutResult() {
@@ -49,39 +56,39 @@
 		);
 		const workouts = $userData.workouts;
 
-		if (editWorkoutsDialog.returnValue === 'edit') {
+		if (editWorkoutsDialog?.returnValue === 'edit') {
 			workouts[workoutIndex].name = editedWorkoutName;
 
 			await updateDoc(userRef, {
 				workouts
 			});
-		} else if (editWorkoutsDialog.returnValue === 'delete') {
+		} else if (editWorkoutsDialog?.returnValue === 'delete') {
 			$userData.workouts.splice(workoutIndex, 1);
 			await updateDoc(userRef, {
 				workouts
 			});
 
-			if ($page.params.workoutId === editingWorkout?.id) {
+			if (page.params.workoutId === editingWorkout?.id) {
 				goto('/');
 			}
 		}
 	}
 
 	async function handleAddWorkoutClick() {
-		newWorkoutDialog.showModal();
+		newWorkoutDialog?.showModal();
 
 		if ($isMobileDevice$) return;
 
 		await tick();
 
-		editWorkoutsInputEle.focus();
-		editWorkoutsInputEle.select();
+		editWorkoutsInputEle?.focus();
+		editWorkoutsInputEle?.select();
 	}
 
 	async function handleNewWorkoutDialogResult() {
 		if (!$userData) return;
 
-		if (newWorkoutDialog.returnValue === 'add') {
+		if (newWorkoutDialog?.returnValue === 'add') {
 			const userRef = doc(db, 'users', $user!.uid);
 
 			await updateDoc(userRef, {
@@ -103,7 +110,7 @@
 		bind:checked={open}
 	/>
 	<div class="drawer-content">
-		<slot />
+		{@render children?.()}
 	</div>
 	<div class="drawer-side mt-20">
 		<label for="my-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
@@ -112,7 +119,7 @@
 				<p class="text-lg font-semibold">Workouts</p>
 				{#if $user}
 					<div>
-						<button class="btn btn-ghost" on:click={handleAddWorkoutClick}
+						<button class="btn btn-ghost" onclick={handleAddWorkoutClick}
 							>{@html AddIcon} Add</button
 						>
 					</div>
@@ -121,7 +128,7 @@
 					<button
 						class="btn btn-ghost"
 						class:btn-active={isEditingWorkouts}
-						on:click={() => (isEditingWorkouts = !isEditingWorkouts)}>{@html EditIcon} Edit</button
+						onclick={() => (isEditingWorkouts = !isEditingWorkouts)}>{@html EditIcon} Edit</button
 					>
 				{/if}
 			</div>
@@ -131,16 +138,16 @@
 						<li class="mb-1 mt-1">
 							{#if isEditingWorkouts}
 								<button
-									class:btn-active={$page.params.workoutId === workout.id}
-									on:click={() => handleWorkoutEditClick(workout)}
+									class:btn-active={page.params.workoutId === workout.id}
+									onclick={() => handleWorkoutEditClick(workout)}
 								>
 									{workout.name}
 								</button>
 							{:else}
 								<a
-									class:btn-active={$page.params.workoutId === workout.id}
+									class:btn-active={page.params.workoutId === workout.id}
 									href={'/workout/' + workout.id}
-									on:click={() => (open = false)}
+									onclick={() => (open = false)}
 								>
 									{workout.name}
 								</a>
@@ -159,7 +166,7 @@
 	bind:dialog={editWorkoutsDialog}
 	bind:name={editedWorkoutName}
 	bind:inputEle={editWorkoutsInputEle}
-	on:close={handleEditWorkoutResult}
+	onclose={handleEditWorkoutResult}
 	{editingWorkout}
 />
 
@@ -167,5 +174,5 @@
 	bind:dialog={newWorkoutDialog}
 	bind:inputEle={newWorkoutNameInputEle}
 	bind:newWorkoutName
-	on:close={handleNewWorkoutDialogResult}
+	onclose={handleNewWorkoutDialogResult}
 />

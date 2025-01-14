@@ -3,16 +3,23 @@
 	import { goto } from '$app/navigation';
 	import { userData } from '$lib/firebase';
 	import { addToast } from '$lib/store';
+	import { onMount } from 'svelte';
 
 	let minRestValue = 0;
 	let maxRestValue = 59;
 
-	$: restMinutes = $userData?.preferences?.timer.minutes ?? 1;
-	$: restSeconds = $userData?.preferences?.timer.seconds ?? 30;
+	let restMinutes = $state(0);
+	let restSeconds = $state(0);
 
-	$: hasPreferences = !!$userData?.preferences;
+	let hasPreferences = $state(false);
 
-	let disableSaveBtn = false;
+	onMount(() => {
+		restMinutes = $userData?.preferences?.timer.minutes ?? 1;
+		restSeconds = $userData?.preferences?.timer.seconds ?? 30;
+		hasPreferences = !!$userData?.preferences;
+	});
+
+	let disableSaveBtn = $state(false);
 	function toggleToast() {
 		disableSaveBtn = true;
 
@@ -31,7 +38,22 @@
 
 <div class="pb-4 text-center text-lg font-semibold">Preferences</div>
 {#if $userData}
-	<form class="flex flex-col items-center gap-6">
+	<form
+		class="flex flex-col items-center gap-6"
+		method="POST"
+		use:enhance={() => {
+			const currentHasPreferences = !!$userData?.preferences;
+			return async ({ result }) => {
+				if (currentHasPreferences && result.type === 'success') {
+					toggleToast();
+				}
+				await applyAction(result);
+				if (!currentHasPreferences) {
+					goto('/');
+				}
+			};
+		}}
+	>
 		{#if !hasPreferences}
 			<div class="flex max-w-96 flex-col items-center gap-2">
 				<h3>Let's get started by setting up your preferences</h3>
@@ -41,22 +63,7 @@
 				</div>
 			</div>
 		{/if}
-		<form
-			method="POST"
-			class="flex flex-col items-center gap-4"
-			use:enhance={() => {
-				const currentHasPreferences = !!$userData?.preferences;
-				return async ({ result }) => {
-					if (currentHasPreferences && result.type === 'success') {
-						toggleToast();
-					}
-					await applyAction(result);
-					if (!currentHasPreferences) {
-						goto('/');
-					}
-				};
-			}}
-		>
+		<div class="flex flex-col items-center gap-4">
 			<label class="input input-bordered flex h-16 items-center justify-between gap-6">
 				<dd>Rest Timer</dd>
 				<dt class="flex gap-4">
@@ -65,7 +72,7 @@
 							name="restMinutes"
 							type="number"
 							class="input w-16 max-w-xs"
-							value={restMinutes}
+							bind:value={restMinutes}
 							max={maxRestValue}
 							min={minRestValue}
 							maxlength="2"
@@ -78,9 +85,9 @@
 							name="restSeconds"
 							type="number"
 							class="input w-16 max-w-xs"
-							value={restSeconds}
+							bind:value={restSeconds}
 							max={maxRestValue}
-							min={1}
+							min={restMinutes === 0 ? 1 : 0}
 							minlength="1"
 							maxlength="2"
 							required
@@ -93,6 +100,6 @@
 			<button class="btn w-48" type="submit" disabled={disableSaveBtn}
 				>{hasPreferences ? 'Save' : 'Save and continue'}</button
 			>
-		</form>
+		</div>
 	</form>
 {/if}

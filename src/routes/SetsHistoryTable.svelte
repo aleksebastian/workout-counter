@@ -1,28 +1,33 @@
+<script module>
+	export type OrganizedSet = { date: string; sets: Set[]; totalReps?: number };
+</script>
+
 <script lang="ts">
 	import { isMobileDevice$, type Set, type Workout } from '$lib/store';
 	import EditIcon from '$lib/icons/edit.svg?raw';
 	import DeleteIcon from '$lib/icons/delete.svg?raw';
 	import EditSetDialog from './EditSetDialog.svelte';
 	import ConfirmationDialog from '$lib/components/ConfimationDialog.svelte';
-	import { tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { db, userData, user } from '$lib/firebase';
 	import { doc, updateDoc } from 'firebase/firestore';
-	import { format } from 'date-fns';
+	import { format, formatRelative } from 'date-fns';
 
-	export let workout: Workout;
+	interface Props {
+		workout: Workout;
+	}
 
-	let deleteSetDialog: HTMLDialogElement;
-	let editSetDialog: HTMLDialogElement;
-	let inputEle: HTMLInputElement;
+	let { workout }: Props = $props();
+
+	let deleteSetDialog: HTMLDialogElement = $state()!;
+	let editSetDialog: HTMLDialogElement = $state()!;
+	let inputEle: HTMLInputElement = $state()!;
+	let organizedSets: OrganizedSet[] = $derived(organizeSetsByDate(workout.sets));
 
 	let editSetId: string | undefined = undefined;
 
-	$: organizedSets = organizeSetsByDate(workout.sets);
-
-	type DaySets = { date: string; sets: Set[]; totalReps?: number };
-
 	function organizeSetsByDate(sets: Set[]) {
-		const setsByDate: DaySets[] = [];
+		const setsByDate: OrganizedSet[] = [];
 
 		for (const set of sets) {
 			const date = format(new Date(set.date), 'M/dd/yyyy');
@@ -46,7 +51,7 @@
 		editSetId = set.id;
 		reps = set.reps;
 
-		editSetDialog.showModal();
+		editSetDialog?.showModal();
 
 		if ($isMobileDevice$) {
 			return;
@@ -54,19 +59,19 @@
 
 		await tick();
 
-		inputEle.focus();
-		inputEle.select();
+		inputEle?.focus();
+		inputEle?.select();
 	}
 
 	function handleDeleteSetModalOpen(set: Set) {
 		editSetId = set.id;
-		deleteSetDialog.showModal();
+		deleteSetDialog?.showModal();
 	}
 
 	async function handleDeleteSetResult() {
 		if (!$userData) return;
 
-		if (deleteSetDialog.returnValue === 'default') {
+		if (deleteSetDialog?.returnValue === 'default') {
 			let workouts = $userData.workouts.map((currWorkout) => {
 				if (currWorkout.id === workout!.id) {
 					currWorkout.sets = currWorkout.sets.filter((set) => set.id !== editSetId);
@@ -82,11 +87,11 @@
 		}
 	}
 
-	let reps = 0;
+	let reps = $state(0);
 	async function handleEditSetResult() {
 		if (!$userData) return;
 
-		if (editSetDialog.returnValue === 'default') {
+		if (editSetDialog?.returnValue === 'default') {
 			const workouts = $userData.workouts;
 
 			workout!.sets.find((set) => set.id === editSetId)!.reps = reps;
@@ -101,14 +106,30 @@
 			});
 		}
 	}
+
+	function getRelativeDate(date: string) {
+		const relativeDate = formatRelative(new Date(date), new Date());
+		if (relativeDate.includes('at')) {
+			return (relativeDate.charAt(0).toUpperCase() + relativeDate.slice(1)).slice(
+				0,
+				relativeDate.indexOf('at') - 1
+			);
+		}
+
+		return format(new Date(date), 'MMMM d, yyyy');
+	}
 </script>
 
 {#if organizedSets}
 	{#each organizedSets as organizedSet}
 		<div class="overflow-x-auto">
-			<h3 class="text-right">{organizedSet.date}</h3>
+			<div class="flex justify-between">
+				<h3 class="text-right">
+					{getRelativeDate(organizedSet.date)}
+				</h3>
+				<p class=""><strong>{organizedSet.totalReps} reps</strong></p>
+			</div>
 			<table class="table table-zebra">
-				<!-- head -->
 				<thead>
 					<tr>
 						<th>Reps</th>
@@ -125,29 +146,29 @@
 							<td>{set.reps}</td>
 							<td>{time}</td>
 							<td class="pl-0.5 pr-0">
-								<button class="btn btn-ghost" on:click={() => handleEditSetModalOpen(set)}>
+								<button class="btn btn-ghost" onclick={() => handleEditSetModalOpen(set)}>
 									{@html EditIcon}
 								</button>
 							</td>
 							<td
-								><button class="btn btn-ghost" on:click={() => handleDeleteSetModalOpen(set)}
+								><button class="btn btn-ghost" onclick={() => handleDeleteSetModalOpen(set)}
 									>{@html DeleteIcon}</button
 								></td
 							>
 						</tr>
 					{/each}
-					<p class="mt-4"><strong>Total Reps: {organizedSet.totalReps}</strong></p>
 				</tbody>
 			</table>
+			<div class="divider"></div>
 		</div>
 	{/each}
 {/if}
 
-<EditSetDialog bind:dialog={editSetDialog} bind:reps bind:inputEle on:close={handleEditSetResult} />
+<EditSetDialog bind:dialog={editSetDialog} bind:reps bind:inputEle onclose={handleEditSetResult} />
 
 <ConfirmationDialog
 	bind:dialog={deleteSetDialog}
-	on:close={handleDeleteSetResult}
+	onclose={handleDeleteSetResult}
 	actionLabel={'Delete'}
 	header="Delete Set"
 	content="Are you sure?"

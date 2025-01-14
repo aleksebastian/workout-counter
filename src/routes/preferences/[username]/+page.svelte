@@ -6,13 +6,13 @@
 	let minRestValue = 0;
 	let maxRestValue = 59;
 
-	let hasPreferences = false;
+	let hasPreferences = $state(false);
 	onMount(() => {
 		hasPreferences = !!$userData?.preferences;
 	});
 </script>
 
-<form class="flex flex-col items-center gap-6">
+<form class="flex flex-col items-center gap-6" method="POST" use:enhance>
 	{#if !hasPreferences}
 		<div class="flex max-w-96 flex-col items-center gap-2">
 			<h3>Let's get started by setting up your preferences</h3>
@@ -22,7 +22,7 @@
 			</div>
 		</div>
 	{/if}
-	<form method="POST" class="flex flex-col items-center gap-4" use:enhance>
+	<div class="flex flex-col items-center gap-4">
 		<label class="input input-bordered flex h-16 items-center justify-between gap-6">
 			<dd>Rest Timer</dd>
 			<dt class="flex gap-4">
@@ -57,5 +57,5 @@
 		</label>
 
 		<button class="btn w-32" type="submit">Save</button>
-	</form>
+	</div>
 </form>

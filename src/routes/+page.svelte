@@ -9,10 +9,8 @@
 	let secondsTimerIntervalHandle = setInterval(() => {
 		getTimeDifference(lastSet?.date);
 	}, 1000);
-	let lastSetDateText = '';
+	let lastSetDateText = $state('');
 
-	$: lastSet = getLastWorkoutSet($userData?.workouts);
-	$: hasRecordedSets = $userData?.workouts.some((workout) => workout.sets.length);
 
 	onMount(() => {
 		return () => {
@@ -79,6 +77,8 @@
 			getTimeDifference(lastSet?.date);
 		}, 60000);
 	}
+	let lastSet = $derived(getLastWorkoutSet($userData?.workouts));
+	let hasRecordedSets = $derived($userData?.workouts.some((workout) => workout.sets.length));
 </script>
 
 {#if $userData}
