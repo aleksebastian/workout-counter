@@ -41,10 +41,10 @@
 			return;
 		}
 
-		await tick();
+		// await tick();
 
-		editWorkoutsInputEle?.focus();
-		editWorkoutsInputEle?.select();
+		// editWorkoutsInputEle?.focus();
+		// editWorkoutsInputEle?.select();
 	}
 
 	async function handleEditWorkoutResult() {

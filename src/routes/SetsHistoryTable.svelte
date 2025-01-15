@@ -57,10 +57,10 @@
 			return;
 		}
 
-		await tick();
+		// await tick();
 
-		inputEle?.focus();
-		inputEle?.select();
+		// inputEle?.focus();
+		// inputEle?.select();
 	}
 
 	function handleDeleteSetModalOpen(set: Set) {
