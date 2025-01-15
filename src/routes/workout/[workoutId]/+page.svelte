@@ -14,6 +14,11 @@
 
 	let reps = $state(10);
 
+	$effect(() => {
+		if (!workout?.sets.length) return;
+		reps = workout.sets[workout.sets.length - 1].reps;
+	});
+
 	async function handleRecordSetClick() {
 		if (!$userData) return;
 		workout!.sets = [
