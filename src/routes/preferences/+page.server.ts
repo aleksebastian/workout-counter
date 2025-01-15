@@ -1,11 +1,9 @@
 import type { Actions } from './$types';
-import { adminAuth, adminDB } from '$lib/server/admin';
-import { error, fail, redirect } from '@sveltejs/kit';
-import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '$lib/firebase';
+import { adminDB } from '$lib/server/admin';
+import { error } from '@sveltejs/kit';
 
 export const actions = {
-	default: async ({ request, locals, params }) => {
+	default: async ({ request, locals }) => {
 		try {
 			const uid = locals.userID;
 
@@ -20,14 +18,6 @@ export const actions = {
 				throw error(404, 'User document not found');
 			}
 
-			// const { username } = userDoc.data()!;
-
-			// Ensure the username matches
-			// if (params.username !== username) {
-			// 	throw error(401, 'That username does not belong to you');
-			// }
-
-			// Prepare timer object
 			const timer = {
 				timer: {
 					minutes: Number(restMinutes),
@@ -35,12 +25,10 @@ export const actions = {
 				}
 			};
 
-			// Perform the update
 			await userRef.update({ preferences: timer });
 
 			return { success: true, ...timer };
 		} catch (err) {
-			// Handle errors
 			console.error('Error updating document:', err);
 			throw error(500, 'Failed to update user timer');
 		}

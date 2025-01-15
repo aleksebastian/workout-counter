@@ -1,9 +1,8 @@
 <script lang="ts">
-	import { tick } from 'svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { v4 as uuidv4 } from 'uuid';
-	import { isMobileDevice$, type Workout } from '$lib/store';
+	import { type Workout } from '$lib/store';
 	import EditIcon from '$lib/icons/edit.svg?raw';
 	import AddIcon from '$lib/icons/add.svg?raw';
 	import EditWorkoutsDialog from './EditWorkoutsDialog.svelte';
@@ -36,15 +35,6 @@
 	async function handleWorkoutEditClick(workout: Workout) {
 		editingWorkout = workout;
 		editWorkoutsDialog?.showModal();
-
-		if ($isMobileDevice$) {
-			return;
-		}
-
-		// await tick();
-
-		// editWorkoutsInputEle?.focus();
-		// editWorkoutsInputEle?.select();
 	}
 
 	async function handleEditWorkoutResult() {
@@ -76,13 +66,6 @@
 
 	async function handleAddWorkoutClick() {
 		newWorkoutDialog?.showModal();
-
-		if ($isMobileDevice$) return;
-
-		await tick();
-
-		editWorkoutsInputEle?.focus();
-		editWorkoutsInputEle?.select();
 	}
 
 	async function handleNewWorkoutDialogResult() {

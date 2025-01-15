@@ -3,12 +3,11 @@
 </script>
 
 <script lang="ts">
-	import { isMobileDevice$, type Set, type Workout } from '$lib/store';
+	import { type Set, type Workout } from '$lib/store';
 	import EditIcon from '$lib/icons/edit.svg?raw';
 	import DeleteIcon from '$lib/icons/delete.svg?raw';
 	import EditSetDialog from './EditSetDialog.svelte';
 	import ConfirmationDialog from '$lib/components/ConfimationDialog.svelte';
-	import { onMount, tick } from 'svelte';
 	import { db, userData, user } from '$lib/firebase';
 	import { doc, updateDoc } from 'firebase/firestore';
 	import { format, formatRelative } from 'date-fns';
@@ -52,15 +51,6 @@
 		reps = set.reps;
 
 		editSetDialog?.showModal();
-
-		if ($isMobileDevice$) {
-			return;
-		}
-
-		// await tick();
-
-		// inputEle?.focus();
-		// inputEle?.select();
 	}
 
 	function handleDeleteSetModalOpen(set: Set) {
