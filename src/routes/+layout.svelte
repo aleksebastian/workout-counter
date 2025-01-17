@@ -7,7 +7,7 @@
 	import { add } from 'date-fns';
 	import { userData } from '$lib/firebase';
 	import Toasts from '$lib/components/Toasts.svelte';
-	import { addToast, restTimer$ } from '$lib/store';
+	import { restTimer, toaster } from '$lib/state.svelte';
 
 	interface Props {
 		children?: import('svelte').Snippet;
@@ -36,7 +36,7 @@
 	});
 
 	function resetRestTime() {
-		$restTimer$ = undefined;
+		restTimer.value = undefined;
 		restTimerHandle = undefined;
 		restTime = structuredClone(originalRestTime);
 	}
@@ -45,7 +45,7 @@
 	let expirationDate: Date | undefined = $state(undefined);
 
 	async function startTimer() {
-		addToast({
+		toaster.addToast({
 			id: 'rest',
 			type: 'rest',
 			message: 'Rest timer restarted'
@@ -63,7 +63,7 @@
 		restTimerHandle = setInterval(() => {
 			const now = new Date();
 			if (now >= expirationDate!) {
-				$restTimer$ = '0:00';
+				restTimer.value = '0:00';
 				setTimeout(() => {
 					stopTimer();
 				}, 450);
@@ -72,7 +72,7 @@
 				restTime.minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
 				restTime.seconds = Math.floor((diff % (1000 * 60)) / 1000);
 				let seconds = restTime.seconds < 10 ? `0${restTime.seconds}` : restTime.seconds;
-				$restTimer$ = `${restTime.minutes}:${seconds}`;
+				restTimer.value = `${restTime.minutes}:${seconds}`;
 			}
 		}, 1000);
 	}

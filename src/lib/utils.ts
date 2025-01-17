@@ -1,5 +1,5 @@
 import type { User } from 'firebase/auth';
-import type { Workout } from './store';
+import type { Workout } from './state.svelte';
 
 export function getUserInitials(user: User) {
 	if (user) {

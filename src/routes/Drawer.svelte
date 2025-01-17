@@ -2,7 +2,7 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { v4 as uuidv4 } from 'uuid';
-	import { type Workout } from '$lib/store';
+	import { type Workout } from '$lib/state.svelte';
 	import EditIcon from '$lib/icons/edit.svg?raw';
 	import AddIcon from '$lib/icons/add.svg?raw';
 	import EditWorkoutsDialog from './EditWorkoutsDialog.svelte';

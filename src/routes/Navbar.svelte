@@ -2,7 +2,7 @@
 	import '../app.css';
 	import MenuIcon from '$lib/icons/menu.svg?raw';
 	import { user } from '$lib/firebase';
-	import { isMobileDevice$ } from '$lib/store';
+	import { isMobileDevice } from '$lib/state.svelte';
 	import Avatar from './Avatar.svelte';
 	import { page } from '$app/state';
 
@@ -18,7 +18,7 @@
 </script>
 
 <div class="navbar flex justify-between bg-base-100 p-4">
-	{#if isMobileDevice$}
+	{#if isMobileDevice}
 		<div>
 			{#if hasUser}
 				<button onclick={toggleDrawer}>

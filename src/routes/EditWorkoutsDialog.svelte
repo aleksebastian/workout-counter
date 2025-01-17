@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { type Workout } from '$lib/store';
+	import { type Workout } from '$lib/state.svelte';
 	import Dialog from '$lib/components/Dialog/Dialog.svelte';
 	import DialogHeader from '$lib/components/Dialog/DialogHeader.svelte';
 	import DialogAction from '$lib/components/Dialog/DialogAction.svelte';

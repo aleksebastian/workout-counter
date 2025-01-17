@@ -3,7 +3,7 @@
 </script>
 
 <script lang="ts">
-	import { type Set, type Workout } from '$lib/store';
+	import { type Set, type Workout } from '$lib/state.svelte';
 	import EditIcon from '$lib/icons/edit.svg?raw';
 	import DeleteIcon from '$lib/icons/delete.svg?raw';
 	import EditSetDialog from './EditSetDialog.svelte';

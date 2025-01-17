@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { user, userData } from '$lib/firebase';
-	import type { Workout } from '$lib/store';
+	import type { Workout } from '$lib/state.svelte';
 	import { formatDistanceToNow } from 'date-fns';
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
@@ -10,7 +10,6 @@
 		getTimeDifference(lastSet?.date);
 	}, 1000);
 	let lastSetDateText = $state('');
-
 
 	onMount(() => {
 		return () => {
