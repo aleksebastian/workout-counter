@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	const upcomingFeatures = [
 		{
 			title: 'Weight Tracking',
