@@ -51,4 +51,6 @@
 	</div>
 {:else if $page.url.pathname === '/login'}
 	<button class="btn" onclick={signInClick}>Log In</button>
+{:else}
+	<div tabindex="-1" class="btn invisible w-12 rounded-full bg-neutral text-neutral-content"></div>
 {/if}

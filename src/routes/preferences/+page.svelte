@@ -2,8 +2,7 @@
 	import { applyAction, enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import { userData } from '$lib/firebase';
-	import { addToast } from '$lib/store';
-	import { onMount } from 'svelte';
+	import { toaster } from '$lib/state.svelte';
 
 	let minRestValue = 0;
 	let maxRestValue = 59;
@@ -12,11 +11,10 @@
 	let restSeconds = $state(0);
 
 	let hasPreferences = $state(false);
-
-	onMount(() => {
+	$effect(() => {
+		hasPreferences = !!$userData?.preferences;
 		restMinutes = $userData?.preferences?.timer.minutes ?? 1;
 		restSeconds = $userData?.preferences?.timer.seconds ?? 30;
-		hasPreferences = !!$userData?.preferences;
 	});
 
 	let disableSaveBtn = $state(false);
@@ -24,7 +22,7 @@
 		disableSaveBtn = true;
 
 		const timeout = 2000;
-		addToast({
+		toaster.addToast({
 			type: 'success',
 			message: 'Preferences saved',
 			timeout

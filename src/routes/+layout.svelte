@@ -7,13 +7,22 @@
 	import { add } from 'date-fns';
 	import { userData } from '$lib/firebase';
 	import Toasts from '$lib/components/Toasts.svelte';
-	import { addToast, restTimer$ } from '$lib/store';
+	import { restTimer, toaster } from '$lib/state.svelte';
+	import type { LayoutServerData } from './$types';
 
 	interface Props {
 		children?: import('svelte').Snippet;
+		data?: LayoutServerData;
 	}
+	let { data, children }: Props = $props();
 
-	let { children }: Props = $props();
+	let defaultRestTime: { minutes: number; seconds: number };
+	let restTime: { minutes: number; seconds: number };
+	let hasUser = $derived(
+		(data ? Object.hasOwn(data, 'username') : false) &&
+			($userData ? Object.hasOwn($userData, 'username') : false)
+	);
+	const localStorageKey = 'workout-counter-rest-timer';
 
 	onMount(() => {
 		document.addEventListener('startTimer', startTimer);
@@ -35,26 +44,48 @@
 		});
 	});
 
-	function resetRestTime() {
-		$restTimer$ = undefined;
-		restTimerHandle = undefined;
-		restTime = structuredClone(originalRestTime);
+	let hasInitialized = false;
+	$effect(() => {
+		if (hasUser) {
+			if ($userData!.preferences?.timer) {
+				defaultRestTime = $userData!.preferences.timer;
+				restTime = structuredClone(defaultRestTime);
+			}
+
+			if (hasInitialized) return;
+
+			initialize();
+			hasInitialized = true;
+		}
+	});
+
+	function initialize() {
+		const restTimerExpirationDate = localStorage.getItem(localStorageKey);
+		if (restTimerExpirationDate) {
+			expirationDate = new Date(restTimerExpirationDate);
+			const now = new Date();
+			if (now < expirationDate) {
+				const diff = expirationDate.getTime() - now.getTime();
+				restTime.minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+				restTime.seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+				startTimer();
+			}
+		}
 	}
 
-	let restTimerHandle: NodeJS.Timeout | undefined = undefined;
-	let expirationDate: Date | undefined = $state(undefined);
-
 	async function startTimer() {
-		addToast({
+		toaster.addToast({
 			id: 'rest',
 			type: 'rest',
 			message: 'Rest timer restarted'
 		});
+
 		expirationDate = add(new Date(), { minutes: restTime.minutes, seconds: restTime.seconds });
-		localStorage.setItem('restTimerExpirationDate', expirationDate.toISOString());
+		localStorage.setItem(localStorageKey, expirationDate.toISOString());
 
 		if (restTimerHandle) {
-			restTime = structuredClone(originalRestTime);
+			restTime = structuredClone(defaultRestTime);
 			stopTimer();
 			startTimer();
 			return;
@@ -63,7 +94,7 @@
 		restTimerHandle = setInterval(() => {
 			const now = new Date();
 			if (now >= expirationDate!) {
-				$restTimer$ = '0:00';
+				restTimer.value = '0:00';
 				setTimeout(() => {
 					stopTimer();
 				}, 450);
@@ -71,8 +102,8 @@
 				const diff = expirationDate!.getTime() - now.getTime();
 				restTime.minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
 				restTime.seconds = Math.floor((diff % (1000 * 60)) / 1000);
-				let seconds = restTime.seconds < 10 ? `0${restTime.seconds}` : restTime.seconds;
-				$restTimer$ = `${restTime.minutes}:${seconds}`;
+				const seconds = restTime.seconds < 10 ? `0${restTime.seconds}` : restTime.seconds;
+				restTimer.value = `${restTime.minutes}:${seconds}`;
 			}
 		}, 1000);
 	}
@@ -82,40 +113,19 @@
 		resetRestTime();
 	}
 
+	function resetRestTime() {
+		restTimer.value = undefined;
+		restTimerHandle = undefined;
+		restTime = structuredClone(defaultRestTime);
+	}
+
+	let restTimerHandle: NodeJS.Timeout | undefined = undefined;
+	let expirationDate: Date | undefined = undefined;
+
 	let isDrawerOpen = $state(false);
 	function handleDrawerToggle() {
 		isDrawerOpen = !isDrawerOpen;
 	}
-	let hasUser = $derived($userData ? Object.hasOwn($userData, 'username') : false);
-
-	onMount(() => {
-		if (hasUser) {
-			const restTimerExpirationDate = localStorage.getItem('restTimerExpirationDate');
-
-			if (restTimerExpirationDate) {
-				expirationDate = new Date(restTimerExpirationDate);
-				const now = new Date();
-				if (now < expirationDate) {
-					const diff = expirationDate.getTime() - now.getTime();
-					restTime.minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-					restTime.seconds = Math.floor((diff % (1000 * 60)) / 1000);
-					startTimer();
-				}
-			}
-		}
-	});
-
-	let originalRestTime = $derived(
-		$userData?.preferences?.timer ?? {
-			minutes: 1,
-			seconds: 30
-		}
-	);
-	let restTime: { minutes: number; seconds: number };
-
-	$effect(() => {
-		restTime = structuredClone(originalRestTime);
-	});
 </script>
 
 <svelte:head>
