@@ -32,11 +32,15 @@
 			<a class="btn btn-ghost text-xl" href="/">SetCount</a>
 		</div>
 	{:else}
-		<button onclick={toggleDrawer}>
-			<label for="my-drawer-3" aria-label="open sidebar" class="btn btn-square btn-ghost">
-				{@html MenuIcon}
-			</label>
-		</button>
+		{#if hasUser}
+			<button onclick={toggleDrawer}>
+				<label for="my-drawer-3" aria-label="open sidebar" class="btn btn-square btn-ghost">
+					{@html MenuIcon}
+				</label>
+			</button>
+		{:else}
+			<button aria-label="Hamburger placeholder" class="btn btn-square invisible"> </button>
+		{/if}
 		<a class="btn btn-ghost text-xl" href="/">SetCount</a>
 	{/if}
 	<div>
