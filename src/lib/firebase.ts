@@ -4,10 +4,24 @@ import { getAuth, onAuthStateChanged, type User } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 import { writable, type Readable, derived } from 'svelte/store';
 import type { Workout } from './state.svelte';
+import { browser } from '$app/environment';
+
+let authDomain = 'workout-counter-99d56.firebaseapp.com';
+
+const isPwa = browser
+	? window.matchMedia('(display-mode: fullscreen)').matches ||
+		window.matchMedia('(display-mode: standalone)').matches
+	: false;
+
+if (isPwa) {
+	const domainParts = window.location.hostname.split('.');
+	const domain = domainParts.slice(-2).join('.');
+	authDomain = domain;
+}
 
 const firebaseConfig = {
 	apiKey: 'AIzaSyB2Wxz_yyr7spT7MrwhxpGPK9XXbo8SDmU',
-	authDomain: 'workout-counter-99d56.firebaseapp.com',
+	authDomain,
 	projectId: 'workout-counter-99d56',
 	storageBucket: 'workout-counter-99d56.appspot.com',
 	messagingSenderId: '478354387280',
