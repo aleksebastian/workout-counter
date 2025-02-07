@@ -27,6 +27,7 @@
 		"@types/uuid": "^10.0.0",
 		"@typescript-eslint/eslint-plugin": "^8.20.0",
 		"@typescript-eslint/parser": "^8.20.0",
+		"@vite-pwa/sveltekit": "^0.6.7",
 		"autoprefixer": "^10.4.20",
 		"cssnano": "^7.0.6",
 		"daisyui": "^4.12.23",
@@ -44,7 +45,11 @@
 		"tslib": "^2.8.1",
 		"typescript": "^5.7.3",
 		"vite": "^6.0.7",
-		"vitest": "^3.0.2"
+		"vite-plugin-pwa": "^0.21.1",
+		"vitest": "^3.0.2",
+		"workbox-precaching": "^7.3.0",
+		"workbox-routing": "^7.3.0",
+		"workbox-window": "^7.3.0"
 	},
 	"type": "module",
 	"dependencies": {
