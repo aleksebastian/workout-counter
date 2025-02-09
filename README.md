@@ -1,6 +1,6 @@
 # Workout Counter
 
-A simple application to track your workouts.
+Simple application to track your workouts.
 
 ## Features
 
