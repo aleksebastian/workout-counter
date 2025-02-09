@@ -8,13 +8,10 @@
 	import { userData } from '$lib/firebase';
 	import Toasts from '$lib/components/Toasts.svelte';
 	import { restTimer, toaster } from '$lib/state.svelte';
-	import type { LayoutServerData } from './$types';
+	import { pwaInfo } from 'virtual:pwa-info';
+	import { registerSW } from 'virtual:pwa-register';
 
-	interface Props {
-		children?: import('svelte').Snippet;
-		data?: LayoutServerData;
-	}
-	let { data, children }: Props = $props();
+	let { data, children } = $props();
 
 	let defaultRestTime: { minutes: number; seconds: number };
 	let restTime: { minutes: number; seconds: number };
@@ -26,6 +23,24 @@
 
 	onMount(() => {
 		document.addEventListener('startTimer', startTimer);
+
+		if (pwaInfo) {
+			registerSW({
+				immediate: true,
+				onRegistered(r) {
+					// uncomment following code if you want check for updates
+					// r &&
+					// 	setInterval(() => {
+					// 		console.log('Checking for sw update');
+					// 		r.update();
+					// 	}, 20000 /* 20s for testing purposes */);
+					console.log(`SW Registered: ${r}`);
+				},
+				onRegisterError(error) {
+					console.log('SW registration error', error);
+				}
+			});
+		}
 
 		return () => {
 			if (restTimerHandle) clearInterval(restTimerHandle);
@@ -126,11 +141,14 @@
 	function handleDrawerToggle() {
 		isDrawerOpen = !isDrawerOpen;
 	}
+
+	let webManifestLink = $derived(pwaInfo ? pwaInfo.webManifest.linkTag : '');
 </script>
 
 <svelte:head>
 	<title>SetCount</title>
 	<meta name="description" content="The best way to keep track of your workouts" />
+	{@html webManifestLink}
 </svelte:head>
 
 <Navbar
@@ -147,6 +165,10 @@
 		<Toasts />
 	</div>
 </Drawer>
+
+{#await import('$lib/components/ReloadPrompt.svelte') then { default: ReloadPrompt }}
+	<ReloadPrompt />
+{/await}
 
 <style>
 	:global(.navbar) {
