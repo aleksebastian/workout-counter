@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onNavigate } from '$app/navigation';
+	import { goto, onNavigate } from '$app/navigation';
 	import Navbar from './Navbar.svelte';
 	import Drawer from './Drawer.svelte';
 	import { handleSignIn, handleSignOut } from '$lib/logic/auth';
@@ -21,6 +21,8 @@
 	);
 	const localStorageKey = 'workout-counter-rest-timer';
 
+	$inspect('data: ', data);
+
 	onMount(() => {
 		document.addEventListener('startTimer', startTimer);
 
@@ -40,6 +42,11 @@
 					console.log('SW registration error', error);
 				}
 			});
+		}
+
+		if (data.needsRedirect) {
+			console.log('Redirecting to', data.needsRedirect);
+			goto(data.needsRedirect);
 		}
 
 		return () => {

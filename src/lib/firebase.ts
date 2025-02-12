@@ -13,11 +13,11 @@ const isPwa = browser
 		window.matchMedia('(display-mode: standalone)').matches
 	: false;
 
-if (isPwa) {
-	const domainParts = window.location.hostname.split('.');
-	const domain = domainParts.slice(-2).join('.');
-	authDomain = domain;
-}
+// if (isPwa) {
+// 	const domainParts = window.location.hostname.split('.');
+// 	const domain = domainParts.slice(-2).join('.');
+// 	authDomain = domain;
+// }
 
 const firebaseConfig = {
 	apiKey: 'AIzaSyB2Wxz_yyr7spT7MrwhxpGPK9XXbo8SDmU',

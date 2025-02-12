@@ -3,6 +3,7 @@ import type { Handle } from '@sveltejs/kit';
 
 export const handle = (async ({ event, resolve }) => {
 	const sessionCookie = event.cookies.get('__session');
+	console.log('hasCookie: ', !!sessionCookie);
 
 	try {
 		const decodedClaims = await adminAuth.verifySessionCookie(sessionCookie!);

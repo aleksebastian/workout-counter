@@ -1,33 +1,24 @@
 import type { LayoutServerLoad } from './$types';
 import { adminDB } from '$lib/server/admin';
-import { redirect } from '@sveltejs/kit';
 
-export const load = (async ({ locals, url }) => {
+export const load = (async ({ locals }) => {
 	const uid = locals.userID;
 
 	if (!uid) {
-		if (!url.pathname.includes('/login')) {
-			throw redirect(301, '/login');
-		}
-		return;
+		console.log('no uid');
+		return { needsRedirect: '/login' };
 	}
 
 	const userDoc = await adminDB.collection('users').doc(uid).get();
 	const userData = userDoc.data();
 
-	if (!userData && !url.pathname.includes('/login/username')) {
-		throw redirect(301, '/login/username');
+	if (!userData) {
+		return { needsRedirect: '/login/username' };
 	}
 
-	if (userData && !userData?.preferences && !url.pathname.includes('/preferences')) {
-		throw redirect(301, '/preferences');
+	if (!userData.preferences) {
+		return { needsRedirect: '/preferences' };
 	}
 
-	if (userData && url.pathname.includes('/login')) {
-		throw redirect(301, '/');
-	}
-
-	return {
-		...userData
-	};
+	return { userData };
 }) satisfies LayoutServerLoad;

@@ -15,25 +15,27 @@ export async function signInWithGoogle() {
 	const isPwa =
 		window.matchMedia('(display-mode: fullscreen)').matches ||
 		window.matchMedia('(display-mode: standalone)').matches;
-	if (isPwa) {
-		console.log('signing in with redirect');
-		signInWithRedirect(auth, provider);
-		const result = await getRedirectResult(auth);
-		if (result) {
-			credential = result;
-		} else {
-			throw new Error('No result from redirect');
-		}
-	} else {
-		console.log('signing in with popup');
-		credential = await signInWithPopup(auth, provider);
-	}
+	// if (!isPwa) {
+	// console.log('signing in with redirect');
+	// signInWithRedirect(auth, provider);
+	// const result = await getRedirectResult(auth);
+	// if (result) {
+	// 	credential = result;
+	// } else {
+	// 	throw new Error('No result from redirect');
+	// }
+	// } else {
+	// 	console.log('signing in with popup');
+	credential = await signInWithPopup(auth, provider);
+	// }
 
 	return await credential.user.getIdToken();
 }
 
 export async function handleSignIn() {
+	console.log('hi');
 	const idToken = await signInWithGoogle();
+	console.log('idToken', idToken);
 
 	await fetch('/api/signin', {
 		method: 'POST',
@@ -42,6 +44,7 @@ export async function handleSignIn() {
 		},
 		body: JSON.stringify({ idToken })
 	});
+	console.log('signed in, going to: ');
 	goto('/');
 }
 
