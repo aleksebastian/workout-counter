@@ -2,6 +2,8 @@
 
 Simple application to track your workouts.
 
+![Site mockup](https://raw.githubusercontent.com/aleksebastian/workout-counter/main/mockup.png)
+
 ## Features
 
 - Track different types of exercises
