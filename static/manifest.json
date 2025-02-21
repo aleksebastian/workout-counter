@@ -5,7 +5,7 @@
 	"orientation": "portrait",
 	"scope": "/",
 	"start_url": "/",
-	"description": "A simple workout counter",
+	"description": "A simple workout counter to track your fitness progress.",
 	"icons": [
 		{
 			"src": "icon-192x192.png",
