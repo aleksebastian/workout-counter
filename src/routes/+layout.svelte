@@ -8,6 +8,7 @@
 	import { userData } from '$lib/firebase';
 	import Toasts from '$lib/components/Toasts.svelte';
 	import { restTimer, toaster } from '$lib/state.svelte';
+	import { page } from '$app/state';
 
 	let { data, children } = $props();
 
@@ -17,6 +18,9 @@
 		(data ? Object.hasOwn(data, 'username') : false) &&
 			($userData ? Object.hasOwn($userData, 'username') : false)
 	);
+
+	$inspect(console.log('page: ', page.url));
+	$inspect(console.log('hasUser: ', hasUser));
 	const localStorageKey = 'workout-counter-rest-timer';
 
 	onMount(() => {
