@@ -4,7 +4,7 @@
 	"display": "standalone",
 	"orientation": "portrait",
 	"scope": "/",
-	"start_url": "/login",
+	"start_url": "/",
 	"description": "A simple workout counter to track your fitness progress.",
 	"icons": [
 		{
