@@ -20,9 +20,9 @@
 	const localStorageKey = 'workout-counter-rest-timer';
 
 	onMount(() => {
-		if (data.needsRedirect) {
-			goto(data.needsRedirect);
-		}
+		// if (data.needsRedirect) {
+		// 	goto(data.needsRedirect);
+		// }
 
 		document.addEventListener('startTimer', startTimer);
 
