@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { goto, onNavigate } from '$app/navigation';
+	import { afterNavigate, goto, onNavigate } from '$app/navigation';
 	import Navbar from './Navbar.svelte';
 	import Drawer from './Drawer.svelte';
 	import { handleSignIn, handleSignOut } from '$lib/logic/auth';
@@ -19,14 +19,12 @@
 			($userData ? Object.hasOwn($userData, 'username') : false)
 	);
 
-	$inspect(console.log('page: ', page.url));
-	$inspect(console.log('hasUser: ', hasUser));
 	const localStorageKey = 'workout-counter-rest-timer';
 
 	onMount(() => {
-		// if (data.needsRedirect) {
-		// 	goto(data.needsRedirect);
-		// }
+		if (data.needsRedirect) {
+			goto(data.needsRedirect);
+		}
 
 		document.addEventListener('startTimer', startTimer);
 
@@ -45,6 +43,11 @@
 				await navigation.complete;
 			});
 		});
+	});
+
+	afterNavigate(() => {
+		console.log('page: ', page.url);
+		console.log('hasUser: ', hasUser);
 	});
 
 	let hasInitialized = false;
