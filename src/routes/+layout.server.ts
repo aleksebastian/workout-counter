@@ -3,10 +3,12 @@ import { adminDB } from '$lib/server/admin';
 import { redirect } from '@sveltejs/kit';
 
 export const load = (async ({ locals, url }) => {
+	console.log('Running +layout.server.ts');
 	const uid = locals.userID;
 
 	if (!uid) {
 		if (!url.pathname.includes('/login')) {
+			console.log('Redirecting to /login');
 			return {
 				needsRedirect: '/login'
 			};
@@ -19,6 +21,7 @@ export const load = (async ({ locals, url }) => {
 	const userData = userDoc.data();
 
 	if (!userData && !url.pathname.includes('/login/username')) {
+		console.log('Redirecting to /login/username');
 		return {
 			needsRedirect: '/login/username'
 		};
@@ -26,6 +29,7 @@ export const load = (async ({ locals, url }) => {
 	}
 
 	if (userData && !userData?.preferences && !url.pathname.includes('/preferences')) {
+		console.log('Redirecting to /preferences');
 		return {
 			needsRedirect: '/preferences'
 		};
@@ -33,11 +37,14 @@ export const load = (async ({ locals, url }) => {
 	}
 
 	if (userData && url.pathname.includes('/login')) {
+		console.log('Redirecting to /');
 		return {
 			needsRedirect: '/'
 		};
 		throw redirect(301, '/');
 	}
+
+	console.log('Returning userData: ', userData);
 
 	return {
 		...userData

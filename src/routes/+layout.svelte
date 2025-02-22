@@ -23,7 +23,10 @@
 
 	onMount(() => {
 		if (data.needsRedirect) {
+			console.log('Should redirect to: ', data.needsRedirect);
 			goto(data.needsRedirect);
+		} else {
+			console.log('No redirect needed');
 		}
 
 		document.addEventListener('startTimer', startTimer);
@@ -53,6 +56,7 @@
 	let hasInitialized = false;
 	$effect(() => {
 		if (hasUser) {
+			console.log('Now we have user!', $userData);
 			if ($userData!.preferences?.timer) {
 				defaultRestTime = $userData!.preferences.timer;
 				restTime = structuredClone(defaultRestTime);
