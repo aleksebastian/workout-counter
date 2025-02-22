@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onNavigate } from '$app/navigation';
+	import { goto, onNavigate } from '$app/navigation';
 	import Navbar from './Navbar.svelte';
 	import Drawer from './Drawer.svelte';
 	import { handleSignIn, handleSignOut } from '$lib/logic/auth';
@@ -8,13 +8,8 @@
 	import { userData } from '$lib/firebase';
 	import Toasts from '$lib/components/Toasts.svelte';
 	import { restTimer, toaster } from '$lib/state.svelte';
-	import type { LayoutServerData } from './$types';
 
-	interface Props {
-		children?: import('svelte').Snippet;
-		data?: LayoutServerData;
-	}
-	let { data, children }: Props = $props();
+	let { data, children } = $props();
 
 	let defaultRestTime: { minutes: number; seconds: number };
 	let restTime: { minutes: number; seconds: number };
@@ -25,6 +20,10 @@
 	const localStorageKey = 'workout-counter-rest-timer';
 
 	onMount(() => {
+		if (data.needsRedirect) {
+			goto(data.needsRedirect);
+		}
+
 		document.addEventListener('startTimer', startTimer);
 
 		return () => {
