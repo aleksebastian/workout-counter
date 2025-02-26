@@ -28,8 +28,6 @@ export type ValorizedToast = Toast & {
 
 export const restTimer = $state<{ value: string | undefined }>({ value: undefined });
 
-export const isMobileDevice: boolean = $state(false);
-
 let toasts = $state<ValorizedToast[]>([]);
 export const toaster = {
 	getToasts() {
