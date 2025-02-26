@@ -9,9 +9,9 @@ export const load = (async ({ locals, url }) => {
 	if (!uid) {
 		if (!url.pathname.includes('/login')) {
 			console.log('Redirecting to /login');
-			return {
-				needsRedirect: '/login'
-			};
+			// return {
+			// 	needsRedirect: '/login'
+			// };
 			throw redirect(301, '/login');
 		}
 		return;
@@ -22,25 +22,25 @@ export const load = (async ({ locals, url }) => {
 
 	if (!userData && !url.pathname.includes('/login/username')) {
 		console.log('Redirecting to /login/username');
-		return {
-			needsRedirect: '/login/username'
-		};
+		// return {
+		// 	needsRedirect: '/login/username'
+		// };
 		throw redirect(301, '/login/username');
 	}
 
 	if (userData && !userData?.preferences && !url.pathname.includes('/preferences')) {
 		console.log('Redirecting to /preferences');
-		return {
-			needsRedirect: '/preferences'
-		};
+		// return {
+		// 	needsRedirect: '/preferences'
+		// };
 		throw redirect(301, '/preferences');
 	}
 
 	if (userData && url.pathname.includes('/login')) {
 		console.log('Redirecting to /');
-		return {
-			needsRedirect: '/'
-		};
+		// return {
+		// 	needsRedirect: '/'
+		// };
 		throw redirect(301, '/');
 	}
 
