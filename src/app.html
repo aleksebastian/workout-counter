@@ -1,6 +1,19 @@
 <!doctype html>
 <html lang="en">
 	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+		<meta name="theme-color" content="#282a36" media="(prefers-color-scheme: dark)" />
+
+		<!-- Icons -->
+		<link rel="icon" href="%sveltekit.assets%/favicon.svg" type="image/svg+xml" />
+		<link rel="alternate icon" href="%sveltekit.assets%/favicon.ico" />
+		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+		<link rel="mask-icon" href="/favicon.svg" color="#FFFFFF" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<link rel="apple-touch-startup-image" href="/launch.png" />
+
 		<!-- Preconnect for important origins -->
 		<link rel="preconnect" href="https://www.googleapis.com" />
 		<link rel="preconnect" href="https://apis.google.com" />
@@ -13,9 +26,8 @@
 		<link rel="dns-prefetch" href="https://firestore.googleapis.com" />
 		<link rel="dns-prefetch" href="https://identitytoolkit.googleapis.com" />
 
-		<meta charset="utf-8" />
-		<link rel="icon" href="%sveltekit.assets%/favicon.svg" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<link rel="manifest" crossorigin="use-credentials" href="manifest.json" />
+
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">
