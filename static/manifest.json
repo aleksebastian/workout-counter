@@ -1,0 +1,21 @@
+{
+	"name": "SetCount",
+	"short_name": "SetCount",
+	"display": "standalone",
+	"orientation": "portrait",
+	"scope": "/",
+	"start_url": "/",
+	"description": "A simple workout counter to track your fitness progress.",
+	"icons": [
+		{
+			"src": "icon-192x192.png",
+			"sizes": "192x192",
+			"type": "image/png"
+		},
+		{
+			"src": "icon-512x512.png",
+			"sizes": "512x512",
+			"type": "image/png"
+		}
+	]
+}

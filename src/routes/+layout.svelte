@@ -1,35 +1,38 @@
 <script lang="ts">
-	import { onNavigate } from '$app/navigation';
+	import { goto, onNavigate } from '$app/navigation';
 	import Navbar from './Navbar.svelte';
 	import Drawer from './Drawer.svelte';
 	import { handleSignIn, handleSignOut } from '$lib/logic/auth';
 	import { onMount } from 'svelte';
 	import { add } from 'date-fns';
-	import { userData } from '$lib/firebase';
+	import { user, userData } from '$lib/firebase';
 	import Toasts from '$lib/components/Toasts.svelte';
 	import { restTimer, toaster } from '$lib/state.svelte';
-	import type { LayoutServerData } from './$types';
 
-	interface Props {
-		children?: import('svelte').Snippet;
-		data?: LayoutServerData;
-	}
-	let { data, children }: Props = $props();
+	let { data, children } = $props();
 
 	let defaultRestTime: { minutes: number; seconds: number };
 	let restTime: { minutes: number; seconds: number };
 	let hasUser = $derived(
-		(data ? Object.hasOwn(data, 'username') : false) &&
+		(data.userData ? Object.hasOwn(data.userData, 'username') : false) &&
 			($userData ? Object.hasOwn($userData, 'username') : false)
 	);
+
 	const localStorageKey = 'workout-counter-rest-timer';
 
 	onMount(() => {
+		const userStoreUnsubscribe = user.subscribe((value) => {
+			if (value === null) {
+				handleSignOut();
+			}
+		});
+
 		document.addEventListener('startTimer', startTimer);
 
 		return () => {
 			if (restTimerHandle) clearInterval(restTimerHandle);
 			document.removeEventListener('startTimer', startTimer);
+			userStoreUnsubscribe();
 		};
 	});
 

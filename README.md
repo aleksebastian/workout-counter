@@ -1,6 +1,6 @@
 # Workout Counter
 
-Simple application to track your workouts.
+Simple application to track your workouts
 
 ![Site mockup](https://raw.githubusercontent.com/aleksebastian/workout-counter/main/mockup.png)
 

@@ -1,6 +1,7 @@
 import type { LayoutServerLoad } from './$types';
 import { adminDB } from '$lib/server/admin';
 import { redirect } from '@sveltejs/kit';
+import type { UserData } from '$lib/firebase';
 
 export const load = (async ({ locals, url }) => {
 	const uid = locals.userID;
@@ -9,6 +10,7 @@ export const load = (async ({ locals, url }) => {
 		if (!url.pathname.includes('/login')) {
 			throw redirect(301, '/login');
 		}
+
 		return;
 	}
 
@@ -28,6 +30,6 @@ export const load = (async ({ locals, url }) => {
 	}
 
 	return {
-		...userData
+		userData: userData as UserData
 	};
 }) satisfies LayoutServerLoad;
