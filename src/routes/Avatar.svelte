@@ -28,7 +28,7 @@
 			</div>
 		</button>
 		<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-		<ul tabindex="0" class="menu dropdown-content z-[1] w-52 rounded-box bg-base-100 p-2 shadow">
+		<ul tabindex="0" class="menu dropdown-content z-1 w-52 rounded-box bg-base-100 p-2 shadow">
 			<li>
 				<a class="py-4" href="/preferences">
 					<div>⚙️</div>
