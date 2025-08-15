@@ -1,4 +1,7 @@
 @import 'tailwindcss';
+@plugin 'daisyui' {
+	themes: emerald --default, dracula --prefersdark;
+}
 
 @media (prefers-reduced-motion) {
 	::view-transition-group(*),
