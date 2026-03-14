@@ -159,7 +159,7 @@
 <ConfirmationDialog
 	bind:dialog={deleteSetDialog}
 	onclose={handleDeleteSetResult}
-	actionLabel={'Delete'}
+	actionLabel="Delete"
 	header="Delete Set"
 	content="Are you sure?"
 />
