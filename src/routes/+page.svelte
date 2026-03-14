@@ -27,6 +27,7 @@
 
 			return workoutsLastSetSortedByDate[0];
 		}
+		return undefined;
 	}
 
 	function getTimeDifference(date: string | undefined) {
@@ -94,7 +95,7 @@
 					{/if}
 				{/if}
 			</div>
-			<ul class="flex w-56 flex-col gap-4 rounded-box">
+			<ul class="rounded-box flex w-56 flex-col gap-4">
 				{#each $userData.workouts as workout}
 					<li>
 						<a class="btn w-full" href={'/workout/' + workout.id}>{workout.name}</a>

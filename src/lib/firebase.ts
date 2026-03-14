@@ -88,5 +88,6 @@ export const userData: Readable<UserData | null> = derived(user, ($user, set) =>
 		return docStore<UserData>(`users/${$user.uid}`).subscribe(set);
 	} else {
 		set(null);
+		return () => {};
 	}
 });

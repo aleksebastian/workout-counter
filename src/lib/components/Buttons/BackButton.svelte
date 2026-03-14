@@ -1,4 +1,12 @@
-<a class="btn btn-square" href="/" aria-label="back button">
+<script lang="ts">
+	interface Props {
+		href?: string;
+	}
+
+	let { href = '/' }: Props = $props();
+</script>
+
+<a class="btn btn-square" {href} aria-label="back button">
 	<svg
 		xmlns="http://www.w3.org/2000/svg"
 		class="icon icon-tabler icon-tabler-arrow-back-up"

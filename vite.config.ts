@@ -5,5 +5,9 @@ export default defineConfig({
 	plugins: [sveltekit()],
 	test: {
 		include: ['src/**/*.{test,spec}.{js,ts}']
+	},
+	build: {
+		chunkSizeWarningLimit: 500,
+		sourcemap: true
 	}
 });

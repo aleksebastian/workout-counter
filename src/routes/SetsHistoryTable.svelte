@@ -7,7 +7,7 @@
 	import EditIcon from '$lib/icons/edit.svg?raw';
 	import DeleteIcon from '$lib/icons/delete.svg?raw';
 	import EditSetDialog from './EditSetDialog.svelte';
-	import ConfirmationDialog from '$lib/components/ConfimationDialog.svelte';
+	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
 	import { db, userData, user } from '$lib/firebase';
 	import { doc, updateDoc } from 'firebase/firestore';
 	import { format, formatRelative } from 'date-fns';
@@ -119,7 +119,7 @@
 				</h3>
 				<p class=""><strong>{organizedSet.totalReps} reps</strong></p>
 			</div>
-			<table class="table table-zebra">
+			<table class="table-zebra table">
 				<thead>
 					<tr>
 						<th>Reps</th>
@@ -135,7 +135,7 @@
 						<tr>
 							<td>{set.reps}</td>
 							<td>{time}</td>
-							<td class="pl-0.5 pr-0">
+							<td class="pr-0 pl-0.5">
 								<button class="btn btn-ghost" onclick={() => handleEditSetModalOpen(set)}>
 									{@html EditIcon}
 								</button>

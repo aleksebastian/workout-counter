@@ -47,19 +47,36 @@
 		const workouts = $userData.workouts;
 
 		if (editWorkoutsDialog?.returnValue === 'edit') {
+			// Save original state for rollback
+			const originalName = workouts[workoutIndex].name;
 			workouts[workoutIndex].name = editedWorkoutName;
 
-			await updateDoc(userRef, {
-				workouts
-			});
+			try {
+				await updateDoc(userRef, {
+					workouts
+				});
+			} catch (error) {
+				// Rollback on error
+				workouts[workoutIndex].name = originalName;
+				console.error('Failed to update workout:', error);
+			}
 		} else if (editWorkoutsDialog?.returnValue === 'delete') {
+			// Save original state for rollback
+			const deletedWorkout = $userData.workouts[workoutIndex];
 			$userData.workouts.splice(workoutIndex, 1);
-			await updateDoc(userRef, {
-				workouts
-			});
 
-			if (page.params.workoutId === editingWorkout?.id) {
-				goto('/');
+			try {
+				await updateDoc(userRef, {
+					workouts
+				});
+
+				if (page.params.workoutId === editingWorkout?.id) {
+					goto('/');
+				}
+			} catch (error) {
+				// Rollback on error
+				$userData.workouts.splice(workoutIndex, 0, deletedWorkout);
+				console.error('Failed to delete workout:', error);
 			}
 		}
 	}
@@ -73,13 +90,19 @@
 
 		if (newWorkoutDialog?.returnValue === 'add') {
 			const userRef = doc(db, 'users', $user!.uid);
+			const newWorkout = { id: uuidv4(), name: newWorkoutName, sets: [] };
 
-			await updateDoc(userRef, {
-				workouts: arrayUnion({ id: uuidv4(), name: newWorkoutName, sets: [] })
-			});
+			try {
+				await updateDoc(userRef, {
+					workouts: arrayUnion(newWorkout)
+				});
 
-			goto(`/workout/${$userData.workouts[$userData.workouts.length - 1].id}`);
-			newWorkoutName = '';
+				goto(`/workout/${newWorkout.id}`);
+				newWorkoutName = '';
+			} catch (error) {
+				console.error('Failed to create workout:', error);
+				// Could show a toast notification here
+			}
 		}
 	}
 </script>
@@ -97,7 +120,7 @@
 	</div>
 	<div class="drawer-side mt-20">
 		<label for="my-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
-		<div class="menu min-h-full w-80 bg-base-200 p-4 text-base-content">
+		<div class="menu bg-base-200 text-base-content min-h-full w-80 p-4">
 			<div class="mb-4 flex items-center justify-between">
 				<p class="text-lg font-semibold">Workouts</p>
 				{#if $user}
@@ -118,7 +141,7 @@
 			<ul>
 				{#if $userData}
 					{#each $userData.workouts as workout}
-						<li class="mb-1 mt-1">
+						<li class="mt-1 mb-1">
 							{#if isEditingWorkouts}
 								<button
 									class:btn-active={page.params.workoutId === workout.id}

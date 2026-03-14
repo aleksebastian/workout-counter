@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { goto, onNavigate } from '$app/navigation';
+	import { onNavigate } from '$app/navigation';
 	import Navbar from './Navbar.svelte';
 	import Drawer from './Drawer.svelte';
 	import { handleSignIn, handleSignOut } from '$lib/logic/auth';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { add } from 'date-fns';
 	import { user, userData } from '$lib/firebase';
 	import Toasts from '$lib/components/Toasts.svelte';
@@ -20,8 +20,10 @@
 
 	const localStorageKey = 'workout-counter-rest-timer';
 
+	let userStoreUnsubscribe: (() => void) | undefined;
+
 	onMount(() => {
-		const userStoreUnsubscribe = user.subscribe((value) => {
+		userStoreUnsubscribe = user.subscribe((value) => {
 			if (value === null) {
 				handleSignOut();
 			}
@@ -30,11 +32,23 @@
 		document.addEventListener('startTimer', startTimer);
 
 		return () => {
-			if (restTimerHandle) clearInterval(restTimerHandle);
+			cleanupTimer();
 			document.removeEventListener('startTimer', startTimer);
-			userStoreUnsubscribe();
+			userStoreUnsubscribe?.();
 		};
 	});
+
+	onDestroy(() => {
+		cleanupTimer();
+		userStoreUnsubscribe?.();
+	});
+
+	function cleanupTimer() {
+		if (restTimerHandle !== undefined) {
+			clearInterval(restTimerHandle);
+			restTimerHandle = undefined;
+		}
+	}
 
 	onNavigate((navigation) => {
 		if (!document.startViewTransition) return;
@@ -112,14 +126,15 @@
 	}
 
 	function stopTimer() {
-		clearInterval(restTimerHandle);
+		cleanupTimer();
 		resetRestTime();
 	}
 
 	function resetRestTime() {
 		restTimer.value = undefined;
-		restTimerHandle = undefined;
-		restTime = structuredClone(defaultRestTime);
+		if (defaultRestTime) {
+			restTime = structuredClone(defaultRestTime);
+		}
 	}
 
 	let restTimerHandle: NodeJS.Timeout | undefined = undefined;
