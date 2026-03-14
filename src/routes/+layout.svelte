@@ -3,7 +3,7 @@
 	import Navbar from './Navbar.svelte';
 	import Drawer from './Drawer.svelte';
 	import { handleSignIn, handleSignOut } from '$lib/logic/auth';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount } from 'svelte';
 	import { add } from 'date-fns';
 	import { user, userData } from '$lib/firebase';
 	import Toasts from '$lib/components/Toasts.svelte';
@@ -11,8 +11,8 @@
 
 	let { data, children } = $props();
 
-	let defaultRestTime: { minutes: number; seconds: number };
-	let restTime: { minutes: number; seconds: number };
+	let defaultRestTime: { minutes: number; seconds: number } = { minutes: 1, seconds: 30 };
+	let restTime: { minutes: number; seconds: number } = { ...defaultRestTime };
 	let hasUser = $derived(
 		(data.userData ? Object.hasOwn(data.userData, 'username') : false) &&
 			($userData ? Object.hasOwn($userData, 'username') : false)
@@ -36,11 +36,6 @@
 			document.removeEventListener('startTimer', startTimer);
 			userStoreUnsubscribe?.();
 		};
-	});
-
-	onDestroy(() => {
-		cleanupTimer();
-		userStoreUnsubscribe?.();
 	});
 
 	function cleanupTimer() {
