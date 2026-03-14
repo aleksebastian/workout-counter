@@ -25,7 +25,6 @@
 		"@tailwindcss/typography": "^0.5.19",
 		"@types/dom-view-transitions": "^1.0.6",
 		"@types/eslint": "^9.6.1",
-		"@types/uuid": "^11.0.0",
 		"@typescript-eslint/eslint-plugin": "^8.57.0",
 		"@typescript-eslint/parser": "^8.57.0",
 		"autoprefixer": "^10.4.27",
@@ -52,7 +51,6 @@
 		"date-fns": "^4.1.0",
 		"firebase": "^12.10.0",
 		"firebase-admin": "^13.7.0",
-		"uuid": "^13.0.0",
-		"workout-counter": "link:"
+		"uuid": "^13.0.0"
 	}
 }
