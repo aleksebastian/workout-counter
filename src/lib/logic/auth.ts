@@ -1,18 +1,12 @@
 import { goto } from '$app/navigation';
 import { auth } from '$lib/firebase';
-import { GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 
 export async function handleSignIn() {
 	const provider = new GoogleAuthProvider();
-	await signInWithRedirect(auth, provider);
-	// Page navigates away; execution does not continue here.
-}
+	const credential = await signInWithPopup(auth, provider);
+	const idToken = await credential.user.getIdToken();
 
-export async function handleRedirectResult() {
-	const result = await getRedirectResult(auth);
-	if (!result) return;
-
-	const idToken = await result.user.getIdToken();
 	await fetch('/api/signin', {
 		method: 'POST',
 		headers: {
