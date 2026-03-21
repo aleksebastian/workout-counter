@@ -2,10 +2,16 @@
 @import 'tailwindcss/preflight' layer(base);
 @import 'tailwindcss/utilities' layer(utilities);
 
+@plugin '@tailwindcss/typography';
+
 @plugin 'daisyui' {
 	themes:
 		emerald --default,
 		dracula --prefersdark;
+}
+
+svg {
+	fill: currentColor;
 }
 
 @media (prefers-reduced-motion) {
@@ -13,11 +19,5 @@
 	::view-transition-old(*),
 	::view-transition-new(*) {
 		animation: none !important;
-	}
-}
-
-@media (prefers-color-scheme: dark) {
-	svg {
-		fill: oklch(var(--bc));
 	}
 }

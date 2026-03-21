@@ -64,6 +64,15 @@
 				restTime = structuredClone(defaultRestTime);
 			}
 
+			const theme = $userData!.preferences?.theme ?? 'system';
+			if (theme === 'light') {
+				document.documentElement.setAttribute('data-theme', 'emerald');
+			} else if (theme === 'dark') {
+				document.documentElement.setAttribute('data-theme', 'dracula');
+			} else {
+				document.documentElement.removeAttribute('data-theme');
+			}
+
 			if (hasInitialized) return;
 
 			initialize();

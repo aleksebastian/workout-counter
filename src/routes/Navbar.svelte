@@ -15,11 +15,11 @@
 	let { isDrawerOpen, hasUser, toggleDrawer, signIn, signOut }: Props = $props();
 </script>
 
-<div class="navbar bg-base-100 flex justify-between p-4">
+<div class="navbar bg-base-100 relative z-100 flex justify-between p-4">
 	{#if hasUser}
 		<button onclick={toggleDrawer}>
 			<label for="my-drawer-3" aria-label="open sidebar" class="btn btn-square btn-ghost">
-				<MenuIcon fill="white" />
+				<MenuIcon />
 			</label>
 		</button>
 	{:else}

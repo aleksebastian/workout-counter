@@ -10,11 +10,24 @@
 	let restMinutes = $state(0);
 	let restSeconds = $state(0);
 
+	let theme = $state<'light' | 'dark' | 'system'>('system');
+
+	$effect(() => {
+		if (theme === 'light') {
+			document.documentElement.setAttribute('data-theme', 'emerald');
+		} else if (theme === 'dark') {
+			document.documentElement.setAttribute('data-theme', 'dracula');
+		} else {
+			document.documentElement.removeAttribute('data-theme');
+		}
+	});
+
 	let hasPreferences = $state(false);
 	$effect(() => {
 		hasPreferences = !!$userData?.preferences;
 		restMinutes = $userData?.preferences?.timer.minutes ?? 1;
 		restSeconds = $userData?.preferences?.timer.seconds ?? 30;
+		theme = $userData?.preferences?.theme ?? 'system';
 	});
 
 	let disableSaveBtn = $state(false);
@@ -62,7 +75,21 @@
 			</div>
 		{/if}
 		<div class="flex flex-col items-center gap-4">
-			<label class="input input-bordered flex h-16 items-center justify-between gap-6">
+			<div
+				class="border-base-content/20 flex h-16 items-center justify-between gap-6 rounded-lg border px-4"
+			>
+				<dd>Theme</dd>
+				<dt>
+					<select name="theme" class="select" bind:value={theme}>
+						<option value="system">System default</option>
+						<option value="light">Light</option>
+						<option value="dark">Dark</option>
+					</select>
+				</dt>
+			</div>
+			<div
+				class="border-base-content/20 flex h-16 items-center justify-between gap-6 rounded-lg border px-4"
+			>
 				<dd>Rest Timer</dd>
 				<dt class="flex gap-4">
 					<div class="flex items-center gap-2">
@@ -93,7 +120,7 @@
 						<small>Second(s)</small>
 					</div>
 				</dt>
-			</label>
+			</div>
 
 			<button class="btn w-48" type="submit" disabled={disableSaveBtn}
 				>{hasPreferences ? 'Save' : 'Save and continue'}</button
