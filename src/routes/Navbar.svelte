@@ -1,6 +1,6 @@
 <script lang="ts">
 	import '../app.css';
-	import MenuIcon from '$lib/icons/menu.svg?raw';
+	import MenuIcon from '$lib/icons/menu.svg?component';
 	import { user } from '$lib/firebase';
 	import Avatar from './Avatar.svelte';
 
@@ -19,7 +19,7 @@
 	{#if hasUser}
 		<button onclick={toggleDrawer}>
 			<label for="my-drawer-3" aria-label="open sidebar" class="btn btn-square btn-ghost">
-				{@html MenuIcon}
+				<MenuIcon fill="white" />
 			</label>
 		</button>
 	{:else}

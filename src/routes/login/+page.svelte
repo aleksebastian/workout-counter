@@ -1,5 +1,10 @@
 <script lang="ts">
-	import { handleSignIn } from '$lib/logic/auth';
+	import { onMount } from 'svelte';
+	import { handleSignIn, handleRedirectResult } from '$lib/logic/auth';
+
+	onMount(() => {
+		handleRedirectResult();
+	});
 </script>
 
 <div class="prose mx-auto flex flex-col">
