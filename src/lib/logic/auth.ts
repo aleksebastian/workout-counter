@@ -2,15 +2,10 @@ import { goto } from '$app/navigation';
 import { auth } from '$lib/firebase';
 import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 
-export async function signInWithGoogle() {
+export async function handleSignIn() {
 	const provider = new GoogleAuthProvider();
 	const credential = await signInWithPopup(auth, provider);
-
-	return await credential.user.getIdToken();
-}
-
-export async function handleSignIn() {
-	const idToken = await signInWithGoogle();
+	const idToken = await credential.user.getIdToken();
 
 	await fetch('/api/signin', {
 		method: 'POST',

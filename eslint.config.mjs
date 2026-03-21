@@ -1,68 +1,122 @@
-import typescriptEslint from "@typescript-eslint/eslint-plugin";
-import globals from "globals";
-import tsParser from "@typescript-eslint/parser";
-import parser from "svelte-eslint-parser";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import js from "@eslint/js";
-import { FlatCompat } from "@eslint/eslintrc";
+import typescriptEslint from '@typescript-eslint/eslint-plugin';
+import globals from 'globals';
+import tsParser from '@typescript-eslint/parser';
+import svelteParser from 'svelte-eslint-parser';
+import js from '@eslint/js';
+import sveltePlugin from 'eslint-plugin-svelte';
+import prettier from 'eslint-config-prettier';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const compat = new FlatCompat({
-    baseDirectory: __dirname,
-    recommendedConfig: js.configs.recommended,
-    allConfig: js.configs.all
-});
-
-export default [{
-    ignores: [
-        "**/.DS_Store",
-        "**/node_modules",
-        "build",
-        ".svelte-kit",
-        "package",
-        "**/.env",
-        "**/.env.*",
-        "!**/.env.example",
-        "**/pnpm-lock.yaml",
-        "**/package-lock.json",
-        "**/yarn.lock",
-    ],
-}, ...compat.extends(
-    "eslint:recommended",
-    "plugin:@typescript-eslint/recommended",
-    "plugin:svelte/recommended",
-    "prettier",
-), {
-    plugins: {
-        "@typescript-eslint": typescriptEslint,
-    },
-
-    languageOptions: {
-        globals: {
-            ...globals.browser,
-            ...globals.node,
-        },
-
-        parser: tsParser,
-        ecmaVersion: 2020,
-        sourceType: "module",
-
-        parserOptions: {
-            extraFileExtensions: [".svelte"],
-        },
-    },
-}, {
-    files: ["**/*.svelte"],
-
-    languageOptions: {
-        parser: parser,
-        ecmaVersion: 5,
-        sourceType: "script",
-
-        parserOptions: {
-            parser: "@typescript-eslint/parser",
-        },
-    },
-}];
+export default [
+	js.configs.recommended,
+	{
+		ignores: [
+			'**/.DS_Store',
+			'**/node_modules',
+			'build',
+			'.svelte-kit',
+			'.vercel',
+			'package',
+			'**/.env',
+			'**/.env.*',
+			'!**/.env.example',
+			'**/pnpm-lock.yaml',
+			'**/package-lock.json',
+			'**/yarn.lock'
+		]
+	},
+	{
+		files: ['**/*.js', '**/*.cjs', '**/*.mjs'],
+		languageOptions: {
+			globals: {
+				...globals.browser,
+				...globals.node
+			},
+			ecmaVersion: 2020,
+			sourceType: 'module'
+		}
+	},
+	{
+		files: ['**/*.ts', '**/*.tsx', '**/*.mts', '**/*.cts'],
+		plugins: {
+			'@typescript-eslint': typescriptEslint
+		},
+		languageOptions: {
+			globals: {
+				...globals.browser,
+				...globals.node,
+				...globals.serviceworker,
+				NodeJS: 'readonly'
+			},
+			parser: tsParser,
+			ecmaVersion: 2020,
+			sourceType: 'module'
+		},
+		rules: {
+			...typescriptEslint.configs.recommended.rules,
+			'svelte/no-navigation-without-resolve': 'off',
+			'@typescript-eslint/no-unused-vars': [
+				'error',
+				{
+					argsIgnorePattern: '^_',
+					varsIgnorePattern: '^_'
+				}
+			]
+		}
+	},
+	...sveltePlugin.configs['flat/recommended'],
+	{
+		files: ['**/*.svelte.ts', '**/*.svelte.js'],
+		plugins: {
+			'@typescript-eslint': typescriptEslint
+		},
+		languageOptions: {
+			globals: {
+				...globals.browser,
+				...globals.node,
+				// Svelte 5 runes
+				$state: 'readonly',
+				$derived: 'readonly',
+				$effect: 'readonly',
+				$props: 'readonly',
+				$bindable: 'readonly',
+				$inspect: 'readonly'
+			},
+			parser: tsParser,
+			ecmaVersion: 2020,
+			sourceType: 'module'
+		},
+		rules: {
+			...typescriptEslint.configs.recommended.rules
+		}
+	},
+	{
+		files: ['**/*.svelte'],
+		languageOptions: {
+			globals: {
+				...globals.browser,
+				...globals.node,
+				NodeJS: 'readonly'
+			},
+			parser: svelteParser,
+			parserOptions: {
+				parser: tsParser
+			}
+		},
+		rules: {
+			'svelte/no-at-html-tags': 'off',
+			'svelte/no-navigation-without-resolve': 'off',
+			'@typescript-eslint/no-unused-expressions': 'off',
+			'no-undef': 'off',
+			'no-unused-vars': 'off',
+			'svelte/require-each-key': 'warn' // Downgrade to warning instead of error
+		}
+	},
+	{
+		// Disable svelte navigation rule for all TS files (not .svelte)
+		files: ['**/*.ts', '**/*.tsx', '**/*.mts', '**/*.cts', '**/*.js', '**/*.cjs', '**/*.mjs'],
+		rules: {
+			'svelte/no-navigation-without-resolve': 'off'
+		}
+	},
+	prettier
+];

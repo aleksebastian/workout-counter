@@ -21,14 +21,18 @@
 
 	async function handleRecordSetClick() {
 		if (!$userData) return;
-		workout!.sets = [
-			...workout!.sets,
-			{
-				id: uuidv4(),
-				reps,
-				date: new Date().toISOString()
-			}
-		];
+
+		const newSet = {
+			id: uuidv4(),
+			reps,
+			date: new Date().toISOString()
+		};
+
+		// Save original state for rollback
+		const originalSets = workout!.sets;
+
+		// Optimistic update
+		workout!.sets = [...workout!.sets, newSet];
 
 		const workouts = $userData.workouts;
 		const index = $userData.workouts.findIndex((currWorkout) => currWorkout.id === workout!.id);
@@ -36,11 +40,18 @@
 
 		const userRef = doc(db, 'users', $user!.uid);
 
-		await updateDoc(userRef, {
-			workouts
-		});
+		try {
+			await updateDoc(userRef, {
+				workouts
+			});
 
-		document.dispatchEvent(new CustomEvent('startTimer'));
+			document.dispatchEvent(new CustomEvent('startTimer'));
+		} catch (error) {
+			// Rollback on error
+			workout!.sets = originalSets;
+			console.error('Failed to record set:', error);
+			// Could show a toast notification here
+		}
 	}
 </script>
 

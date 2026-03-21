@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { getUserInitials } from '$lib/utils';
-	import { signOut, type User } from 'firebase/auth';
+	import type { User } from 'firebase/auth';
 
 	interface Props {
 		hasUser: Boolean;
@@ -18,7 +18,7 @@
 	<div class="dropdown dropdown-end">
 		<button
 			tabindex="0"
-			class="btn w-12 rounded-full bg-neutral text-neutral-content"
+			class="btn btn-circle bg-neutral text-neutral-content"
 			onclick={avatarClick}
 		>
 			<div class="avatar placeholder">
@@ -28,21 +28,24 @@
 			</div>
 		</button>
 		<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-		<ul tabindex="0" class="menu dropdown-content z-1 w-52 rounded-box bg-base-100 p-2 shadow">
+		<ul
+			tabindex="0"
+			class="menu dropdown-content rounded-box bg-neutral text-neutral-content border-base-300 z-50 w-52 !gap-0 overflow-hidden border !p-0 shadow-xl"
+		>
 			<li>
-				<a class="py-4" href="/preferences">
+				<a class="rounded-none py-4" href="/preferences">
 					<div>⚙️</div>
 					Preferences
 				</a>
 			</li>
 			<li>
-				<a class="py-4" href="/upcoming">
+				<a class="rounded-none py-4" href="/upcoming">
 					<div>🚀</div>
 					Upcoming features
 				</a>
 			</li>
 			<li>
-				<button class="py-4" onclick={signOutClick}>
+				<button class="rounded-none py-4" onclick={signOutClick}>
 					<div>🚪</div>
 					Log out
 				</button>
@@ -52,5 +55,5 @@
 {:else if $page.url.pathname === '/login'}
 	<button class="btn" onclick={signInClick}>Log In</button>
 {:else}
-	<div tabindex="-1" class="btn invisible w-12 rounded-full bg-neutral text-neutral-content"></div>
+	<div tabindex="-1" class="btn btn-circle bg-neutral text-neutral-content invisible"></div>
 {/if}

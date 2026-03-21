@@ -81,11 +81,11 @@
 				{/if}
 
 				{#if !isValid && isTouched}
-					<p class="text-sm text-error">must be 3-16 characters long, alphanumeric only</p>
+					<p class="text-error text-sm">must be 3-16 characters long, alphanumeric only</p>
 				{/if}
 
 				{#if isValid && !isAvailable && !loading}
-					<p class="text-sm text-warning">
+					<p class="text-warning text-sm">
 						@{username} is not available
 					</p>
 				{/if}

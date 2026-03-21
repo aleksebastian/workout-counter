@@ -16,7 +16,7 @@
 {#if type === 'rest'}
 	{#if restTimer.value}
 		<div
-			class="alert alert-info flex min-w-36 justify-center gap-2 bg-neutral text-neutral-content"
+			class="alert alert-info bg-neutral text-neutral-content flex min-w-36 justify-center gap-2"
 		>
 			<span>{restTimer.value}</span>
 			<small> Next set</small>

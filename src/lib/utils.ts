@@ -11,6 +11,7 @@ export function getUserInitials(user: User) {
 
 		return initials;
 	}
+	return '';
 }
 
 export function getWorkoutNameValidationMsg(name: string, workouts: Workout[] | undefined) {

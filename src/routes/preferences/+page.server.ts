@@ -10,6 +10,7 @@ export const actions = {
 			const data = await request.formData();
 			const restMinutes = data.get('restMinutes');
 			const restSeconds = data.get('restSeconds');
+			const theme = data.get('theme') as 'light' | 'dark' | 'system' | null;
 
 			const userRef = adminDB.collection('users').doc(uid!);
 			const userDoc = await userRef.get();
@@ -18,16 +19,17 @@ export const actions = {
 				throw error(404, 'User document not found');
 			}
 
-			const timer = {
+			const preferences = {
 				timer: {
 					minutes: Number(restMinutes),
 					seconds: Number(restSeconds)
-				}
+				},
+				...(theme && ['light', 'dark', 'system'].includes(theme) ? { theme } : {})
 			};
 
-			await userRef.update({ preferences: timer });
+			await userRef.update({ preferences });
 
-			return { success: true, ...timer };
+			return { success: true, ...preferences };
 		} catch (err) {
 			console.error('Error updating document:', err);
 			throw error(500, 'Failed to update user timer');

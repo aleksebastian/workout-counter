@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { goto, onNavigate } from '$app/navigation';
+	import { onNavigate } from '$app/navigation';
 	import Navbar from './Navbar.svelte';
 	import Drawer from './Drawer.svelte';
 	import { handleSignIn, handleSignOut } from '$lib/logic/auth';
@@ -11,8 +11,8 @@
 
 	let { data, children } = $props();
 
-	let defaultRestTime: { minutes: number; seconds: number };
-	let restTime: { minutes: number; seconds: number };
+	let defaultRestTime: { minutes: number; seconds: number } = { minutes: 1, seconds: 30 };
+	let restTime: { minutes: number; seconds: number } = { ...defaultRestTime };
 	let hasUser = $derived(
 		(data.userData ? Object.hasOwn(data.userData, 'username') : false) &&
 			($userData ? Object.hasOwn($userData, 'username') : false)
@@ -20,8 +20,10 @@
 
 	const localStorageKey = 'workout-counter-rest-timer';
 
+	let userStoreUnsubscribe: (() => void) | undefined;
+
 	onMount(() => {
-		const userStoreUnsubscribe = user.subscribe((value) => {
+		userStoreUnsubscribe = user.subscribe((value) => {
 			if (value === null) {
 				handleSignOut();
 			}
@@ -30,11 +32,18 @@
 		document.addEventListener('startTimer', startTimer);
 
 		return () => {
-			if (restTimerHandle) clearInterval(restTimerHandle);
+			cleanupTimer();
 			document.removeEventListener('startTimer', startTimer);
-			userStoreUnsubscribe();
+			userStoreUnsubscribe?.();
 		};
 	});
+
+	function cleanupTimer() {
+		if (restTimerHandle !== undefined) {
+			clearInterval(restTimerHandle);
+			restTimerHandle = undefined;
+		}
+	}
 
 	onNavigate((navigation) => {
 		if (!document.startViewTransition) return;
@@ -53,6 +62,15 @@
 			if ($userData!.preferences?.timer) {
 				defaultRestTime = $userData!.preferences.timer;
 				restTime = structuredClone(defaultRestTime);
+			}
+
+			const theme = $userData!.preferences?.theme ?? 'system';
+			if (theme === 'light') {
+				document.documentElement.setAttribute('data-theme', 'emerald');
+			} else if (theme === 'dark') {
+				document.documentElement.setAttribute('data-theme', 'dracula');
+			} else {
+				document.documentElement.removeAttribute('data-theme');
 			}
 
 			if (hasInitialized) return;
@@ -112,14 +130,15 @@
 	}
 
 	function stopTimer() {
-		clearInterval(restTimerHandle);
+		cleanupTimer();
 		resetRestTime();
 	}
 
 	function resetRestTime() {
 		restTimer.value = undefined;
-		restTimerHandle = undefined;
-		restTime = structuredClone(defaultRestTime);
+		if (defaultRestTime) {
+			restTime = structuredClone(defaultRestTime);
+		}
 	}
 
 	let restTimerHandle: NodeJS.Timeout | undefined = undefined;
