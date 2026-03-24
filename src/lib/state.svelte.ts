@@ -4,6 +4,7 @@ export type Set = {
 	id: string;
 	date: string;
 	reps: number;
+	weight?: number;
 };
 
 export type Workout = {
@@ -12,9 +13,15 @@ export type Workout = {
 	sets: Set[];
 };
 
+export type Routine = {
+	id: string;
+	name: string;
+	workoutIds: string[];
+};
+
 export type Toast = {
 	id?: string;
-	type: 'info' | 'success' | 'rest';
+	type: 'info' | 'success';
 	message: string;
 	dismissible?: boolean;
 	timeout?: number;
@@ -34,10 +41,6 @@ export const toaster = {
 		return toasts;
 	},
 	addToast(toast: Toast) {
-		if (toast.id === 'rest' && toasts.filter((toast) => toast.id === 'rest').length) {
-			return;
-		}
-
 		const id = toast?.id ? toast.id : uuidv4();
 
 		const defaults = {

@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { userData } from '$lib/firebase';
 	import { toaster } from '$lib/state.svelte';
+	import BackButton from '$lib/components/Buttons/BackButton.svelte';
 
 	let minRestValue = 0;
 	let maxRestValue = 59;
@@ -22,109 +23,218 @@
 		}
 	});
 
+	let weightUnit = $state<'lbs' | 'kg'>('lbs');
+	let weekStart = $state<0 | 1>(0);
+
 	let hasPreferences = $state(false);
 	$effect(() => {
 		hasPreferences = !!$userData?.preferences;
 		restMinutes = $userData?.preferences?.timer.minutes ?? 1;
 		restSeconds = $userData?.preferences?.timer.seconds ?? 30;
 		theme = $userData?.preferences?.theme ?? 'system';
+		weightUnit = $userData?.preferences?.weightUnit ?? 'lbs';
+		weekStart = $userData?.preferences?.weekStart ?? 0;
 	});
+
+	let timerPreview = $derived(`${restMinutes}:${restSeconds < 10 ? '0' : ''}${restSeconds}`);
+
+	const TIMER_PRESETS = [
+		{ label: '0:30', m: 0, s: 30 },
+		{ label: '1:00', m: 1, s: 0 },
+		{ label: '1:30', m: 1, s: 30 },
+		{ label: '2:00', m: 2, s: 0 },
+		{ label: '3:00', m: 3, s: 0 }
+	];
 
 	let disableSaveBtn = $state(false);
 	function toggleToast() {
 		disableSaveBtn = true;
-
 		const timeout = 2000;
-		toaster.addToast({
-			type: 'success',
-			message: 'Preferences saved',
-			timeout
-		});
-
+		toaster.addToast({ type: 'success', message: 'Preferences saved', timeout });
 		setTimeout(() => {
 			disableSaveBtn = false;
 		}, timeout);
 	}
 </script>
 
-<div class="pb-4 text-center text-lg font-semibold">Preferences</div>
-{#if $userData}
-	<form
-		class="flex flex-col items-center gap-6"
-		method="POST"
-		use:enhance={() => {
-			const currentHasPreferences = !!$userData?.preferences;
-			return async ({ result }) => {
-				if (currentHasPreferences && result.type === 'success') {
-					toggleToast();
-				}
-				await applyAction(result);
-				if (!currentHasPreferences) {
-					goto('/');
-				}
-			};
-		}}
-	>
-		{#if !hasPreferences}
-			<div class="flex max-w-96 flex-col items-center gap-2">
-				<h3>Let's get started by setting up your preferences</h3>
-				<div class="flex flex-col items-center">
-					<small> You can come back here any time by</small>
-					<small>clicking the avatar in the top right corner</small>
-				</div>
-			</div>
+<div class="mx-auto flex w-full max-w-lg flex-col gap-6">
+	<!-- Header -->
+	<div class="flex items-center justify-between">
+		{#if hasPreferences}
+			<BackButton href="/" />
+		{:else}
+			<div class="w-10"></div>
 		{/if}
-		<div class="flex flex-col items-center gap-4">
-			<div
-				class="border-base-content/20 flex h-16 items-center justify-between gap-6 rounded-lg border px-4"
-			>
-				<dd>Theme</dd>
-				<dt>
-					<select name="theme" class="select" bind:value={theme}>
-						<option value="system">System default</option>
-						<option value="light">Light</option>
-						<option value="dark">Dark</option>
-					</select>
-				</dt>
-			</div>
-			<div
-				class="border-base-content/20 flex h-16 items-center justify-between gap-6 rounded-lg border px-4"
-			>
-				<dd>Rest Timer</dd>
-				<dt class="flex gap-4">
-					<div class="flex items-center gap-2">
-						<input
-							name="restMinutes"
-							type="number"
-							class="input w-16 max-w-xs"
-							bind:value={restMinutes}
-							max={maxRestValue}
-							min={minRestValue}
-							maxlength="2"
-							required
-						/>
-						<small>Minute(s)</small>
-					</div>
-					<div class="flex items-center gap-2">
-						<input
-							name="restSeconds"
-							type="number"
-							class="input w-16 max-w-xs"
-							bind:value={restSeconds}
-							max={maxRestValue}
-							min={restMinutes === 0 ? 1 : 0}
-							minlength="1"
-							maxlength="2"
-							required
-						/>
-						<small>Second(s)</small>
-					</div>
-				</dt>
-			</div>
+		<h1 class="text-xl font-bold">Preferences</h1>
+		<div class="w-10"></div>
+	</div>
 
-			<button class="btn w-48" type="submit" disabled={disableSaveBtn}
-				>{hasPreferences ? 'Save' : 'Save and continue'}</button
-			>
+	{#if !hasPreferences}
+		<div class="bg-primary/10 rounded-2xl px-4 py-4">
+			<p class="font-semibold">Let's get you set up</p>
+			<p class="text-base-content/60 mt-0.5 text-sm">
+				These can be changed any time from settings.
+			</p>
 		</div>
-	</form>
-{/if}
+	{/if}
+
+	{#if $userData}
+		<form
+			class="flex flex-col gap-6"
+			method="POST"
+			use:enhance={() => {
+				const currentHasPreferences = !!$userData?.preferences;
+				return async ({ result }) => {
+					if (currentHasPreferences && result.type === 'success') toggleToast();
+					await applyAction(result);
+					if (!currentHasPreferences) goto('/');
+				};
+			}}
+		>
+			<!-- Hidden inputs carry state to server action -->
+			<input type="hidden" name="theme" value={theme} />
+			<input type="hidden" name="weightUnit" value={weightUnit} />
+			<input type="hidden" name="weekStart" value={weekStart} />
+			<input type="hidden" name="restMinutes" value={restMinutes} />
+			<input type="hidden" name="restSeconds" value={restSeconds} />
+
+			<!-- Appearance -->
+			<section class="flex flex-col gap-3">
+				<p class="text-base-content/40 text-xs font-semibold tracking-widest uppercase">
+					Appearance
+				</p>
+				<div class="bg-base-200 flex items-center justify-between gap-4 rounded-2xl px-4 py-4">
+					<div>
+						<p class="font-medium">Theme</p>
+						<p class="text-base-content/50 text-xs">App colour scheme</p>
+					</div>
+					<div class="join">
+						<button
+							type="button"
+							class="btn btn-sm join-item"
+							class:btn-active={theme === 'light'}
+							onclick={() => (theme = 'light')}>☀️ Light</button
+						>
+						<button
+							type="button"
+							class="btn btn-sm join-item"
+							class:btn-active={theme === 'system'}
+							onclick={() => (theme = 'system')}>💻 Auto</button
+						>
+						<button
+							type="button"
+							class="btn btn-sm join-item"
+							class:btn-active={theme === 'dark'}
+							onclick={() => (theme = 'dark')}>🌙 Dark</button
+						>
+					</div>
+				</div>
+			</section>
+
+			<!-- Training -->
+			<section class="flex flex-col gap-3">
+				<p class="text-base-content/40 text-xs font-semibold tracking-widest uppercase">Training</p>
+
+				<!-- Weight unit -->
+				<div class="bg-base-200 flex items-center justify-between gap-4 rounded-2xl px-4 py-4">
+					<div>
+						<p class="font-medium">Weight Unit</p>
+						<p class="text-base-content/50 text-xs">Used across all exercises</p>
+					</div>
+					<div class="join">
+						<button
+							type="button"
+							class="btn btn-sm join-item px-6"
+							class:btn-active={weightUnit === 'lbs'}
+							onclick={() => (weightUnit = 'lbs')}>lbs</button
+						>
+						<button
+							type="button"
+							class="btn btn-sm join-item px-6"
+							class:btn-active={weightUnit === 'kg'}
+							onclick={() => (weightUnit = 'kg')}>kg</button
+						>
+					</div>
+				</div>
+
+				<!-- Week starts on -->
+				<div class="bg-base-200 flex items-center justify-between gap-4 rounded-2xl px-4 py-4">
+					<div>
+						<p class="font-medium">Week starts on</p>
+						<p class="text-base-content/50 text-xs">Shown on your home dashboard</p>
+					</div>
+					<div class="join">
+						<button
+							type="button"
+							class="btn btn-sm join-item px-5"
+							class:btn-active={weekStart === 0}
+							onclick={() => (weekStart = 0)}>Sun</button
+						>
+						<button
+							type="button"
+							class="btn btn-sm join-item px-5"
+							class:btn-active={weekStart === 1}
+							onclick={() => (weekStart = 1)}>Mon</button
+						>
+					</div>
+				</div>
+
+				<!-- Rest timer -->
+				<div class="bg-base-200 flex flex-col gap-4 rounded-2xl px-4 py-4">
+					<div class="flex items-center justify-between">
+						<div>
+							<p class="font-medium">Rest Timer</p>
+							<p class="text-base-content/50 text-xs">Starts after each set is recorded</p>
+						</div>
+						<span class="text-primary text-2xl font-black tabular-nums">{timerPreview}</span>
+					</div>
+					<!-- Quick presets -->
+					<div class="flex flex-wrap gap-2">
+						{#each TIMER_PRESETS as preset}
+							<button
+								type="button"
+								class="btn btn-sm flex-none transition-colors"
+								class:btn-primary={restMinutes === preset.m && restSeconds === preset.s}
+								class:btn-ghost={restMinutes !== preset.m || restSeconds !== preset.s}
+								onclick={() => {
+									restMinutes = preset.m;
+									restSeconds = preset.s;
+								}}>{preset.label}</button
+							>
+						{/each}
+					</div>
+					<!-- Fine-tune -->
+					<div class="flex items-center gap-3">
+						<div class="flex flex-1 items-center gap-2">
+							<input
+								type="number"
+								class="input input-bordered w-full text-center"
+								bind:value={restMinutes}
+								max={maxRestValue}
+								min={minRestValue}
+								onfocus={(e) => (e.currentTarget as HTMLInputElement).select()}
+							/>
+							<span class="text-base-content/50 text-sm">min</span>
+						</div>
+						<span class="text-base-content/30 text-xl font-bold">:</span>
+						<div class="flex flex-1 items-center gap-2">
+							<input
+								type="number"
+								class="input input-bordered w-full text-center"
+								bind:value={restSeconds}
+								max={maxRestValue}
+								min={restMinutes === 0 ? 1 : 0}
+								onfocus={(e) => (e.currentTarget as HTMLInputElement).select()}
+							/>
+							<span class="text-base-content/50 text-sm">sec</span>
+						</div>
+					</div>
+				</div>
+			</section>
+
+			<button class="btn btn-primary btn-lg w-full" type="submit" disabled={disableSaveBtn}>
+				{hasPreferences ? 'Save preferences' : 'Save and continue'}
+			</button>
+		</form>
+	{/if}
+</div>

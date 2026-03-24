@@ -11,6 +11,7 @@
 	import { db, userData, user } from '$lib/firebase';
 	import { doc, updateDoc } from 'firebase/firestore';
 	import { format, formatRelative } from 'date-fns';
+	import { HAPTIC } from '$lib/haptic';
 
 	interface Props {
 		workout: Workout;
@@ -18,12 +19,56 @@
 
 	let { workout }: Props = $props();
 
+	let weightUnit = $derived($userData?.preferences?.weightUnit ?? 'lbs');
+
 	let deleteSetDialog: HTMLDialogElement = $state()!;
 	let editSetDialog: HTMLDialogElement = $state()!;
 	let inputEle: HTMLInputElement = $state()!;
 	let organizedSets: OrganizedSet[] = $derived(organizeSetsByDate(workout.sets));
 
 	let editSetId: string | undefined = undefined;
+
+	// ── Swipe-to-delete state ───────────────────────────────────────────────────
+	let swipeX: Record<string, number> = $state({});
+	let swipeTouchStartX: Record<string, number> = {};
+	const SWIPE_DELETE_THRESHOLD = 80;
+	const SWIPE_REVEAL_THRESHOLD = 40;
+
+	function onSwipeTouchStart(setId: string, e: TouchEvent) {
+		swipeTouchStartX[setId] = e.touches[0].clientX;
+	}
+
+	function onSwipeTouchMove(setId: string, e: TouchEvent) {
+		const dx = swipeTouchStartX[setId] - e.touches[0].clientX;
+		if (dx > 0) {
+			swipeX[setId] = Math.min(dx, SWIPE_DELETE_THRESHOLD + 20);
+			// Light haptic feedback when delete zone is revealed
+			if (Math.round(dx) === SWIPE_REVEAL_THRESHOLD) HAPTIC.tap();
+		}
+	}
+
+	function onSwipeTouchEnd(setId: string, set: Set) {
+		const dx = swipeX[setId] ?? 0;
+		if (dx >= SWIPE_DELETE_THRESHOLD) {
+			swipeX[setId] = 0;
+			handleDeleteSetDirect(set);
+		} else {
+			swipeX[setId] = 0;
+		}
+	}
+
+	async function handleDeleteSetDirect(set: Set) {
+		if (!$userData) return;
+		HAPTIC.heavy();
+		const workouts = $userData.workouts.map((currWorkout) => {
+			if (currWorkout.id === workout!.id) {
+				currWorkout.sets = currWorkout.sets.filter((s) => s.id !== set.id);
+			}
+			return currWorkout;
+		});
+		const userRef = doc(db, 'users', $user!.uid);
+		await updateDoc(userRef, { workouts });
+	}
 
 	function organizeSetsByDate(sets: Set[]) {
 		const setsByDate: OrganizedSet[] = [];
@@ -49,6 +94,7 @@
 	async function handleEditSetModalOpen(set: Set) {
 		editSetId = set.id;
 		reps = set.reps;
+		weight = set.weight ?? 0;
 
 		editSetDialog?.showModal();
 	}
@@ -62,6 +108,7 @@
 		if (!$userData) return;
 
 		if (deleteSetDialog?.returnValue === 'default') {
+			HAPTIC.heavy();
 			let workouts = $userData.workouts.map((currWorkout) => {
 				if (currWorkout.id === workout!.id) {
 					currWorkout.sets = currWorkout.sets.filter((set) => set.id !== editSetId);
@@ -78,13 +125,20 @@
 	}
 
 	let reps = $state(0);
+	let weight = $state(0);
 	async function handleEditSetResult() {
 		if (!$userData) return;
 
 		if (editSetDialog?.returnValue === 'default') {
 			const workouts = $userData.workouts;
 
-			workout!.sets.find((set) => set.id === editSetId)!.reps = reps;
+			const editedSet = workout!.sets.find((set) => set.id === editSetId)!;
+			editedSet.reps = reps;
+			if (weight > 0) {
+				editedSet.weight = weight;
+			} else {
+				delete editedSet.weight;
+			}
 			const index = $userData.workouts.findIndex((currWorkout) => currWorkout.id === workout!.id);
 
 			workouts[index] = workout!;
@@ -112,49 +166,100 @@
 
 {#if organizedSets}
 	{#each organizedSets as organizedSet}
-		<div class="overflow-x-auto">
-			<div class="flex justify-between">
-				<h3 class="text-right">
-					{getRelativeDate(organizedSet.date)}
-				</h3>
-				<p class=""><strong>{organizedSet.totalReps} reps</strong></p>
+		{@const hasWeight = organizedSet.sets.some((s) => s.weight)}
+		<div>
+			<div class="mb-2 flex justify-between">
+				<h3>{getRelativeDate(organizedSet.date)}</h3>
+				<p><strong>{organizedSet.totalReps} reps</strong></p>
 			</div>
-			<table class="table-zebra table">
-				<thead>
-					<tr>
-						<th>Reps</th>
-						<th>Time</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each organizedSet.sets.reverse() as set}
-						{@const time = new Date(set.date).toLocaleTimeString([], {
-							hour: 'numeric',
-							minute: '2-digit'
-						})}
-						<tr>
-							<td>{set.reps}</td>
-							<td>{time}</td>
-							<td class="pr-0 pl-0.5">
-								<button class="btn btn-ghost" onclick={() => handleEditSetModalOpen(set)}>
-									{@html EditIcon}
+
+			<!-- Column headers -->
+			<div
+				class={[
+					'text-base-content/40 mb-1 grid pr-10 pl-1 text-xs font-semibold tracking-wide uppercase',
+					hasWeight ? 'grid-cols-[1fr_1fr_1fr]' : 'grid-cols-[1fr_1fr]'
+				].join(' ')}
+			>
+				<span>Reps</span>
+				{#if hasWeight}<span>Weight</span>{/if}
+				<span>Time</span>
+			</div>
+
+			<!-- Set rows -->
+			{#each organizedSet.sets.reverse() as set}
+				{@const time = new Date(set.date).toLocaleTimeString([], {
+					hour: 'numeric',
+					minute: '2-digit'
+				})}
+				{@const offsetX = swipeX[set.id] ?? 0}
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<div
+					class="relative mb-1 rounded-lg"
+					ontouchstart={(e) => onSwipeTouchStart(set.id, e)}
+					ontouchmove={(e) => onSwipeTouchMove(set.id, e)}
+					ontouchend={() => onSwipeTouchEnd(set.id, set)}
+				>
+					<!-- Clipping layer: swipe bg + sliding content; does NOT contain dropdown -->
+					<div class="overflow-hidden rounded-lg">
+						<!-- Delete background -->
+						<div
+							class="bg-error absolute inset-0 flex items-center justify-end rounded-lg pr-4"
+							style="opacity: {Math.min(offsetX / SWIPE_REVEAL_THRESHOLD, 1)}; pointer-events: none;"
+							aria-hidden="true"
+						>
+							<span class="text-error-content text-sm font-semibold">Delete</span>
+						</div>
+						<!-- Row content — whole row translates together -->
+						<div
+							class={[
+								'grid items-center gap-2 py-3 pr-10 pl-1',
+								hasWeight ? 'grid-cols-[1fr_1fr_1fr]' : 'grid-cols-[1fr_1fr]'
+							].join(' ')}
+							style="transform: translateX(-{offsetX}px); transition: {offsetX === 0
+								? 'transform 0.2s ease'
+								: 'none'};"
+						>
+							<span class="text-sm">{set.reps}</span>
+							{#if hasWeight}
+								<span class="text-sm">{set.weight ? `${set.weight} ${weightUnit}` : '—'}</span>
+							{/if}
+							<span class="text-base-content/50 text-sm">{time}</span>
+						</div>
+					</div>
+					<!-- Dropdown: outside overflow-hidden, not clipped -->
+					<div class="dropdown dropdown-end absolute top-1/2 right-1 -translate-y-1/2">
+						<button tabindex="0" class="btn btn-ghost btn-xs btn-circle">•••</button>
+						<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+						<ul
+							tabindex="0"
+							class="menu dropdown-content bg-base-100 rounded-box z-50 w-28 p-1 shadow"
+						>
+							<li>
+								<button onclick={() => handleEditSetModalOpen(set)}>
+									{@html EditIcon} Edit
 								</button>
-							</td>
-							<td
-								><button class="btn btn-ghost" onclick={() => handleDeleteSetModalOpen(set)}
-									>{@html DeleteIcon}</button
-								></td
-							>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
+							</li>
+							<li>
+								<button onclick={() => handleDeleteSetModalOpen(set)}>
+									{@html DeleteIcon} Delete
+								</button>
+							</li>
+						</ul>
+					</div>
+				</div>
+			{/each}
 			<div class="divider"></div>
 		</div>
 	{/each}
 {/if}
 
-<EditSetDialog bind:dialog={editSetDialog} bind:reps bind:inputEle onclose={handleEditSetResult} />
+<EditSetDialog
+	bind:dialog={editSetDialog}
+	bind:reps
+	bind:weight
+	bind:inputEle
+	onclose={handleEditSetResult}
+/>
 
 <ConfirmationDialog
 	bind:dialog={deleteSetDialog}

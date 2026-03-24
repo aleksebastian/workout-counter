@@ -3,7 +3,7 @@ import { doc, getFirestore, onSnapshot } from 'firebase/firestore';
 import { getAuth, onAuthStateChanged, type User } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 import { writable, type Readable, derived } from 'svelte/store';
-import type { Workout } from './state.svelte';
+import type { Workout, Routine } from './state.svelte';
 
 const firebaseConfig = {
 	apiKey: 'AIzaSyB2Wxz_yyr7spT7MrwhxpGPK9XXbo8SDmU',
@@ -80,9 +80,12 @@ export interface UserData {
 	bio: string;
 	photoURL: string;
 	workouts: Workout[];
+	routines?: Routine[];
 	preferences?: {
 		timer: { minutes: number; seconds: number };
 		theme?: 'light' | 'dark' | 'system';
+		weightUnit?: 'lbs' | 'kg';
+		weekStart?: 0 | 1;
 	};
 }
 

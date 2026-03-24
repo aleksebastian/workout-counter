@@ -1,5 +1,5 @@
 import type { User } from 'firebase/auth';
-import type { Workout } from './state.svelte';
+import type { Workout, Routine } from './state.svelte';
 
 export function getUserInitials(user: User) {
 	if (user) {
@@ -25,4 +25,12 @@ export function getWorkoutNameValidationMsg(name: string, workouts: Workout[] | 
 	}
 
 	return result;
+}
+
+export function getRoutineNameValidationMsg(name: string, routines: Routine[] | undefined) {
+	if (!name.length) return 'Routine name missing';
+	if (routines?.some((r) => r.name.toLowerCase() === name.toLowerCase())) {
+		return 'Routine already exists';
+	}
+	return undefined;
 }

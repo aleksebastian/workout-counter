@@ -11,6 +11,8 @@ export const actions = {
 			const restMinutes = data.get('restMinutes');
 			const restSeconds = data.get('restSeconds');
 			const theme = data.get('theme') as 'light' | 'dark' | 'system' | null;
+			const weightUnit = data.get('weightUnit') as 'lbs' | 'kg' | null;
+			const weekStartRaw = data.get('weekStart');
 
 			const userRef = adminDB.collection('users').doc(uid!);
 			const userDoc = await userRef.get();
@@ -24,7 +26,9 @@ export const actions = {
 					minutes: Number(restMinutes),
 					seconds: Number(restSeconds)
 				},
-				...(theme && ['light', 'dark', 'system'].includes(theme) ? { theme } : {})
+				...(theme && ['light', 'dark', 'system'].includes(theme) ? { theme } : {}),
+				...(weightUnit && ['lbs', 'kg'].includes(weightUnit) ? { weightUnit } : {}),
+				...(weekStartRaw !== null ? { weekStart: Number(weekStartRaw) === 1 ? 1 : 0 } : {})
 			};
 
 			await userRef.update({ preferences });

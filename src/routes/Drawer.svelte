@@ -27,6 +27,15 @@
 
 	let newWorkoutName = $state('');
 	let editedWorkoutName = $state('');
+	let search = $state('');
+
+	let filteredWorkouts = $derived(
+		search.trim()
+			? ($userData?.workouts ?? []).filter((w) =>
+					w.name.toLowerCase().includes(search.toLowerCase())
+				)
+			: ($userData?.workouts ?? [])
+	);
 
 	$effect(() => {
 		!open && (isEditingWorkouts = false);
@@ -138,9 +147,19 @@
 					>
 				{/if}
 			</div>
+			{#if $userData?.workouts?.length}
+				<div class="mb-3">
+					<input
+						type="search"
+						placeholder="Search workouts…"
+						class="input input-bordered input-sm w-full"
+						bind:value={search}
+					/>
+				</div>
+			{/if}
 			<ul>
 				{#if $userData}
-					{#each $userData.workouts as workout}
+					{#each filteredWorkouts as workout}
 						<li class="mt-1 mb-1">
 							{#if isEditingWorkouts}
 								<button
@@ -160,7 +179,7 @@
 							{/if}
 						</li>
 					{:else}
-						<li class="mb-1 mt-1">Add a workout to begin</li>
+						<li class="mb-1 mt-1">{search.trim() ? 'No results' : 'Add a workout to begin'}</li>
 					{/each}
 				{/if}
 			</ul>
