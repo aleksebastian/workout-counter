@@ -12,7 +12,10 @@
 	let { hasUser, signIn, signOut }: Props = $props();
 </script>
 
-<div class="navbar bg-base-100 relative z-100 flex justify-between p-4">
+<div
+	class="navbar bg-base-100 relative z-100 flex justify-between p-4"
+	style="padding-top: calc(1rem + env(safe-area-inset-top))"
+>
 	{#if hasUser}
 		<a href="/preferences" aria-label="Settings" class="btn btn-square btn-ghost">
 			<svg

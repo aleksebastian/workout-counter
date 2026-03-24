@@ -233,7 +233,7 @@
 
 <div
 	class="mx-auto p-4"
-	style={hasUser ? 'padding-bottom: calc(5rem + env(safe-area-inset-bottom))' : ''}
+	style={hasUser ? 'padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px))' : ''}
 >
 	{@render children?.()}
 	<Toasts />

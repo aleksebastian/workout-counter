@@ -4,12 +4,12 @@
 	let path = $derived(page.url.pathname);
 	let isHome = $derived(path === '/');
 	let isExercises = $derived(path.startsWith('/exercises'));
-	let isRoutines = $derived(path.startsWith('/routines/') || path.startsWith('/workout'));
+	let isRoutines = $derived(path.startsWith('/routines') || path.startsWith('/workout'));
 </script>
 
 <nav
 	class="bg-base-100 border-base-300 bottom-nav fixed right-0 bottom-0 left-0 z-50 border-t"
-	style="padding-bottom: env(safe-area-inset-bottom)"
+	style="padding-bottom: 0; padding-bottom: env(safe-area-inset-bottom, 0)"
 >
 	<div class="flex h-16 items-center justify-around">
 		<!-- Home -->
