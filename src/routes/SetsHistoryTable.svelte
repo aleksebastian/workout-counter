@@ -27,6 +27,7 @@
 	let organizedSets: OrganizedSet[] = $derived(organizeSetsByDate(workout.sets));
 
 	let editSetId: string | undefined = undefined;
+	let pendingDeleteSet: Set | undefined = $state(undefined);
 
 	// ── Swipe-to-delete state ───────────────────────────────────────────────────
 	let swipeX: Record<string, number> = $state({});
@@ -88,6 +89,7 @@
 
 	function handleDeleteSetModalOpen(set: Set) {
 		editSetId = set.id;
+		pendingDeleteSet = set;
 		deleteSetDialog?.showModal();
 	}
 
@@ -223,12 +225,14 @@
 						</div>
 					</div>
 					<!-- Dropdown: outside overflow-hidden, not clipped -->
-					<div class="dropdown dropdown-end absolute top-1/2 right-1 -translate-y-1/2">
+					<div
+						class="dropdown dropdown-end absolute top-1/2 right-1 z-[201] -translate-y-1/2 focus-within:z-[202]"
+					>
 						<button tabindex="0" class="btn btn-ghost btn-xs btn-circle">•••</button>
 						<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 						<ul
 							tabindex="0"
-							class="menu dropdown-content bg-base-100 rounded-box z-50 w-28 p-1 shadow"
+							class="menu dropdown-content bg-base-200 rounded-box z-[100] w-28 p-1 shadow-lg"
 						>
 							<li>
 								<button onclick={() => handleEditSetModalOpen(set)}>
@@ -260,7 +264,19 @@
 <ConfirmationDialog
 	bind:dialog={deleteSetDialog}
 	onclose={handleDeleteSetResult}
-	actionLabel="Delete"
-	header="Delete Set"
-	content="Are you sure?"
-/>
+	actionLabel="Delete set"
+	header="Delete set?"
+	destructive
+>
+	{#if pendingDeleteSet}
+		<p class="text-base-content/55 mt-1 text-sm">
+			{pendingDeleteSet.reps} rep{pendingDeleteSet.reps !== 1 ? 's' : ''}{pendingDeleteSet.weight
+				? ` · ${pendingDeleteSet.weight} ${weightUnit}`
+				: ''} · {new Date(pendingDeleteSet.date).toLocaleTimeString([], {
+				hour: 'numeric',
+				minute: '2-digit'
+			})}
+		</p>
+		<p class="text-base-content/35 mt-0.5 text-xs">This can't be undone.</p>
+	{/if}
+</ConfirmationDialog>

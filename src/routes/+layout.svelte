@@ -235,9 +235,11 @@
 {/if}
 
 <div
-	class="mx-auto p-4"
+	class="mx-auto p-4 transition-[padding] duration-200"
 	class:invisible={isAuthLoading}
-	style={hasUser ? 'padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px))' : ''}
+	style={hasUser
+		? `padding-bottom: calc(${restTimer.value ? '10.5rem' : '5rem'} + env(safe-area-inset-bottom, 0px))`
+		: ''}
 >
 	{@render children?.()}
 	<Toasts />
