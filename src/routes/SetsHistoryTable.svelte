@@ -200,7 +200,7 @@
 						<div
 							class="bg-error absolute inset-0 flex items-center justify-end rounded-lg pr-4"
 							style="opacity: {Math.min(
-								offsetX / SWIPE_REVEAL_THRESHOLD,
+								offsetX / SWIPE_DELETE_THRESHOLD,
 								1
 							)}; pointer-events: none;"
 							aria-hidden="true"
