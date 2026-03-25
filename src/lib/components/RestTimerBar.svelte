@@ -13,7 +13,7 @@
 {#if restTimer.value}
 	<div
 		class="fixed right-0 left-0 z-60 px-3"
-		style="bottom: calc(4rem + env(safe-area-inset-bottom, 0px) + 0.375rem)"
+		style="bottom: calc(4rem + env(safe-area-inset-bottom, 0px) + 0.375rem); view-transition-name: rest-timer"
 		in:fly={{ y: 72, duration: 280 }}
 		out:fly={{ y: 72, duration: 200 }}
 	>
