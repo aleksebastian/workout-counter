@@ -194,37 +194,30 @@
 					ontouchmove={(e) => onSwipeTouchMove(set.id, e)}
 					ontouchend={() => onSwipeTouchEnd(set.id, set)}
 				>
-					<!-- Clipping layer: swipe bg + sliding content; does NOT contain dropdown -->
-					<div class="overflow-hidden rounded-lg">
-						<!-- Delete background -->
-						<div
-							class="bg-error absolute inset-0 flex items-center justify-end rounded-lg pr-4"
-							style="opacity: {Math.min(
-								offsetX / SWIPE_DELETE_THRESHOLD,
-								1
-							)}; pointer-events: none;"
-							aria-hidden="true"
-						>
-							<span class="text-error-content text-sm font-semibold">Delete</span>
-						</div>
-						<!-- Row content — whole row translates together -->
-						<div
-							class={[
-								'grid items-center gap-2 py-3 pr-10 pl-1',
-								hasWeight ? 'grid-cols-[1fr_1fr_1fr]' : 'grid-cols-[1fr_1fr]'
-							].join(' ')}
-							style="transform: translateX(-{offsetX}px); transition: {offsetX === 0
-								? 'transform 0.2s ease'
-								: 'none'};"
-						>
-							<span class="text-sm">{set.reps}</span>
-							{#if hasWeight}
-								<span class="text-sm">{set.weight ? `${set.weight} ${weightUnit}` : '—'}</span>
-							{/if}
-							<span class="text-base-content/50 text-sm">{time}</span>
-						</div>
+					<!-- Row content — stationary -->
+					<div
+						class={[
+							'grid items-center gap-2 py-3 pr-10 pl-1',
+							hasWeight ? 'grid-cols-[1fr_1fr_1fr]' : 'grid-cols-[1fr_1fr]'
+						].join(' ')}
+					>
+						<span class="text-sm">{set.reps}</span>
+						{#if hasWeight}
+							<span class="text-sm">{set.weight ? `${set.weight} ${weightUnit}` : '—'}</span>
+						{/if}
+						<span class="text-base-content/50 text-sm">{time}</span>
 					</div>
-					<!-- Dropdown: outside overflow-hidden, not clipped -->
+
+					<!-- Delete overlay: slides in from the right, sits above everything including the dropdown -->
+					<div
+						class="bg-error absolute inset-y-0 right-0 z-[203] flex items-center justify-center overflow-hidden rounded-lg"
+						style="width: {offsetX}px; transition: {offsetX === 0 ? 'width 0.2s ease' : 'none'};"
+						aria-hidden="true"
+					>
+						<span class="text-error-content text-sm font-semibold whitespace-nowrap">Delete</span>
+					</div>
+
+					<!-- Dropdown: outside clipping, not covered by overlay at rest -->
 					<div
 						class="dropdown dropdown-end absolute top-1/2 right-1 z-[201] -translate-y-1/2 focus-within:z-[202]"
 					>
