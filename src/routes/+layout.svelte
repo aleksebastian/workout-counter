@@ -76,9 +76,10 @@
 	onNavigate((navigation) => {
 		if (!document.startViewTransition) return;
 		if (navigation.from?.url.pathname === navigation.to?.url.pathname) return;
+		// Skip view transitions for back/forward gestures — the browser provides its own native animation
+		if (navigation.type === 'popstate') return;
 
-		const isBack = navigation.type === 'popstate';
-		document.documentElement.dataset.navDirection = isBack ? 'back' : 'forward';
+		document.documentElement.dataset.navDirection = 'forward';
 
 		return new Promise((resolve) => {
 			document.startViewTransition(async () => {
