@@ -95,8 +95,6 @@
 			</div>
 		</div>
 	</div>
-{:else if $page.url.pathname === '/login'}
-	<button class="btn" onclick={signInClick}>Log In</button>
 {:else}
 	<div tabindex="-1" class="btn btn-circle bg-neutral text-neutral-content invisible"></div>
 {/if}
