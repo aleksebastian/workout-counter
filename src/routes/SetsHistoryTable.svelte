@@ -51,28 +51,9 @@
 		const dx = swipeX[setId] ?? 0;
 		if (dx >= SWIPE_DELETE_THRESHOLD) {
 			swipeX[setId] = 0;
-			handleDeleteSetDirect(set);
+			handleDeleteSetModalOpen(set);
 		} else {
 			swipeX[setId] = 0;
-		}
-	}
-
-	async function handleDeleteSetDirect(set: Set) {
-		if (!$userData) return;
-		HAPTIC.heavy();
-		const originalSets = [...workout.sets];
-		const workouts = $userData.workouts.map((currWorkout) => {
-			if (currWorkout.id === workout!.id) {
-				currWorkout.sets = currWorkout.sets.filter((s) => s.id !== set.id);
-			}
-			return currWorkout;
-		});
-		const userRef = doc(db, 'users', $user!.uid);
-		try {
-			await updateDoc(userRef, { workouts });
-		} catch (err) {
-			workout.sets = originalSets;
-			console.error('Failed to delete set:', err);
 		}
 	}
 
