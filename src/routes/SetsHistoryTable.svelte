@@ -202,13 +202,12 @@
 						<span class="text-error-content text-sm font-semibold">Delete</span>
 					</div>
 
-					<!-- Clip wrapper keeps slide animation clean -->
+					<!-- overflow-hidden clips the sliding row but NOT the dropdown -->
 					<div class="overflow-hidden rounded-lg">
-						<!-- Sliding row: bg-base-100 masks the delete panel at rest -->
 						<div
 							class={[
-								'bg-base-100 relative grid items-center gap-2 py-3 pr-2 pl-1',
-								hasWeight ? 'grid-cols-[1fr_1fr_1fr_auto]' : 'grid-cols-[1fr_1fr_auto]'
+								'bg-base-100 grid items-center gap-2 py-3 pr-10 pl-1',
+								hasWeight ? 'grid-cols-[1fr_1fr_1fr]' : 'grid-cols-[1fr_1fr]'
 							].join(' ')}
 							style="transform: translateX(-{offsetX}px); transition: {offsetX === 0
 								? 'transform 0.2s ease'
@@ -219,31 +218,34 @@
 								<span class="text-sm">{set.weight ? `${set.weight} ${weightUnit}` : '—'}</span>
 							{/if}
 							<span class="text-base-content/50 text-sm">{time}</span>
-
-							<!-- Dropdown inside the sliding layer so it travels with the content -->
-							<div
-								class="dropdown dropdown-end relative z-[201] focus-within:z-[202]"
-								style={offsetX > 0 ? 'pointer-events: none' : ''}
-							>
-								<button tabindex="0" class="btn btn-ghost btn-xs btn-circle">•••</button>
-								<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-								<ul
-									tabindex="0"
-									class="menu dropdown-content bg-base-200 rounded-box z-[202] w-28 p-1 shadow-lg"
-								>
-									<li>
-										<button onclick={() => handleEditSetModalOpen(set)}>
-											{@html EditIcon} Edit
-										</button>
-									</li>
-									<li>
-										<button onclick={() => handleDeleteSetModalOpen(set)}>
-											{@html DeleteIcon} Delete
-										</button>
-									</li>
-								</ul>
-							</div>
 						</div>
+					</div>
+
+					<!-- Dropdown sits OUTSIDE overflow-hidden so the menu isn't clipped.
+					     Same translateX keeps it visually in sync with the sliding row. -->
+					<div
+						class="dropdown dropdown-end absolute top-1/2 right-1 z-[201] -translate-y-1/2 focus-within:z-[202]"
+						style="transform: translateY(-50%) translateX(-{offsetX}px); transition: {offsetX === 0
+							? 'transform 0.2s ease'
+							: 'none'}; {offsetX > 0 ? 'pointer-events: none;' : ''}"
+					>
+						<button tabindex="0" class="btn btn-ghost btn-xs btn-circle">•••</button>
+						<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+						<ul
+							tabindex="0"
+							class="menu dropdown-content bg-base-200 rounded-box z-[100] w-28 p-1 shadow-lg"
+						>
+							<li>
+								<button onclick={() => handleEditSetModalOpen(set)}>
+									{@html EditIcon} Edit
+								</button>
+							</li>
+							<li>
+								<button onclick={() => handleDeleteSetModalOpen(set)}>
+									{@html DeleteIcon} Delete
+								</button>
+							</li>
+						</ul>
 					</div>
 				</div>
 			{/each}

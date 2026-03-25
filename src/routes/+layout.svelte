@@ -2,7 +2,7 @@
 	import { onNavigate } from '$app/navigation';
 	import Navbar from './Navbar.svelte';
 	import BottomNav from './BottomNav.svelte';
-	import { handleSignIn, handleSignOut } from '$lib/logic/auth';
+	import { handleSignOut } from '$lib/logic/auth';
 	import { onMount } from 'svelte';
 	import { add } from 'date-fns';
 	import { user, userData } from '$lib/firebase';
@@ -207,7 +207,7 @@
 	<meta name="description" content="The best way to keep track of your workouts" />
 </svelte:head>
 
-<Navbar {hasUser} signIn={handleSignIn} signOut={handleSignOut} />
+<Navbar {hasUser} signOut={handleSignOut} />
 
 {#if !isOnline}
 	<div

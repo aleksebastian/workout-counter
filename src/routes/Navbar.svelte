@@ -5,11 +5,10 @@
 
 	interface Props {
 		hasUser: boolean;
-		signIn: () => void;
 		signOut: () => void;
 	}
 
-	let { hasUser, signIn, signOut }: Props = $props();
+	let { hasUser, signOut }: Props = $props();
 </script>
 
 <div
@@ -46,7 +45,6 @@
 			{hasUser}
 			user={$user ?? null}
 			avatarClick={() => {}}
-			signInClick={signIn}
 			signOutClick={signOut}
 		/>
 	</div>

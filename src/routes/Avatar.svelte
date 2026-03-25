@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { page } from '$app/stores';
 	import { getUserInitials } from '$lib/utils';
 	import type { User } from 'firebase/auth';
 
@@ -7,11 +6,10 @@
 		hasUser: Boolean;
 		user: User | null;
 		avatarClick: () => void;
-		signInClick: () => void;
 		signOutClick: () => void;
 	}
 
-	let { hasUser, user, avatarClick, signInClick, signOutClick }: Props = $props();
+	let { hasUser, user, avatarClick, signOutClick }: Props = $props();
 </script>
 
 {#if hasUser}
