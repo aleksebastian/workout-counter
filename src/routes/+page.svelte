@@ -1,8 +1,14 @@
 <script lang="ts">
-	import { user, userData } from '$lib/firebase';
+	import { user, userData, type UserData } from '$lib/firebase';
 	import { formatDistanceToNow } from 'date-fns';
 	import { onMount } from 'svelte';
 	import PullToRefresh from '$lib/components/PullToRefresh.svelte';
+
+	let { data }: { data: { userData?: UserData } } = $props();
+
+	// Prefer the live Firebase store; fall back to the SSR snapshot so the page
+	// never blinks through a null state during client hydration.
+	let effectiveUserData = $derived($userData ?? data.userData ?? null);
 
 	// Tick every second for live "X seconds ago" display
 	let now = $state(Date.now());
@@ -13,7 +19,7 @@
 
 	// ── Data derivations ─────────────────────────────────────────────────────────
 
-	let allSets = $derived(($userData?.workouts ?? []).flatMap((w) => w.sets));
+	let allSets = $derived((effectiveUserData?.workouts ?? []).flatMap((w) => w.sets));
 
 	let lastSet = $derived(
 		allSets.length ? allSets.reduce((a, b) => (new Date(a.date) > new Date(b.date) ? a : b)) : null
@@ -21,12 +27,25 @@
 
 	let lastWorkout = $derived(
 		lastSet
-			? (($userData?.workouts ?? []).find((w) => w.sets.some((s) => s.id === lastSet!.id)) ?? null)
+			? ((effectiveUserData?.workouts ?? []).find((w) =>
+					w.sets.some((s) => s.id === lastSet!.id)
+				) ?? null)
 			: null
 	);
 
 	// Week start: 0=Sunday, 1=Monday (from preferences, default Sunday)
-	let weekStart = $derived(($userData?.preferences?.weekStart ?? 0) as 0 | 1);
+	let weekStart = $derived((effectiveUserData?.preferences?.weekStart ?? 0) as 0 | 1);
+	let weeklyGoal = $derived(effectiveUserData?.preferences?.weeklyGoal ?? 3);
+	let streaksEnabled = $derived(effectiveUserData?.preferences?.streaksEnabled !== false);
+
+	// Helper: returns the timestamp of the Monday/Sunday that starts the week containing `d`
+	function getWeekStartTs(d: Date, ws: 0 | 1): number {
+		const day = new Date(d);
+		day.setHours(0, 0, 0, 0);
+		const daysFromStart = (day.getDay() - ws + 7) % 7;
+		day.setDate(day.getDate() - daysFromStart);
+		return day.getTime();
+	}
 
 	// Build the current calendar week (7 slots from weekStart day)
 	let weekDays = $derived(
@@ -52,28 +71,40 @@
 		})()
 	);
 
-	// Consecutive-day streak (today not broken if not trained yet)
+	// Set of week-start timestamps for weeks where distinct training days >= weeklyGoal
+	let completedWeeks = $derived(
+		(() => {
+			if (!allSets.length) return new Set<number>();
+			const weekDayMap = new Map<number, Set<string>>();
+			for (const s of allSets) {
+				const wk = getWeekStartTs(new Date(s.date), weekStart);
+				const dayStr = new Date(s.date).toDateString();
+				if (!weekDayMap.has(wk)) weekDayMap.set(wk, new Set());
+				weekDayMap.get(wk)!.add(dayStr);
+			}
+			return new Set(
+				[...weekDayMap.entries()].filter(([, days]) => days.size >= weeklyGoal).map(([wk]) => wk)
+			);
+		})()
+	);
+
+	// Consecutive completed-week streak (current week not penalised if goal not yet met)
 	let streak = $derived(
 		(() => {
-			if (!allSets.length) return 0;
-			const days = new Set(
-				allSets.map((s) => {
-					const d = new Date(s.date);
-					d.setHours(0, 0, 0, 0);
-					return d.getTime();
-				})
-			);
-			const cur = new Date();
-			cur.setHours(0, 0, 0, 0);
-			if (!days.has(cur.getTime())) cur.setDate(cur.getDate() - 1);
+			if (!completedWeeks.size) return 0;
+			let cur = getWeekStartTs(new Date(), weekStart);
+			if (!completedWeeks.has(cur)) cur -= 7 * 24 * 60 * 60 * 1000;
 			let count = 0;
-			while (days.has(cur.getTime())) {
+			while (completedWeeks.has(cur)) {
 				count++;
-				cur.setDate(cur.getDate() - 1);
+				cur -= 7 * 24 * 60 * 60 * 1000;
 			}
 			return count;
 		})()
 	);
+
+	// All-time count of weeks where the goal was met
+	let totalCompletedWeeks = $derived(completedWeeks.size);
 
 	// This-week stats (current calendar week)
 	let weekSets = $derived(
@@ -128,7 +159,7 @@
 	// Most overdue exercise (only shown if been > 7 days and there are at least 3 tracked exercises)
 	let overdueExercise = $derived(
 		(() => {
-			const withSets = ($userData?.workouts ?? []).filter((w) => w.sets.length > 0);
+			const withSets = (effectiveUserData?.workouts ?? []).filter((w) => w.sets.length > 0);
 			if (withSets.length < 3) return null;
 			const sorted = [...withSets].sort((a, b) => {
 				const lastA = Math.max(...a.sets.map((s) => new Date(s.date).getTime()));
@@ -157,7 +188,7 @@
 </script>
 
 <PullToRefresh onRefresh={handleRefresh}>
-	{#if $userData === undefined}
+	{#if $user === undefined || effectiveUserData === null}
 		<!-- Skeleton -->
 		<div class="mx-auto flex max-w-lg flex-col gap-5">
 			<div class="flex flex-col gap-1.5">
@@ -213,92 +244,53 @@
 				</div>
 
 				<!-- Stats row -->
-				<div class="grid grid-cols-3 gap-2">
-					<div class="bg-base-200 rounded-box flex flex-col items-center gap-0.5 py-3">
-						<span class="text-2xl font-bold tabular-nums">{streak}</span>
-						<span class="text-base-content/50 text-center text-xs leading-tight">day streak</span>
-					</div>
-					<div class="bg-base-200 rounded-box flex flex-col items-center gap-0.5 py-3">
-						<span class="text-2xl font-bold tabular-nums">{weekDayCount}</span>
-						<span class="text-base-content/50 text-center text-xs leading-tight"
-							>days this<br />week</span
-						>
-					</div>
-					<div class="bg-base-200 rounded-box flex flex-col items-center gap-0.5 py-3">
-						<span class="text-2xl font-bold tabular-nums">{weekSets.length}</span>
-						<span class="text-base-content/50 text-center text-xs leading-tight"
-							>sets this<br />week</span
-						>
-					</div>
-				</div>
-
-				<!-- Last session -->
-				{#if lastWorkout}
-					<div>
-						<p class="text-base-content/40 mb-2 text-xs font-semibold tracking-wider uppercase">
-							Last session
-						</p>
-						<a
-							class="bg-base-200 hover:bg-base-300 rounded-box flex items-center gap-3 px-4 py-4 transition-all active:scale-[0.98]"
-							href={'/workout/' + lastWorkout.id}
-						>
-							<div class="flex-1 overflow-hidden">
-								<p class="truncate font-semibold">{lastWorkout.name}</p>
-								<p class="text-base-content/50 text-sm">
-									{lastSetLabel}{lastSetDetail ? ' · ' + lastSetDetail : ''}
-								</p>
-							</div>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="text-base-content/30 h-4 w-4 shrink-0"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-								stroke-width="2.5"
+				{#if streaksEnabled}
+					<div class="grid grid-cols-3 gap-2">
+						<div class="bg-base-200 rounded-box flex flex-col items-center gap-0.5 py-3">
+							<span class="text-2xl font-bold tabular-nums">{streak}</span>
+							<span class="text-base-content/50 text-center text-xs leading-tight">
+								week streak
+							</span>
+						</div>
+						<div class="bg-base-200 rounded-box flex flex-col items-center gap-0.5 py-3">
+							<span class="text-2xl font-bold tabular-nums">{totalCompletedWeeks}</span>
+							<span class="text-base-content/50 text-center text-xs leading-tight"
+								>total<br />weeks</span
 							>
-								<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-							</svg>
-						</a>
-					</div>
-				{/if}
-
-				<!-- Needs attention -->
-				{#if overdueExercise}
-					<div>
-						<p class="text-base-content/40 mb-2 text-xs font-semibold tracking-wider uppercase">
-							Needs attention
-						</p>
-						<a
-							class="rounded-box border-warning/30 bg-warning/10 flex items-center gap-3 border px-4 py-3 transition-all active:scale-[0.98]"
-							href={'/workout/' + overdueExercise.id}
-						>
-							<div class="flex-1">
-								<p class="text-sm font-semibold">{overdueExercise.name}</p>
-								<p class="text-warning text-xs">{overdueDayCount} days since last session</p>
-							</div>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="text-base-content/30 h-4 w-4 shrink-0"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-								stroke-width="2.5"
+						</div>
+						<div class="bg-base-200 rounded-box flex flex-col items-center gap-0.5 py-3">
+							<span class="text-2xl font-bold tabular-nums">{weekDayCount}</span>
+							<span class="text-base-content/50 text-center text-xs leading-tight"
+								>days this<br />week</span
 							>
-								<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-							</svg>
-						</a>
+						</div>
+					</div>
+				{:else}
+					<div class="grid grid-cols-2 gap-2">
+						<div class="bg-base-200 rounded-box flex flex-col items-center gap-0.5 py-3">
+							<span class="text-2xl font-bold tabular-nums">{weekDayCount}</span>
+							<span class="text-base-content/50 text-center text-xs leading-tight"
+								>days this<br />week</span
+							>
+						</div>
+						<div class="bg-base-200 rounded-box flex flex-col items-center gap-0.5 py-3">
+							<span class="text-2xl font-bold tabular-nums">{weekSets.length}</span>
+							<span class="text-base-content/50 text-center text-xs leading-tight"
+								>sets this<br />week</span
+							>
+						</div>
 					</div>
 				{/if}
 			{/if}
 
 			<!-- Quick-start routines -->
-			{#if $userData?.routines?.length}
+			{#if effectiveUserData?.routines?.length}
 				<div>
 					<p class="text-base-content/40 mb-2 text-xs font-semibold tracking-wider uppercase">
 						Quick start
 					</p>
 					<div class="flex flex-col gap-2">
-						{#each ($userData.routines ?? []).slice(0, 3) as routine}
+						{#each (effectiveUserData.routines ?? []).slice(0, 3) as routine}
 							<a
 								class="bg-base-200 hover:bg-base-300 rounded-box flex items-center gap-3 px-4 py-3 transition-all active:scale-[0.98]"
 								href={'/routines/' + routine.id}
@@ -323,8 +315,66 @@
 				</div>
 			{/if}
 
+			<!-- Last session -->
+			{#if lastWorkout}
+				<div>
+					<p class="text-base-content/40 mb-2 text-xs font-semibold tracking-wider uppercase">
+						Last session
+					</p>
+					<a
+						class="bg-base-200 hover:bg-base-300 rounded-box flex items-center gap-3 px-4 py-4 transition-all active:scale-[0.98]"
+						href={'/workout/' + lastWorkout.id}
+					>
+						<div class="flex-1 overflow-hidden">
+							<p class="truncate font-semibold">{lastWorkout.name}</p>
+							<p class="text-base-content/50 text-sm">
+								{lastSetLabel}{lastSetDetail ? ' · ' + lastSetDetail : ''}
+							</p>
+						</div>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="text-base-content/30 h-4 w-4 shrink-0"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+							stroke-width="2.5"
+						>
+							<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+						</svg>
+					</a>
+				</div>
+			{/if}
+
+			<!-- Needs attention -->
+			{#if overdueExercise}
+				<div>
+					<p class="text-base-content/40 mb-2 text-xs font-semibold tracking-wider uppercase">
+						Needs attention
+					</p>
+					<a
+						class="rounded-box border-warning/30 bg-warning/10 flex items-center gap-3 border px-4 py-3 transition-all active:scale-[0.98]"
+						href={'/workout/' + overdueExercise.id}
+					>
+						<div class="flex-1">
+							<p class="text-sm font-semibold">{overdueExercise.name}</p>
+							<p class="text-warning text-xs">{overdueDayCount} days since last session</p>
+						</div>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="text-base-content/30 h-4 w-4 shrink-0"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+							stroke-width="2.5"
+						>
+							<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+						</svg>
+					</a>
+				</div>
+			{/if}
+
 			<!-- Empty state: brand-new user -->
-			{#if !allSets.length && !$userData?.routines?.length && !$userData?.workouts?.length}
+			{#if !allSets.length && !effectiveUserData?.routines?.length && !effectiveUserData?.workouts?.length}
 				<div class="flex flex-col items-center gap-4 pt-4 text-center">
 					<p class="text-base-content/50 text-sm">Ready to start tracking?</p>
 					<div class="flex gap-2">

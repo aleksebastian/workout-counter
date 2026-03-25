@@ -86,6 +86,8 @@ export interface UserData {
 		theme?: 'light' | 'dark' | 'system';
 		weightUnit?: 'lbs' | 'kg';
 		weekStart?: 0 | 1;
+		weeklyGoal?: number;
+		streaksEnabled?: boolean;
 	};
 }
 

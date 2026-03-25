@@ -25,6 +25,8 @@
 
 	let weightUnit = $state<'lbs' | 'kg'>('lbs');
 	let weekStart = $state<0 | 1>(0);
+	let weeklyGoal = $state(3);
+	let streaksEnabled = $state(true);
 
 	let hasPreferences = $state(false);
 	$effect(() => {
@@ -34,7 +36,20 @@
 		theme = $userData?.preferences?.theme ?? 'system';
 		weightUnit = $userData?.preferences?.weightUnit ?? 'lbs';
 		weekStart = $userData?.preferences?.weekStart ?? 0;
+		weeklyGoal = $userData?.preferences?.weeklyGoal ?? 3;
+		streaksEnabled = $userData?.preferences?.streaksEnabled !== false;
 	});
+
+	let isDirty = $derived(
+		hasPreferences &&
+			(restMinutes !== ($userData?.preferences?.timer.minutes ?? 1) ||
+				restSeconds !== ($userData?.preferences?.timer.seconds ?? 30) ||
+				theme !== ($userData?.preferences?.theme ?? 'system') ||
+				weightUnit !== ($userData?.preferences?.weightUnit ?? 'lbs') ||
+				weekStart !== ($userData?.preferences?.weekStart ?? 0) ||
+				weeklyGoal !== ($userData?.preferences?.weeklyGoal ?? 3) ||
+				streaksEnabled !== ($userData?.preferences?.streaksEnabled !== false))
+	);
 
 	let timerPreview = $derived(`${restMinutes}:${restSeconds < 10 ? '0' : ''}${restSeconds}`);
 
@@ -46,14 +61,11 @@
 		{ label: '3:00', m: 3, s: 0 }
 	];
 
-	let disableSaveBtn = $state(false);
-	function toggleToast() {
-		disableSaveBtn = true;
-		const timeout = 2000;
-		toaster.addToast({ type: 'success', message: 'Preferences saved', timeout });
-		setTimeout(() => {
-			disableSaveBtn = false;
-		}, timeout);
+	let saveState = $state<'idle' | 'saving' | 'saved'>('idle');
+	function onSaveSuccess() {
+		saveState = 'saved';
+		toaster.addToast({ type: 'success', message: 'Preferences saved', timeout: 2000 });
+		setTimeout(() => (saveState = 'idle'), 1800);
 	}
 </script>
 
@@ -84,8 +96,10 @@
 			method="POST"
 			use:enhance={() => {
 				const currentHasPreferences = !!$userData?.preferences;
+				saveState = 'saving';
 				return async ({ result }) => {
-					if (currentHasPreferences && result.type === 'success') toggleToast();
+					if (currentHasPreferences && result.type === 'success') onSaveSuccess();
+					else saveState = 'idle';
 					await applyAction(result);
 					if (!currentHasPreferences) goto('/');
 				};
@@ -97,6 +111,8 @@
 			<input type="hidden" name="weekStart" value={weekStart} />
 			<input type="hidden" name="restMinutes" value={restMinutes} />
 			<input type="hidden" name="restSeconds" value={restSeconds} />
+			<input type="hidden" name="weeklyGoal" value={weeklyGoal} />
+			<input type="hidden" name="streaksEnabled" value={String(streaksEnabled)} />
 
 			<!-- Appearance -->
 			<section class="flex flex-col gap-3">
@@ -157,28 +173,6 @@
 					</div>
 				</div>
 
-				<!-- Week starts on -->
-				<div class="bg-base-200 flex items-center justify-between gap-4 rounded-2xl px-4 py-4">
-					<div>
-						<p class="font-medium">Week starts on</p>
-						<p class="text-base-content/50 text-xs">Shown on your home dashboard</p>
-					</div>
-					<div class="join">
-						<button
-							type="button"
-							class="btn btn-sm join-item px-5"
-							class:btn-active={weekStart === 0}
-							onclick={() => (weekStart = 0)}>Sun</button
-						>
-						<button
-							type="button"
-							class="btn btn-sm join-item px-5"
-							class:btn-active={weekStart === 1}
-							onclick={() => (weekStart = 1)}>Mon</button
-						>
-					</div>
-				</div>
-
 				<!-- Rest timer -->
 				<div class="bg-base-200 flex flex-col gap-4 rounded-2xl px-4 py-4">
 					<div class="flex items-center justify-between">
@@ -232,8 +226,78 @@
 				</div>
 			</section>
 
-			<button class="btn btn-primary btn-lg w-full" type="submit" disabled={disableSaveBtn}>
-				{hasPreferences ? 'Save preferences' : 'Save and continue'}
+			<!-- Streaks -->
+			<section class="flex flex-col gap-3">
+				<p class="text-base-content/40 text-xs font-semibold tracking-widest uppercase">Streaks</p>
+
+				<!-- Week starts on -->
+				<div class="bg-base-200 flex items-center justify-between gap-4 rounded-2xl px-4 py-4">
+					<div>
+						<p class="font-medium">Week starts on</p>
+						<p class="text-base-content/50 text-xs">Defines the start of each streak week</p>
+					</div>
+					<div class="join">
+						<button
+							type="button"
+							class="btn btn-sm join-item px-5"
+							class:btn-active={weekStart === 0}
+							onclick={() => (weekStart = 0)}>Sun</button
+						>
+						<button
+							type="button"
+							class="btn btn-sm join-item px-5"
+							class:btn-active={weekStart === 1}
+							onclick={() => (weekStart = 1)}>Mon</button
+						>
+					</div>
+				</div>
+
+				<!-- Streak tracking -->
+				<div class="bg-base-200 flex items-center justify-between gap-4 rounded-2xl px-4 py-4">
+					<div>
+						<p class="font-medium">Streak tracking</p>
+						<p class="text-base-content/50 text-xs">Show streak stats on your dashboard</p>
+					</div>
+					<input type="checkbox" class="toggle toggle-primary" bind:checked={streaksEnabled} />
+				</div>
+
+				<!-- Weekly goal -->
+				<div
+					class="bg-base-200 flex items-center justify-between gap-4 rounded-2xl px-4 py-4 transition-opacity"
+					class:opacity-40={!streaksEnabled}
+				>
+					<div>
+						<p class="font-medium">Weekly goal</p>
+						<p class="text-base-content/50 text-xs">Days/week needed to earn a streak</p>
+					</div>
+					<div class="join">
+						{#each [1, 2, 3, 4, 5, 6, 7] as n}
+							<button
+								type="button"
+								class="btn btn-xs join-item px-2"
+								class:btn-active={weeklyGoal === n}
+								disabled={!streaksEnabled}
+								onclick={() => (weeklyGoal = n)}>{n}</button
+							>
+						{/each}
+					</div>
+				</div>
+			</section>
+
+			<button
+				class="btn btn-lg w-full transition-all"
+				class:btn-primary={saveState !== 'saved'}
+				class:btn-success={saveState === 'saved'}
+				type="submit"
+				disabled={saveState !== 'idle' || (hasPreferences && !isDirty)}
+			>
+				{#if saveState === 'saving'}
+					<span class="loading loading-spinner loading-sm"></span> Saving…
+				{:else if saveState === 'saved'}
+					✓ Saved!
+				{:else}
+					{hasPreferences ? 'Save preferences' : 'Save and continue'}
+				{/if}
 			</button>
 		</form>
 	{/if}

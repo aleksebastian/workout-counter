@@ -60,6 +60,7 @@
 	async function handleDeleteSetDirect(set: Set) {
 		if (!$userData) return;
 		HAPTIC.heavy();
+		const originalSets = [...workout.sets];
 		const workouts = $userData.workouts.map((currWorkout) => {
 			if (currWorkout.id === workout!.id) {
 				currWorkout.sets = currWorkout.sets.filter((s) => s.id !== set.id);
@@ -67,7 +68,12 @@
 			return currWorkout;
 		});
 		const userRef = doc(db, 'users', $user!.uid);
-		await updateDoc(userRef, { workouts });
+		try {
+			await updateDoc(userRef, { workouts });
+		} catch (err) {
+			workout.sets = originalSets;
+			console.error('Failed to delete set:', err);
+		}
 	}
 
 	function organizeSetsByDate(sets: Set[]) {
@@ -109,6 +115,7 @@
 
 		if (deleteSetDialog?.returnValue === 'default') {
 			HAPTIC.heavy();
+			const originalSets = [...workout.sets];
 			let workouts = $userData.workouts.map((currWorkout) => {
 				if (currWorkout.id === workout!.id) {
 					currWorkout.sets = currWorkout.sets.filter((set) => set.id !== editSetId);
@@ -118,9 +125,14 @@
 
 			const userRef = doc(db, 'users', $user!.uid);
 
-			await updateDoc(userRef, {
-				workouts
-			});
+			try {
+				await updateDoc(userRef, {
+					workouts
+				});
+			} catch (err) {
+				workout.sets = originalSets;
+				console.error('Failed to delete set:', err);
+			}
 		}
 	}
 
@@ -204,7 +216,10 @@
 						<!-- Delete background -->
 						<div
 							class="bg-error absolute inset-0 flex items-center justify-end rounded-lg pr-4"
-							style="opacity: {Math.min(offsetX / SWIPE_REVEAL_THRESHOLD, 1)}; pointer-events: none;"
+							style="opacity: {Math.min(
+								offsetX / SWIPE_REVEAL_THRESHOLD,
+								1
+							)}; pointer-events: none;"
 							aria-hidden="true"
 						>
 							<span class="text-error-content text-sm font-semibold">Delete</span>

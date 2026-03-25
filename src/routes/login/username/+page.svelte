@@ -35,6 +35,7 @@
 
 	async function confirmUsername(e: SubmitEvent) {
 		e.preventDefault();
+		if (!isValid || !isAvailable || !$user?.uid) return;
 		try {
 			const batch = writeBatch(db);
 

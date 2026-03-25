@@ -80,6 +80,7 @@
 		const workouts = $userData.workouts;
 
 		if (editWorkoutsDialog?.returnValue === 'edit') {
+			if (!editedWorkoutName.trim()) return;
 			const originalName = workouts[workoutIndex].name;
 			workouts[workoutIndex].name = editedWorkoutName;
 

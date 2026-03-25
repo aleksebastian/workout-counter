@@ -47,6 +47,7 @@
 		document.addEventListener('setRecorded', handleSetRecorded);
 
 		userStoreUnsubscribe = user.subscribe((value) => {
+			isAuthLoading = value === undefined;
 			if (value === null) {
 				handleSignOut();
 			}
@@ -74,6 +75,7 @@
 
 	onNavigate((navigation) => {
 		if (!document.startViewTransition) return;
+		if (navigation.from?.url.pathname === navigation.to?.url.pathname) return;
 
 		const isBack = navigation.type === 'popstate';
 		document.documentElement.dataset.navDirection = isBack ? 'back' : 'forward';
@@ -196,6 +198,7 @@
 	let deferredInstallPrompt: BeforeInstallPromptEvent | null = null;
 	let showInstallBanner = $state(false);
 	let recordedSetCount = 0;
+	let isAuthLoading = $state(false);
 </script>
 
 <svelte:head>
@@ -233,6 +236,7 @@
 
 <div
 	class="mx-auto p-4"
+	class:invisible={isAuthLoading}
 	style={hasUser ? 'padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px))' : ''}
 >
 	{@render children?.()}

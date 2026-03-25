@@ -56,6 +56,7 @@
 		const workouts = $userData.workouts;
 
 		if (editWorkoutsDialog?.returnValue === 'edit') {
+			if (!editedWorkoutName.trim()) return;
 			// Save original state for rollback
 			const originalName = workouts[workoutIndex].name;
 			workouts[workoutIndex].name = editedWorkoutName;
