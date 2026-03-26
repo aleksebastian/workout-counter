@@ -9,6 +9,7 @@
 
 	function handleBack() {
 		if (window.history.length > 1) {
+			window.__backButtonClicked = true;
 			window.history.back();
 		} else {
 			goto(href);

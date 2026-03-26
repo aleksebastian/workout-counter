@@ -3,6 +3,10 @@
 import '@poppanator/sveltekit-svg/dist/svg.d.ts';
 
 declare global {
+	interface Window {
+		__backButtonClicked?: boolean;
+	}
+
 	namespace App {
 		// interface Error {}
 		interface Locals {

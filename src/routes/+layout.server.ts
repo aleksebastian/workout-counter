@@ -8,7 +8,7 @@ export const load = (async ({ locals, url }) => {
 
 	if (!uid) {
 		if (!url.pathname.includes('/login')) {
-			throw redirect(301, '/login');
+			throw redirect(302, '/login');
 		}
 
 		return;
@@ -18,15 +18,15 @@ export const load = (async ({ locals, url }) => {
 	const userData = userDoc.data();
 
 	if (!userData && !url.pathname.includes('/login/username')) {
-		throw redirect(301, '/login/username');
+		throw redirect(302, '/login/username');
 	}
 
 	if (userData && !userData?.preferences && !url.pathname.includes('/preferences')) {
-		throw redirect(301, '/preferences');
+		throw redirect(302, '/preferences');
 	}
 
 	if (userData && url.pathname.includes('/login')) {
-		throw redirect(301, '/');
+		throw redirect(302, '/');
 	}
 
 	return {

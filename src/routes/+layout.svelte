@@ -77,7 +77,9 @@
 		if (!document.startViewTransition) return;
 		if (navigation.from?.url.pathname === navigation.to?.url.pathname) return;
 		// Skip view transitions for back/forward gestures — the browser provides its own native animation
-		if (navigation.type === 'popstate') return;
+		// But allow it if the user clicked the back button (not a swipe)
+		if (navigation.type === 'popstate' && !window.__backButtonClicked) return;
+		window.__backButtonClicked = false;
 
 		document.documentElement.dataset.navDirection = 'forward';
 
