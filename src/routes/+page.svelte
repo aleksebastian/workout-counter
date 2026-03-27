@@ -2,7 +2,20 @@
 	import { user, userData, type UserData } from '$lib/firebase';
 	import { formatDistanceToNow } from 'date-fns';
 	import { onMount } from 'svelte';
+	import { fly } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
+	import { afterNavigate } from '$app/navigation';
 	import PullToRefresh from '$lib/components/PullToRefresh.svelte';
+
+	// Only animate on fresh page load, not on in-app navigation
+	let isLanding = $state(false);
+	afterNavigate(({ from }) => {
+		isLanding = from === null;
+	});
+
+	function landingFly(node: Element, params: Parameters<typeof fly>[1]) {
+		return isLanding ? fly(node, params) : {};
+	}
 
 	let { data }: { data: { userData?: UserData } } = $props();
 
@@ -207,14 +220,17 @@
 	{:else}
 		<div class="mx-auto flex max-w-lg flex-col gap-6">
 			<!-- Greeting -->
-			<div>
+			<div in:landingFly={{ y: 20, duration: 400, delay: 300, easing: cubicOut }}>
 				<h1 class="text-xl font-bold">{greeting}</h1>
 				<p class="text-base-content/50 text-sm">{todayLabel}</p>
 			</div>
 
 			{#if allSets.length}
 				<!-- Weekly activity row -->
-				<div class="bg-base-200 rounded-box px-4 py-4">
+				<div
+					class="bg-base-200 rounded-box px-4 py-4"
+					in:landingFly|global={{ y: 20, duration: 400, delay: 400, easing: cubicOut }}
+				>
 					<p class="text-base-content/40 mb-3 text-xs font-semibold tracking-wider uppercase">
 						This week
 					</p>
@@ -244,48 +260,50 @@
 				</div>
 
 				<!-- Stats row -->
-				{#if streaksEnabled}
-					<div class="grid grid-cols-3 gap-2">
-						<div class="bg-base-200 rounded-box flex flex-col items-center gap-0.5 py-3">
-							<span class="text-2xl font-bold tabular-nums">{streak}</span>
-							<span class="text-base-content/50 text-center text-xs leading-tight">
-								week streak
-							</span>
+				<div in:landingFly|global={{ y: 20, duration: 400, delay: 490, easing: cubicOut }}>
+					{#if streaksEnabled}
+						<div class="grid grid-cols-3 gap-2">
+							<div class="bg-base-200 rounded-box flex flex-col items-center gap-0.5 py-3">
+								<span class="text-2xl font-bold tabular-nums">{streak}</span>
+								<span class="text-base-content/50 text-center text-xs leading-tight">
+									week streak
+								</span>
+							</div>
+							<div class="bg-base-200 rounded-box flex flex-col items-center gap-0.5 py-3">
+								<span class="text-2xl font-bold tabular-nums">{totalCompletedWeeks}</span>
+								<span class="text-base-content/50 text-center text-xs leading-tight"
+									>total<br />weeks</span
+								>
+							</div>
+							<div class="bg-base-200 rounded-box flex flex-col items-center gap-0.5 py-3">
+								<span class="text-2xl font-bold tabular-nums">{weekDayCount}</span>
+								<span class="text-base-content/50 text-center text-xs leading-tight"
+									>days this<br />week</span
+								>
+							</div>
 						</div>
-						<div class="bg-base-200 rounded-box flex flex-col items-center gap-0.5 py-3">
-							<span class="text-2xl font-bold tabular-nums">{totalCompletedWeeks}</span>
-							<span class="text-base-content/50 text-center text-xs leading-tight"
-								>total<br />weeks</span
-							>
+					{:else}
+						<div class="grid grid-cols-2 gap-2">
+							<div class="bg-base-200 rounded-box flex flex-col items-center gap-0.5 py-3">
+								<span class="text-2xl font-bold tabular-nums">{weekDayCount}</span>
+								<span class="text-base-content/50 text-center text-xs leading-tight"
+									>days this<br />week</span
+								>
+							</div>
+							<div class="bg-base-200 rounded-box flex flex-col items-center gap-0.5 py-3">
+								<span class="text-2xl font-bold tabular-nums">{weekSets.length}</span>
+								<span class="text-base-content/50 text-center text-xs leading-tight"
+									>sets this<br />week</span
+								>
+							</div>
 						</div>
-						<div class="bg-base-200 rounded-box flex flex-col items-center gap-0.5 py-3">
-							<span class="text-2xl font-bold tabular-nums">{weekDayCount}</span>
-							<span class="text-base-content/50 text-center text-xs leading-tight"
-								>days this<br />week</span
-							>
-						</div>
-					</div>
-				{:else}
-					<div class="grid grid-cols-2 gap-2">
-						<div class="bg-base-200 rounded-box flex flex-col items-center gap-0.5 py-3">
-							<span class="text-2xl font-bold tabular-nums">{weekDayCount}</span>
-							<span class="text-base-content/50 text-center text-xs leading-tight"
-								>days this<br />week</span
-							>
-						</div>
-						<div class="bg-base-200 rounded-box flex flex-col items-center gap-0.5 py-3">
-							<span class="text-2xl font-bold tabular-nums">{weekSets.length}</span>
-							<span class="text-base-content/50 text-center text-xs leading-tight"
-								>sets this<br />week</span
-							>
-						</div>
-					</div>
-				{/if}
+					{/if}
+				</div>
 			{/if}
 
 			<!-- Quick-start routines -->
 			{#if effectiveUserData?.routines?.length}
-				<div>
+				<div in:landingFly|global={{ y: 20, duration: 400, delay: 570, easing: cubicOut }}>
 					<p class="text-base-content/40 mb-2 text-xs font-semibold tracking-wider uppercase">
 						Quick start
 					</p>
@@ -317,7 +335,7 @@
 
 			<!-- Last session -->
 			{#if lastWorkout}
-				<div>
+				<div in:landingFly|global={{ y: 20, duration: 400, delay: 640, easing: cubicOut }}>
 					<p class="text-base-content/40 mb-2 text-xs font-semibold tracking-wider uppercase">
 						Last session
 					</p>
@@ -347,7 +365,7 @@
 
 			<!-- Needs attention -->
 			{#if overdueExercise}
-				<div>
+				<div in:landingFly|global={{ y: 20, duration: 400, delay: 700, easing: cubicOut }}>
 					<p class="text-base-content/40 mb-2 text-xs font-semibold tracking-wider uppercase">
 						Needs attention
 					</p>
@@ -375,7 +393,10 @@
 
 			<!-- Empty state: brand-new user -->
 			{#if !allSets.length && !effectiveUserData?.routines?.length && !effectiveUserData?.workouts?.length}
-				<div class="flex flex-col items-center gap-4 pt-4 text-center">
+				<div
+					class="flex flex-col items-center gap-4 pt-4 text-center"
+					in:landingFly|global={{ y: 20, duration: 400, delay: 400, easing: cubicOut }}
+				>
 					<p class="text-base-content/50 text-sm">Ready to start tracking?</p>
 					<div class="flex gap-2">
 						<a class="btn btn-primary btn-sm" href="/exercises">Add exercises</a>

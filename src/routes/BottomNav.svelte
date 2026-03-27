@@ -1,5 +1,18 @@
+<script module>
+	let didLaunch = false;
+</script>
+
 <script lang="ts">
 	import { page } from '$app/state';
+	import { fly } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
+	import type { TransitionConfig } from 'svelte/transition';
+
+	function launchSlide(node: HTMLElement): TransitionConfig {
+		if (didLaunch) return { duration: 0 };
+		didLaunch = true;
+		return fly(node, { y: 80, duration: 380, easing: cubicOut });
+	}
 
 	let path = $derived(page.url.pathname);
 	let isHome = $derived(path === '/');
@@ -10,6 +23,7 @@
 <nav
 	class="bg-base-100 border-base-300 bottom-nav fixed right-0 bottom-0 left-0 z-50 border-t"
 	style="padding-bottom: 0; padding-bottom: env(safe-area-inset-bottom, 0)"
+	in:launchSlide|global
 >
 	<div class="flex h-16 items-center justify-around">
 		<!-- Home -->

@@ -5,14 +5,22 @@
 
 	interface Props {
 		hasUser: boolean;
+		ready: boolean;
 		signOut: () => void;
 	}
 
-	let { hasUser, signOut }: Props = $props();
+	let { hasUser, ready, signOut }: Props = $props();
+
+	let animated = $state(false);
+	$effect(() => {
+		if (ready && !animated) animated = true;
+	});
 </script>
 
 <div
 	class="navbar bg-base-100 relative z-100 flex justify-between p-4"
+	class:navbar-launch={animated}
+	class:navbar-hidden={!animated}
 	style="padding-top: calc(1rem + env(safe-area-inset-top))"
 >
 	{#if hasUser}
@@ -41,11 +49,28 @@
 	{/if}
 	<a class="btn btn-ghost text-xl" href="/">SetCount</a>
 	<div>
-		<Avatar
-			{hasUser}
-			user={$user ?? null}
-			avatarClick={() => {}}
-			signOutClick={signOut}
-		/>
+		<Avatar {hasUser} user={$user ?? null} avatarClick={() => {}} signOutClick={signOut} />
 	</div>
 </div>
+
+<style>
+	.navbar-hidden {
+		opacity: 0;
+		transform: translateY(-100%);
+	}
+
+	.navbar-launch {
+		animation: navbar-slide-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+	}
+
+	@keyframes navbar-slide-in {
+		from {
+			transform: translateY(-100%);
+			opacity: 0;
+		}
+		to {
+			transform: translateY(0);
+			opacity: 1;
+		}
+	}
+</style>

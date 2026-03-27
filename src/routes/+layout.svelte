@@ -209,7 +209,7 @@
 	<meta name="description" content="The best way to keep track of your workouts" />
 </svelte:head>
 
-<Navbar {hasUser} signOut={handleSignOut} />
+<Navbar {hasUser} ready={hasUser} signOut={handleSignOut} />
 
 {#if !isOnline}
 	<div
