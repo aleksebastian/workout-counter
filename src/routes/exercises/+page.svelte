@@ -133,19 +133,19 @@
 	<!-- Header -->
 	<div class="flex items-center justify-between">
 		<h1 class="text-xl font-bold">Exercises</h1>
-		<div class="flex gap-1">
-			{#if $user}
+		<div class="flex items-center gap-1">
+			{#if $user && !isEditingWorkouts}
 				<button class="btn btn-ghost btn-sm" onclick={handleAddWorkoutClick}>
 					{@html AddIcon} Add
 				</button>
 			{/if}
 			{#if $userData?.workouts?.length}
 				<button
-					class="btn btn-ghost btn-sm"
-					class:btn-active={isEditingWorkouts}
+					class="btn btn-ghost btn-sm w-14 font-semibold"
+					class:text-primary={isEditingWorkouts}
 					onclick={() => (isEditingWorkouts = !isEditingWorkouts)}
 				>
-					{@html EditIcon} Edit
+					{isEditingWorkouts ? 'Done' : 'Edit'}
 				</button>
 			{/if}
 		</div>
@@ -186,43 +186,46 @@
 		<ul class="flex flex-col gap-2">
 			{#each filteredWorkouts as workout}
 				<li>
-					{#if isEditingWorkouts}
-						<button
-							class="bg-base-200 hover:bg-base-300 rounded-box flex w-full items-center px-4 py-3 text-left text-sm font-semibold transition-colors"
-							class:ring-primary={page.params.workoutId === workout.id}
-							class:ring-2={page.params.workoutId === workout.id}
-							onclick={() => handleWorkoutEditClick(workout)}
-						>
-							{workout.name}
-							<span class="text-base-content/40 ml-auto text-xs">{workout.sets.length} sets</span>
-						</button>
-					{:else}
-						<a
-							class="bg-base-200 hover:bg-base-300 rounded-box flex w-full items-center gap-3 px-4 py-3 transition-all active:scale-[0.98]"
-							href={'/workout/' + workout.id}
-						>
-							<div class="flex flex-1 flex-col gap-0.5 overflow-hidden">
-								<span class="truncate text-sm font-semibold">{workout.name}</span>
-								<span
-									class={[
-										'text-xs',
-										lastSetDate(workout) ? 'text-base-content/40' : 'text-base-content/25'
-									].join(' ')}>{lastDoneLabel(workout)}</span
-								>
-							</div>
-							<span class="text-base-content/40 shrink-0 text-xs">{workout.sets.length} sets</span>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="text-base-content/30 h-4 w-4 shrink-0"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-								stroke-width="2.5"
+					<a
+						href={'/workout/' + workout.id}
+						onclick={isEditingWorkouts
+							? (e) => {
+									e.preventDefault();
+									handleWorkoutEditClick(workout);
+								}
+							: undefined}
+						class="bg-base-200 hover:bg-base-300 rounded-box flex w-full items-center gap-3 px-4 py-3 transition-colors active:scale-[0.98]"
+					>
+						<div class="flex flex-1 flex-col overflow-hidden">
+							<span class="truncate text-sm font-semibold">{workout.name}</span>
+							<div
+								class="grid transition-all duration-200 ease-out"
+								style:grid-template-rows={isEditingWorkouts ? '0fr' : '1fr'}
+								style:opacity={isEditingWorkouts ? '0' : '1'}
 							>
-								<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-							</svg>
-						</a>
-					{/if}
+								<div class="overflow-hidden">
+									<span
+										class={[
+											'text-xs',
+											lastSetDate(workout) ? 'text-base-content/40' : 'text-base-content/25'
+										].join(' ')}>{lastDoneLabel(workout)}</span
+									>
+								</div>
+							</div>
+						</div>
+						<span class="text-base-content/40 shrink-0 text-xs">{workout.sets.length} sets</span>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="text-base-content/30 h-4 w-4 shrink-0 transition-opacity duration-200"
+							style:opacity={isEditingWorkouts ? '0' : '1'}
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+							stroke-width="2.5"
+						>
+							<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+						</svg>
+					</a>
 				</li>
 			{/each}
 		</ul>

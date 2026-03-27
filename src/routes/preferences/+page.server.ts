@@ -3,7 +3,7 @@ import { adminDB } from '$lib/server/admin';
 import { error } from '@sveltejs/kit';
 
 export const actions = {
-	default: async ({ request, locals }) => {
+	save: async ({ request, locals }) => {
 		try {
 			const uid = locals.userID;
 

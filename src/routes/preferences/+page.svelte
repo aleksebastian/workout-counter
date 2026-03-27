@@ -1,9 +1,8 @@
 <script lang="ts">
-	import { applyAction, enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import { userData } from '$lib/firebase';
-	import { toaster } from '$lib/state.svelte';
 	import BackButton from '$lib/components/Buttons/BackButton.svelte';
+	import { fade } from 'svelte/transition';
 
 	let minRestValue = 0;
 	let maxRestValue = 59;
@@ -29,27 +28,23 @@
 	let streaksEnabled = $state(true);
 
 	let hasPreferences = $state(false);
-	$effect(() => {
-		hasPreferences = !!$userData?.preferences;
-		restMinutes = $userData?.preferences?.timer.minutes ?? 1;
-		restSeconds = $userData?.preferences?.timer.seconds ?? 30;
-		theme = $userData?.preferences?.theme ?? 'system';
-		weightUnit = $userData?.preferences?.weightUnit ?? 'lbs';
-		weekStart = $userData?.preferences?.weekStart ?? 0;
-		weeklyGoal = $userData?.preferences?.weeklyGoal ?? 3;
-		streaksEnabled = $userData?.preferences?.streaksEnabled !== false;
-	});
 
-	let isDirty = $derived(
-		hasPreferences &&
-			(restMinutes !== ($userData?.preferences?.timer.minutes ?? 1) ||
-				restSeconds !== ($userData?.preferences?.timer.seconds ?? 30) ||
-				theme !== ($userData?.preferences?.theme ?? 'system') ||
-				weightUnit !== ($userData?.preferences?.weightUnit ?? 'lbs') ||
-				weekStart !== ($userData?.preferences?.weekStart ?? 0) ||
-				weeklyGoal !== ($userData?.preferences?.weeklyGoal ?? 3) ||
-				streaksEnabled !== ($userData?.preferences?.streaksEnabled !== false))
-	);
+	// Init from Firebase once — never re-sync to avoid overwriting in-flight edits
+	let hasInitializedFromFirebase = false;
+	$effect(() => {
+		if (hasInitializedFromFirebase) return;
+		const prefs = $userData?.preferences;
+		if (!prefs) return;
+		restMinutes = prefs.timer.minutes ?? 1;
+		restSeconds = prefs.timer.seconds ?? 30;
+		theme = prefs.theme ?? 'system';
+		weightUnit = prefs.weightUnit ?? 'lbs';
+		weekStart = (prefs.weekStart ?? 0) as 0 | 1;
+		weeklyGoal = prefs.weeklyGoal ?? 3;
+		streaksEnabled = prefs.streaksEnabled !== false;
+		hasPreferences = true;
+		hasInitializedFromFirebase = true;
+	});
 
 	let timerPreview = $derived(`${restMinutes}:${restSeconds < 10 ? '0' : ''}${restSeconds}`);
 
@@ -62,23 +57,68 @@
 	];
 
 	let saveState = $state<'idle' | 'saving' | 'saved'>('idle');
-	function onSaveSuccess() {
-		saveState = 'saved';
-		toaster.addToast({ type: 'success', message: 'Preferences saved', timeout: 2000 });
-		setTimeout(() => (saveState = 'idle'), 1800);
+	let debounceHandle: ReturnType<typeof setTimeout> | undefined;
+
+	async function savePreferences() {
+		const formData = new FormData();
+		formData.append('theme', theme);
+		formData.append('weightUnit', weightUnit);
+		formData.append('weekStart', String(weekStart));
+		formData.append('restMinutes', String(restMinutes));
+		formData.append('restSeconds', String(restSeconds));
+		formData.append('weeklyGoal', String(weeklyGoal));
+		formData.append('streaksEnabled', String(streaksEnabled));
+
+		saveState = 'saving';
+		try {
+			const resp = await fetch('/preferences?/save', {
+				method: 'POST',
+				body: formData,
+				headers: { 'x-sveltekit-action': 'true' }
+			});
+			if (resp.ok) {
+				if (!hasPreferences) {
+					goto('/');
+					return;
+				}
+				saveState = 'saved';
+				setTimeout(() => (saveState = 'idle'), 1000);
+			} else {
+				saveState = 'idle';
+			}
+		} catch {
+			saveState = 'idle';
+		}
+	}
+
+	// Called by every interactive control — debounces saves for existing users
+	function scheduleAutoSave() {
+		if (!hasPreferences) return;
+		clearTimeout(debounceHandle);
+		debounceHandle = setTimeout(savePreferences, 600);
 	}
 </script>
 
 <div class="mx-auto flex w-full max-w-lg flex-col gap-6">
 	<!-- Header -->
 	<div class="flex items-center justify-between">
-		{#if hasPreferences}
-			<BackButton href="/" />
-		{:else}
-			<div class="w-10"></div>
-		{/if}
+		<div class="flex h-10 w-20 items-center justify-start overflow-hidden">
+			{#if hasPreferences}
+				<BackButton href="/" />
+			{:else}
+				<div></div>
+			{/if}
+		</div>
 		<h1 class="text-xl font-bold">Preferences</h1>
-		<div class="w-10"></div>
+		<div class="flex h-10 w-20 items-center justify-end overflow-hidden">
+			{#if saveState === 'saved'}
+				<span
+					class="text-success text-sm font-semibold whitespace-nowrap"
+					in:fade={{ duration: 200 }}
+					out:fade={{ duration: 150 }}>✓ Saved</span
+				>
+			{/if}
+		</div>
 	</div>
 
 	{#if !hasPreferences}
@@ -91,29 +131,7 @@
 	{/if}
 
 	{#if $userData}
-		<form
-			class="flex flex-col gap-6"
-			method="POST"
-			use:enhance={() => {
-				const currentHasPreferences = !!$userData?.preferences;
-				saveState = 'saving';
-				return async ({ result }) => {
-					if (currentHasPreferences && result.type === 'success') onSaveSuccess();
-					else saveState = 'idle';
-					await applyAction(result);
-					if (!currentHasPreferences) goto('/');
-				};
-			}}
-		>
-			<!-- Hidden inputs carry state to server action -->
-			<input type="hidden" name="theme" value={theme} />
-			<input type="hidden" name="weightUnit" value={weightUnit} />
-			<input type="hidden" name="weekStart" value={weekStart} />
-			<input type="hidden" name="restMinutes" value={restMinutes} />
-			<input type="hidden" name="restSeconds" value={restSeconds} />
-			<input type="hidden" name="weeklyGoal" value={weeklyGoal} />
-			<input type="hidden" name="streaksEnabled" value={String(streaksEnabled)} />
-
+		<div class="flex flex-col gap-6">
 			<!-- Appearance -->
 			<section class="flex flex-col gap-3">
 				<p class="text-base-content/40 text-xs font-semibold tracking-widest uppercase">
@@ -129,19 +147,28 @@
 							type="button"
 							class="btn btn-sm join-item"
 							class:btn-active={theme === 'light'}
-							onclick={() => (theme = 'light')}>☀️ Light</button
+							onclick={() => {
+								theme = 'light';
+								scheduleAutoSave();
+							}}>☀️ Light</button
 						>
 						<button
 							type="button"
 							class="btn btn-sm join-item"
 							class:btn-active={theme === 'system'}
-							onclick={() => (theme = 'system')}>💻 Auto</button
+							onclick={() => {
+								theme = 'system';
+								scheduleAutoSave();
+							}}>💻 Auto</button
 						>
 						<button
 							type="button"
 							class="btn btn-sm join-item"
 							class:btn-active={theme === 'dark'}
-							onclick={() => (theme = 'dark')}>🌙 Dark</button
+							onclick={() => {
+								theme = 'dark';
+								scheduleAutoSave();
+							}}>🌙 Dark</button
 						>
 					</div>
 				</div>
@@ -162,13 +189,19 @@
 							type="button"
 							class="btn btn-sm join-item px-6"
 							class:btn-active={weightUnit === 'lbs'}
-							onclick={() => (weightUnit = 'lbs')}>lbs</button
+							onclick={() => {
+								weightUnit = 'lbs';
+								scheduleAutoSave();
+							}}>lbs</button
 						>
 						<button
 							type="button"
 							class="btn btn-sm join-item px-6"
 							class:btn-active={weightUnit === 'kg'}
-							onclick={() => (weightUnit = 'kg')}>kg</button
+							onclick={() => {
+								weightUnit = 'kg';
+								scheduleAutoSave();
+							}}>kg</button
 						>
 					</div>
 				</div>
@@ -193,6 +226,7 @@
 								onclick={() => {
 									restMinutes = preset.m;
 									restSeconds = preset.s;
+									scheduleAutoSave();
 								}}>{preset.label}</button
 							>
 						{/each}
@@ -206,6 +240,7 @@
 								bind:value={restMinutes}
 								max={maxRestValue}
 								min={minRestValue}
+								oninput={() => scheduleAutoSave()}
 								onfocus={(e) => (e.currentTarget as HTMLInputElement).select()}
 							/>
 							<span class="text-base-content/50 text-sm">min</span>
@@ -218,6 +253,7 @@
 								bind:value={restSeconds}
 								max={maxRestValue}
 								min={restMinutes === 0 ? 1 : 0}
+								oninput={() => scheduleAutoSave()}
 								onfocus={(e) => (e.currentTarget as HTMLInputElement).select()}
 							/>
 							<span class="text-base-content/50 text-sm">sec</span>
@@ -241,13 +277,19 @@
 							type="button"
 							class="btn btn-sm join-item px-5"
 							class:btn-active={weekStart === 0}
-							onclick={() => (weekStart = 0)}>Sun</button
+							onclick={() => {
+								weekStart = 0;
+								scheduleAutoSave();
+							}}>Sun</button
 						>
 						<button
 							type="button"
 							class="btn btn-sm join-item px-5"
 							class:btn-active={weekStart === 1}
-							onclick={() => (weekStart = 1)}>Mon</button
+							onclick={() => {
+								weekStart = 1;
+								scheduleAutoSave();
+							}}>Mon</button
 						>
 					</div>
 				</div>
@@ -258,7 +300,12 @@
 						<p class="font-medium">Streak tracking</p>
 						<p class="text-base-content/50 text-xs">Show streak stats on your dashboard</p>
 					</div>
-					<input type="checkbox" class="toggle toggle-primary" bind:checked={streaksEnabled} />
+					<input
+						type="checkbox"
+						class="toggle toggle-primary"
+						bind:checked={streaksEnabled}
+						onchange={() => scheduleAutoSave()}
+					/>
 				</div>
 
 				<!-- Weekly goal -->
@@ -277,28 +324,29 @@
 								class="btn btn-xs join-item px-2"
 								class:btn-active={weeklyGoal === n}
 								disabled={!streaksEnabled}
-								onclick={() => (weeklyGoal = n)}>{n}</button
+								onclick={() => {
+									weeklyGoal = n;
+									scheduleAutoSave();
+								}}>{n}</button
 							>
 						{/each}
 					</div>
 				</div>
 			</section>
 
-			<button
-				class="btn btn-lg w-full transition-all"
-				class:btn-primary={saveState !== 'saved'}
-				class:btn-success={saveState === 'saved'}
-				type="submit"
-				disabled={saveState !== 'idle' || (hasPreferences && !isDirty)}
-			>
-				{#if saveState === 'saving'}
-					<span class="loading loading-spinner loading-sm"></span> Saving…
-				{:else if saveState === 'saved'}
-					✓ Saved!
-				{:else}
-					{hasPreferences ? 'Save preferences' : 'Save and continue'}
-				{/if}
-			</button>
-		</form>
+			{#if !hasPreferences}
+				<button
+					class="btn btn-primary btn-lg w-full"
+					onclick={savePreferences}
+					disabled={saveState !== 'idle'}
+				>
+					{#if saveState === 'saving'}
+						<span class="loading loading-spinner loading-sm"></span> Saving…
+					{:else}
+						Save and continue
+					{/if}
+				</button>
+			{/if}
+		</div>
 	{/if}
 </div>

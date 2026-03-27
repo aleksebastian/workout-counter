@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { db, userData, user } from '$lib/firebase';
-	import { doc, updateDoc } from 'firebase/firestore';
+	import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
+	import { v4 as uuidv4 } from 'uuid';
 	import { formatDistanceToNow } from 'date-fns';
 	import BackButton from '$lib/components/Buttons/BackButton.svelte';
 	import EditIcon from '$lib/icons/edit.svg?raw';
@@ -10,6 +11,8 @@
 	import DownIcon from '$lib/icons/down.svg?raw';
 	import DeleteIcon from '$lib/icons/delete.svg?raw';
 	import type { Workout } from '$lib/state.svelte';
+	import { getWorkoutNameValidationMsg } from '$lib/utils';
+	import { fade } from 'svelte/transition';
 
 	let routine = $derived($userData?.routines?.find((r) => r.id === page.params.routineId));
 
@@ -35,9 +38,7 @@
 
 	let lastRoutineDate = $derived(
 		(() => {
-			const times = workoutsInRoutine.flatMap((w) =>
-				w.sets.map((s) => new Date(s.date).getTime())
-			);
+			const times = workoutsInRoutine.flatMap((w) => w.sets.map((s) => new Date(s.date).getTime()));
 			return times.length ? new Date(Math.max(...times)) : null;
 		})()
 	);
@@ -69,6 +70,49 @@
 
 	let selectedWorkoutId = $state('');
 	let isEditing = $state(false);
+
+	// New exercise inline creation
+	let showNewExerciseInput = $state(false);
+	let newExerciseName = $state('');
+	let newExerciseError = $state('');
+	let newExerciseInput: HTMLInputElement | undefined = $state();
+
+	$effect(() => {
+		if (showNewExerciseInput) {
+			// focus after the DOM updates
+			queueMicrotask(() => newExerciseInput?.focus());
+		} else {
+			newExerciseName = '';
+			newExerciseError = '';
+		}
+	});
+
+	async function handleCreateAndAddExercise() {
+		const trimmed = newExerciseName.trim();
+		const validationError = getWorkoutNameValidationMsg(trimmed, $userData?.workouts);
+		if (validationError) {
+			newExerciseError = validationError;
+			return;
+		}
+		if (!routine || !$userData) return;
+
+		const newWorkout = { id: uuidv4(), name: trimmed, sets: [] };
+		const userRef = doc(db, 'users', $user!.uid);
+
+		try {
+			// Add the exercise to the workouts list and to this routine atomically
+			await updateDoc(userRef, {
+				workouts: arrayUnion(newWorkout),
+				routines: $userData.routines!.map((r) =>
+					r.id === routine!.id ? { ...r, workoutIds: [...r.workoutIds, newWorkout.id] } : r
+				)
+			});
+			showNewExerciseInput = false;
+		} catch (error) {
+			console.error('Failed to create exercise:', error);
+			newExerciseError = 'Failed to save. Try again.';
+		}
+	}
 
 	async function saveRoutines() {
 		if (!$userData || !routine) return;
@@ -149,29 +193,33 @@
 	<div class="mx-auto flex w-full max-w-lg flex-col gap-4">
 		<!-- Header -->
 		<div class="flex items-center justify-between">
-			<BackButton />
+			<div class="w-14">
+				<BackButton />
+			</div>
 			<div class="text-center">
-				<h1 class="text-xl font-bold leading-tight">{routine.name}</h1>
+				<h1 class="text-xl leading-tight font-bold">{routine.name}</h1>
 				<p class="text-base-content/50 text-xs">
 					{workoutsInRoutine.length} exercise{workoutsInRoutine.length !== 1 ? 's' : ''}
 				</p>
 			</div>
 			<button
-				class="btn btn-square btn-ghost"
+				class="btn btn-ghost btn-sm w-14 font-semibold"
+				class:text-primary={isEditing}
+				class:text-base-content={!isEditing}
 				onclick={() => (isEditing = !isEditing)}
 				aria-label={isEditing ? 'Done editing' : 'Edit routine'}
 			>
-				{#if isEditing}
-					<span class="text-primary text-sm font-semibold">Done</span>
-				{:else}
-					{@html EditIcon}
-				{/if}
+				{isEditing ? 'Done' : 'Edit'}
 			</button>
 		</div>
 
 		{#if !isEditing && workoutsInRoutine.length > 0}
 			<!-- Context strip -->
-			<div class="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-none">
+			<div
+				out:fade={{ duration: 120 }}
+				in:fade={{ duration: 120, delay: 120 }}
+				class="scrollbar-none -mx-1 flex gap-2 overflow-x-auto px-1 pb-1"
+			>
 				<div class="bg-base-200 flex-none rounded-xl px-4 py-2.5 text-center">
 					<p class="text-base-content/50 text-xs">Today</p>
 					<p class="text-sm font-semibold">{doneToday}/{workoutsInRoutine.length}</p>
@@ -195,6 +243,8 @@
 			<!-- Start / Continue CTA -->
 			{#if nextWorkout}
 				<a
+					out:fade={{ duration: 120 }}
+					in:fade={{ duration: 120, delay: 120 }}
 					href={`/workout/${nextWorkout.id}?from=/routines/${routine.id}`}
 					class="btn btn-primary btn-lg w-full"
 				>
@@ -205,79 +255,89 @@
 
 		<!-- Workout list -->
 		{#if workoutsInRoutine.length}
-			<div class="flex flex-col gap-2">
-				{#each workoutsInRoutine as workout, i}
-					{#if isEditing}
-						<div class="bg-base-200 flex items-center gap-2 rounded-2xl px-3 py-2">
-							<span class="text-base-content/40 w-5 shrink-0 text-right text-xs">{i + 1}</span>
-							<span class="min-w-0 flex-1 truncate text-sm font-medium">{workout.name}</span>
-							<div class="flex gap-0.5">
-								<button
-									class="btn btn-circle btn-ghost btn-sm"
-									disabled={i === 0}
-									onclick={() => handleMoveUp(i)}
-									aria-label="Move up"
-								>{@html UpIcon}</button>
-								<button
-									class="btn btn-circle btn-ghost btn-sm"
-									disabled={i === workoutsInRoutine.length - 1}
-									onclick={() => handleMoveDown(i)}
-									aria-label="Move down"
-								>{@html DownIcon}</button>
-								<button
-									class="btn btn-circle btn-ghost btn-sm text-error"
-									onclick={() => handleRemoveWorkout(workout.id)}
-									aria-label="Remove from routine"
-								>{@html DeleteIcon}</button>
-							</div>
-						</div>
-					{:else}
-						{@const lastSet = getLastSet(workout)}
-						{@const doneNow = workout.sets.some(
-							(s) => new Date(s.date).toDateString() === new Date().toDateString()
-						)}
-						<a
-							class="bg-base-200 hover:bg-base-300 flex w-full items-center gap-3 rounded-2xl px-4 py-3.5 transition-colors active:scale-[0.99]"
-							href={`/workout/${workout.id}?from=/routines/${routine.id}`}
-						>
-							<span class="text-base-content/40 w-5 shrink-0 text-right text-xs font-medium">{i + 1}</span>
-							<div class="flex min-w-0 flex-1 flex-col gap-1">
-								<div class="flex items-center gap-2">
-									<span class="truncate text-sm font-semibold">{workout.name}</span>
-									{#if doneNow}
-										<span class="badge badge-success badge-xs shrink-0">Today</span>
-									{/if}
+			{#key isEditing}
+				<div
+					class="flex flex-col gap-2"
+					out:fade={{ duration: 120 }}
+					in:fade={{ duration: 120, delay: 120 }}
+				>
+					{#each workoutsInRoutine as workout, i}
+						{#if isEditing}
+							<div class="bg-base-200 flex items-center gap-2 rounded-2xl px-3 py-2">
+								<span class="text-base-content/40 w-5 shrink-0 text-right text-xs">{i + 1}</span>
+								<span class="min-w-0 flex-1 truncate text-sm font-medium">{workout.name}</span>
+								<div class="flex gap-0.5">
+									<button
+										class="btn btn-circle btn-ghost btn-sm"
+										disabled={i === 0}
+										onclick={() => handleMoveUp(i)}
+										aria-label="Move up">{@html UpIcon}</button
+									>
+									<button
+										class="btn btn-circle btn-ghost btn-sm"
+										disabled={i === workoutsInRoutine.length - 1}
+										onclick={() => handleMoveDown(i)}
+										aria-label="Move down">{@html DownIcon}</button
+									>
+									<button
+										class="btn btn-circle btn-ghost btn-sm text-error"
+										onclick={() => handleRemoveWorkout(workout.id)}
+										aria-label="Remove from routine">{@html DeleteIcon}</button
+									>
 								</div>
-								{#if lastSet}
-									<div class="flex flex-wrap items-center gap-1.5">
-										<span class="text-base-content/50 text-xs">
-											{formatDistanceToNow(new Date(lastSet.date), { addSuffix: true })}
-										</span>
-										<span class="badge badge-sm badge-ghost font-medium">{lastSet.reps} reps</span>
-										{#if lastSet.weight && lastSet.weight > 0}
-											<span class="badge badge-sm badge-ghost font-medium">
-												{lastSet.weight} {weightUnit}
-											</span>
+							</div>
+						{:else}
+							{@const lastSet = getLastSet(workout)}
+							{@const doneNow = workout.sets.some(
+								(s) => new Date(s.date).toDateString() === new Date().toDateString()
+							)}
+							<a
+								class="bg-base-200 hover:bg-base-300 flex w-full items-center gap-3 rounded-2xl px-4 py-3.5 transition-colors active:scale-[0.99]"
+								href={`/workout/${workout.id}?from=/routines/${routine.id}`}
+							>
+								<span class="text-base-content/40 w-5 shrink-0 text-right text-xs font-medium"
+									>{i + 1}</span
+								>
+								<div class="flex min-w-0 flex-1 flex-col gap-1">
+									<div class="flex items-center gap-2">
+										<span class="truncate text-sm font-semibold">{workout.name}</span>
+										{#if doneNow}
+											<span class="badge badge-success badge-xs shrink-0">Today</span>
 										{/if}
 									</div>
-								{:else}
-									<span class="text-base-content/35 text-xs">Not done yet</span>
-								{/if}
-							</div>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="text-base-content/30 h-4 w-4 shrink-0"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-								stroke-width="2.5"
-							>
-								<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-							</svg>
-						</a>
-					{/if}
-				{/each}
-			</div>
+									{#if lastSet}
+										<div class="flex flex-wrap items-center gap-1.5">
+											<span class="text-base-content/50 text-xs">
+												{formatDistanceToNow(new Date(lastSet.date), { addSuffix: true })}
+											</span>
+											<span class="badge badge-sm badge-ghost font-medium">{lastSet.reps} reps</span
+											>
+											{#if lastSet.weight && lastSet.weight > 0}
+												<span class="badge badge-sm badge-ghost font-medium">
+													{lastSet.weight}
+													{weightUnit}
+												</span>
+											{/if}
+										</div>
+									{:else}
+										<span class="text-base-content/35 text-xs">Not done yet</span>
+									{/if}
+								</div>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="text-base-content/30 h-4 w-4 shrink-0"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+									stroke-width="2.5"
+								>
+									<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+								</svg>
+							</a>
+						{/if}
+					{/each}
+				</div>
+			{/key}
 		{:else if !isEditing}
 			<!-- Empty state -->
 			<div class="flex flex-col items-center gap-3 py-16 text-center">
@@ -309,28 +369,77 @@
 
 		<!-- Add workout panel (edit mode) -->
 		{#if isEditing}
-			{#if workoutsNotInRoutine.length}
+			<div out:fade={{ duration: 120 }} in:fade={{ duration: 120, delay: 120 }}>
 				<div class="bg-base-200 flex flex-col gap-3 rounded-2xl p-4">
-					<p class="text-base-content/50 text-xs font-semibold uppercase tracking-widest">
+					<p class="text-base-content/50 text-xs font-semibold tracking-widest uppercase">
 						Add exercise
 					</p>
-					<div class="flex flex-wrap gap-2">
-						{#each workoutsNotInRoutine as workout}
-							<button
-								class="btn btn-sm btn-ghost gap-1"
-								onclick={() => {
-									selectedWorkoutId = workout.id;
-									handleAddWorkout();
-								}}
+
+					{#if workoutsNotInRoutine.length}
+						<div class="flex flex-wrap gap-2">
+							{#each workoutsNotInRoutine as workout}
+								<button
+									class="btn btn-sm btn-ghost gap-1"
+									onclick={() => {
+										selectedWorkoutId = workout.id;
+										handleAddWorkout();
+									}}
+								>
+									<span class="text-base leading-none">+</span>{workout.name}
+								</button>
+							{/each}
+						</div>
+					{:else if !showNewExerciseInput}
+						<p class="text-base-content/40 text-sm">All exercises are already in this routine.</p>
+					{/if}
+
+					{#if showNewExerciseInput}
+						<div class="flex flex-col gap-2" transition:fade={{ duration: 120 }}>
+							<div class="flex gap-2">
+								<input
+									bind:this={newExerciseInput}
+									bind:value={newExerciseName}
+									type="text"
+									placeholder="Exercise name"
+									class="input input-bordered input-sm flex-1"
+									class:input-error={!!newExerciseError}
+									onkeydown={(e) => {
+										if (e.key === 'Enter') handleCreateAndAddExercise();
+										if (e.key === 'Escape') showNewExerciseInput = false;
+									}}
+									oninput={() => (newExerciseError = '')}
+								/>
+								<button class="btn btn-primary btn-sm" onclick={handleCreateAndAddExercise}
+									>Add</button
+								>
+								<button class="btn btn-ghost btn-sm" onclick={() => (showNewExerciseInput = false)}
+									>Cancel</button
+								>
+							</div>
+							{#if newExerciseError}
+								<p class="text-error text-xs" transition:fade={{ duration: 100 }}>
+									{newExerciseError}
+								</p>
+							{/if}
+						</div>
+					{:else}
+						<button
+							class="btn btn-outline btn-primary btn-sm self-start"
+							onclick={() => (showNewExerciseInput = true)}
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								height="16"
+								width="16"
+								viewBox="0 -960 960 960"
+								fill="currentColor"
+								><path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" /></svg
 							>
-								<span class="text-base leading-none">+</span>{workout.name}
-							</button>
-						{/each}
-					</div>
+							New exercise
+						</button>
+					{/if}
 				</div>
-			{:else if workoutsInRoutine.length > 0}
-				<p class="text-base-content/40 text-center text-sm">All exercises are in this routine.</p>
-			{/if}
+			</div>
 		{/if}
 	</div>
 {/if}
