@@ -67,7 +67,9 @@
 			</div>
 			<div>
 				<p class="text-sm font-semibold">Log sets instantly</p>
-				<p class="text-base-content/40 text-xs">Tap once to record reps and weight — no friction</p>
+				<p class="text-base-content/40 text-xs">
+					Tap once to record reps and weight with no friction
+				</p>
 			</div>
 		</li>
 		<li class="flex items-start gap-3">
@@ -85,9 +87,7 @@
 			</div>
 			<div>
 				<p class="text-sm font-semibold">Track volume &amp; intensity</p>
-				<p class="text-base-content/40 text-xs">
-					See weekly tonnage and average weight at a glance
-				</p>
+				<p class="text-base-content/40 text-xs">See relevant stats at a glance</p>
 			</div>
 		</li>
 		<li class="flex items-start gap-3">
@@ -152,6 +152,7 @@
 			<p class="text-error rounded-xl bg-red-500/10 px-4 py-3 text-center text-xs">{error}</p>
 		{/if}
 
-		<p class="text-base-content/30 text-center text-xs">No password needed · free forever</p>
+		<p class="text-base-content/30 text-center text-xs">No password needed</p>
+		<!-- <p class="text-base-content/30 text-center text-xs">No password needed · free forever</p> -->
 	</div>
 </div>
