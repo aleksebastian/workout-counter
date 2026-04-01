@@ -7,6 +7,7 @@
 	import AddIcon from '$lib/icons/add.svg?raw';
 	import EditWorkoutsDialog from '../EditWorkoutsDialog.svelte';
 	import NewWorkoutDialog from '../NewWorkoutDialog.svelte';
+	import FAB from '$lib/components/Buttons/FAB.svelte';
 	import { arrayUnion, doc, updateDoc } from 'firebase/firestore';
 	import { db, user, userData } from '$lib/firebase';
 	import { formatDistanceToNow } from 'date-fns';
@@ -134,11 +135,6 @@
 	<div class="flex items-center justify-between">
 		<h1 class="text-xl font-bold">Exercises</h1>
 		<div class="flex items-center gap-1">
-			{#if $user && !isEditingWorkouts}
-				<button class="btn btn-ghost btn-sm" onclick={handleAddWorkoutClick}>
-					{@html AddIcon} Add
-				</button>
-			{/if}
 			{#if $userData?.workouts?.length}
 				<button
 					class="btn btn-ghost btn-sm w-14 font-semibold"
@@ -183,7 +179,7 @@
 			{/each}
 		</div>
 	{:else if filteredWorkouts.length}
-		<ul class="flex flex-col gap-2">
+		<ul class="flex flex-col gap-2 pb-16">
 			{#each filteredWorkouts as workout}
 				<li>
 					<a
@@ -194,7 +190,7 @@
 									handleWorkoutEditClick(workout);
 								}
 							: undefined}
-						class="bg-base-200 hover:bg-base-300 rounded-box flex w-full items-center gap-3 px-4 py-3 transition-colors active:scale-[0.98]"
+						class="bg-base-200 hover:bg-base-300 rounded-box relative flex w-full items-center gap-3 overflow-hidden px-4 py-3 transition-colors active:scale-[0.98]"
 					>
 						<div class="flex flex-1 flex-col overflow-hidden">
 							<span class="truncate text-sm font-semibold">{workout.name}</span>
@@ -214,17 +210,25 @@
 							</div>
 						</div>
 						<span class="text-base-content/40 shrink-0 text-xs">{workout.sets.length} sets</span>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="text-base-content/30 h-4 w-4 shrink-0 transition-opacity duration-200"
-							style:opacity={isEditingWorkouts ? '0' : '1'}
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-							stroke-width="2.5"
-						>
-							<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-						</svg>
+						<div class="relative h-4 w-4 shrink-0">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="text-base-content/30 absolute inset-0 h-4 w-4 transition-opacity duration-200"
+								style:opacity={isEditingWorkouts ? '0' : '1'}
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+								stroke-width="2.5"
+							>
+								<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+							</svg>
+							<span
+								class="text-primary absolute inset-0 flex items-center justify-center transition-opacity duration-200 [&>svg]:h-4 [&>svg]:w-4"
+								style:opacity={isEditingWorkouts ? '1' : '0'}
+							>
+								{@html EditIcon}
+							</span>
+						</div>
 					</a>
 				</li>
 			{/each}
@@ -255,3 +259,5 @@
 	bind:newWorkoutName
 	onclose={handleNewWorkoutDialogResult}
 />
+
+<FAB onclick={handleAddWorkoutClick} hidden={isEditingWorkouts} />

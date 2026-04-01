@@ -5,6 +5,7 @@
 	import DialogAction from '$lib/components/Dialog/DialogAction.svelte';
 	import { userData } from '$lib/firebase';
 	import { getRoutineNameValidationMsg } from '$lib/utils';
+	import DeleteIcon from '$lib/icons/delete.svg?raw';
 
 	interface Props {
 		dialog: HTMLDialogElement;
@@ -75,35 +76,47 @@
 
 <Dialog bind:dialog onclose={handleClose}>
 	<DialogHeader header="Edit Routine" closeButton />
+
 	{#if confirmingDelete}
-		<p class="h-20 text-red-500">Are you sure you want to delete this routine?</p>
+		<div class="flex flex-col items-center gap-3 py-2 text-center">
+			<div
+				class="bg-error/10 text-error flex items-center justify-center rounded-full p-3 [&>svg]:h-6 [&>svg]:w-6"
+			>
+				{@html DeleteIcon}
+			</div>
+			<div>
+				<p class="font-semibold">Delete "{editingRoutine?.name}"?</p>
+				<p class="text-base-content/50 mt-1 text-sm">Your exercises won&apos;t be affected.</p>
+			</div>
+		</div>
 	{:else}
-		<div class="flex flex-col gap-2">
+		<div class="flex flex-col gap-1.5">
+			<label class="text-base-content/60 text-sm font-medium" for="edit-routine-name">Name</label>
 			<input
+				id="edit-routine-name"
 				aria-label="Routine Name"
 				bind:this={inputEle}
 				type="text"
-				class="input input-bordered w-full max-w-xs"
+				class="input input-bordered w-full"
 				bind:value={name}
 				onkeydown={handleKeyDown}
 			/>
-			{#if editError}
-				<p class="min-h-6 px-2 text-red-500">{editError}</p>
-			{:else}
-				<div class="min-h-6"></div>
-			{/if}
+			<p class="text-error min-h-5 px-0.5 text-xs">{editError ?? ''}</p>
 		</div>
 	{/if}
 
 	<DialogAction noTopMargin>
 		{#if confirmingDelete}
-			<button class="btn btn-primary" value="cancel" onclick={() => (confirmingDelete = false)}
+			<button class="btn flex-1" type="button" onclick={() => (confirmingDelete = false)}
 				>Cancel</button
 			>
-			<button class="btn" value="delete">Delete</button>
+			<button class="btn btn-error flex-1" value="delete">Delete</button>
 		{:else}
-			<button class="btn btn-primary" onclick={handleDeleteClick}>Delete</button>
-			<button class="btn w-20" value="edit" onclick={handleSaveClick}>Save</button>
+			<button class="btn btn-ghost text-error gap-1.5" onclick={handleDeleteClick}>
+				<span class="[&>svg]:h-4 [&>svg]:w-4">{@html DeleteIcon}</span>
+				Delete
+			</button>
+			<button class="btn btn-primary" value="edit" onclick={handleSaveClick}>Save</button>
 		{/if}
 	</DialogAction>
 </Dialog>

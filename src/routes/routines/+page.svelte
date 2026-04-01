@@ -9,6 +9,7 @@
 	import NewRoutineDialog from '../NewRoutineDialog.svelte';
 	import EditRoutineDialog from '../EditRoutineDialog.svelte';
 	import PullToRefresh from '$lib/components/PullToRefresh.svelte';
+	import FAB from '$lib/components/Buttons/FAB.svelte';
 
 	let newRoutineDialog: HTMLDialogElement = $state()!;
 	let newRoutineNameInputEle: HTMLInputElement = $state()!;
@@ -17,6 +18,7 @@
 	let newRoutineName = $state('');
 	let editedRoutineName = $state('');
 	let editingRoutine: Routine | undefined = $state(undefined);
+	let isEditingRoutines = $state(false);
 
 	function getRoutineStats(routine: Routine) {
 		const workouts = (routine.workoutIds ?? [])
@@ -90,7 +92,7 @@
 		<div class="mx-auto flex w-full max-w-lg flex-col gap-4">
 			<div class="flex items-center justify-between">
 				<div class="skeleton h-7 w-28 rounded-lg"></div>
-				<div class="skeleton h-9 w-32 rounded-xl"></div>
+				<div class="skeleton h-9 w-14 rounded-xl"></div>
 			</div>
 			{#each { length: 3 } as _}
 				<div class="skeleton h-20 w-full rounded-2xl"></div>
@@ -101,20 +103,34 @@
 			<!-- Header -->
 			<div class="flex items-center justify-between">
 				<h1 class="text-xl font-bold">Routines</h1>
-				{#if $user}
-					<button class="btn btn-primary btn-sm gap-1" onclick={handleAddRoutineClick}>
-						{@html AddIcon} New routine
+				{#if $userData?.routines?.length}
+					<button
+						class="btn btn-ghost btn-sm w-14 font-semibold"
+						class:text-primary={isEditingRoutines}
+						onclick={() => (isEditingRoutines = !isEditingRoutines)}
+					>
+						{isEditingRoutines ? 'Done' : 'Edit'}
 					</button>
 				{/if}
 			</div>
 
 			<!-- Routine list -->
 			{#if $userData?.routines?.length}
-				<div class="flex flex-col gap-2">
+				<div class="flex flex-col gap-2 pb-16">
 					{#each $userData.routines! as routine}
 						{@const stats = getRoutineStats(routine)}
-						<div class="bg-base-200 flex items-center gap-2 rounded-2xl px-4 py-3.5">
-							<a href={'/routines/' + routine.id} class="flex min-w-0 flex-1 flex-col gap-1">
+						<a
+							href={'/routines/' + routine.id}
+							onclick={isEditingRoutines
+								? (e) => {
+										e.preventDefault();
+										handleRoutineEditClick(routine);
+									}
+								: undefined}
+							class="bg-base-200 hover:bg-base-300 relative flex items-center gap-3 overflow-hidden rounded-2xl px-4 py-3.5 transition-colors active:scale-[0.98]"
+						>
+							<!-- Content -->
+							<div class="flex min-w-0 flex-1 flex-col overflow-hidden">
 								<div class="flex items-center gap-2">
 									<span class="truncate font-semibold">{routine.name}</span>
 									{#if stats.doneToday > 0}
@@ -128,36 +144,47 @@
 										</span>
 									{/if}
 								</div>
-								<div class="text-base-content/40 flex items-center gap-1.5 text-xs">
-									{#if stats.doneToday > 0}
-										<span>{stats.doneToday} of {routine.workoutIds.length} done today</span>
-									{:else if stats.lastSession}
-										<span>Last: {formatDistanceToNow(stats.lastSession, { addSuffix: true })}</span>
-									{:else}
-										<span>Not started yet</span>
-									{/if}
+								<div
+									class="grid transition-all duration-200 ease-out"
+									style:grid-template-rows={isEditingRoutines ? '0fr' : '1fr'}
+									style:opacity={isEditingRoutines ? '0' : '1'}
+								>
+									<div class="overflow-hidden">
+										<div class="text-base-content/40 flex items-center gap-1.5 text-xs">
+											{#if stats.doneToday > 0}
+												<span>{stats.doneToday} of {routine.workoutIds.length} done today</span>
+											{:else if stats.lastSession}
+												<span
+													>Last: {formatDistanceToNow(stats.lastSession, { addSuffix: true })}</span
+												>
+											{:else}
+												<span>Not started yet</span>
+											{/if}
+										</div>
+									</div>
 								</div>
-							</a>
-							<!-- Options menu -->
-							<div class="dropdown dropdown-end">
-								<button
-									tabindex="0"
-									class="btn btn-ghost btn-circle btn-sm"
-									aria-label="Routine options">&#8226;&#8226;&#8226;</button
-								>
-								<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-								<ul
-									tabindex="0"
-									class="menu dropdown-content bg-base-100 rounded-box z-50 w-36 p-1 shadow"
-								>
-									<li>
-										<button onclick={() => handleRoutineEditClick(routine)}>
-											{@html EditIcon} Edit
-										</button>
-									</li>
-								</ul>
 							</div>
-						</div>
+							<!-- Chevron / Edit icon overlay -->
+							<div class="relative h-4 w-4 shrink-0">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="text-base-content/30 absolute inset-0 h-4 w-4 transition-opacity duration-200"
+									style:opacity={isEditingRoutines ? '0' : '1'}
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+									stroke-width="2.5"
+								>
+									<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+								</svg>
+								<span
+									class="text-primary absolute inset-0 flex items-center justify-center transition-opacity duration-200 [&>svg]:h-4 [&>svg]:w-4"
+									style:opacity={isEditingRoutines ? '1' : '0'}
+								>
+									{@html EditIcon}
+								</span>
+							</div>
+						</a>
 					{/each}
 				</div>
 			{:else if $user}
@@ -208,3 +235,5 @@
 	onclose={handleEditRoutineResult}
 	{editingRoutine}
 />
+
+<FAB onclick={handleAddRoutineClick} hidden={isEditingRoutines} />
