@@ -328,7 +328,7 @@
 							class="bg-primary/8 border-primary/20 rounded-box flex items-center gap-3 border px-4 py-3"
 						>
 							<div class="flex flex-1 flex-col gap-0.5 overflow-hidden">
-								<span class="font-semibold">{activeSession.name}</span>
+						<span class="font-semibold">{activeProgram.name}</span>
 								{#if todayEntry}
 									{#if todayEntry.label}
 										<span class="text-base-content/60 text-xs">{todayEntry.label}</span>
@@ -343,11 +343,11 @@
 							{#if todayEntry && flatCount > 0}
 								<button
 									class="btn btn-primary btn-sm"
-									onclick={() => goto(`/programs/${activeSession!.id}/run?day=${todayDow}`)}
+									onclick={() => goto(`/programs/${activeProgram!.id}/run?day=${todayDow}`)}
 									>Start</button
 								>
 							{:else}
-								<a class="btn btn-ghost btn-sm" href={`/programs/${activeSession.id}`}>View</a>
+								<a class="btn btn-ghost btn-sm" href={`/programs/${activeProgram.id}`}>View</a>
 							{/if}
 						</div>
 					</div>
