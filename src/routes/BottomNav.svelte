@@ -18,6 +18,7 @@
 	let isHome = $derived(path === '/');
 	let isExercises = $derived(path.startsWith('/exercises'));
 	let isRoutines = $derived(path.startsWith('/routines') || path.startsWith('/workout'));
+	let isSessions = $derived(path.startsWith('/programs'));
 </script>
 
 <nav
@@ -30,7 +31,7 @@
 		<a
 			href="/"
 			aria-label="Home"
-			class="flex flex-col items-center gap-0.5 px-6 py-2 transition-opacity"
+			class="flex flex-col items-center gap-0.5 px-4 py-2 transition-opacity"
 			class:opacity-100={isHome}
 			class:opacity-35={!isHome}
 		>
@@ -55,7 +56,7 @@
 		<a
 			href="/exercises"
 			aria-label="Exercises"
-			class="flex flex-col items-center gap-0.5 px-6 py-2 transition-opacity"
+			class="flex flex-col items-center gap-0.5 px-4 py-2 transition-opacity"
 			class:opacity-100={isExercises}
 			class:opacity-35={!isExercises}
 		>
@@ -80,7 +81,7 @@
 		<a
 			href="/routines"
 			aria-label="Routines"
-			class="flex flex-col items-center gap-0.5 px-6 py-2 transition-opacity"
+			class="flex flex-col items-center gap-0.5 px-4 py-2 transition-opacity"
 			class:opacity-100={isRoutines}
 			class:opacity-35={!isRoutines}
 		>
@@ -99,6 +100,31 @@
 				/>
 			</svg>
 			<span class="text-xs font-medium">Routines</span>
+		</a>
+
+		<!-- Programs -->
+		<a
+			href="/programs"
+			aria-label="Programs"
+			class="flex flex-col items-center gap-0.5 px-4 py-2 transition-opacity"
+			class:opacity-100={isSessions}
+			class:opacity-35={!isSessions}
+		>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="h-6 w-6"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke="currentColor"
+				stroke-width="2"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+				/>
+			</svg>
+			<span class="text-xs font-medium">Programs</span>
 		</a>
 	</div>
 </nav>

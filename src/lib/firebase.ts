@@ -3,7 +3,7 @@ import { doc, getFirestore, onSnapshot } from 'firebase/firestore';
 import { getAuth, onAuthStateChanged, type User } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 import { writable, type Readable, derived } from 'svelte/store';
-import type { Workout, Routine } from './state.svelte';
+import type { Workout, Routine, Program } from './state.svelte';
 
 const firebaseConfig = {
 	apiKey: 'AIzaSyB2Wxz_yyr7spT7MrwhxpGPK9XXbo8SDmU',
@@ -81,6 +81,8 @@ export interface UserData {
 	photoURL: string;
 	workouts: Workout[];
 	routines?: Routine[];
+	programs?: Program[];
+	activeProgramId?: string;
 	preferences?: {
 		timer: { minutes: number; seconds: number };
 		theme?: 'light' | 'dark' | 'system';

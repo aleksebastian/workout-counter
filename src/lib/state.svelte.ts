@@ -13,11 +13,89 @@ export type Workout = {
 	sets: Set[];
 };
 
+export type RoutineExercise = {
+	workoutId: string;
+	targetSets?: number; // undefined = free-form (user advances manually)
+};
+
 export type Routine = {
 	id: string;
 	name: string;
-	workoutIds: string[];
+	workoutIds: string[]; // kept for backward compat
+	exercises?: RoutineExercise[]; // new format; source of truth when present
 };
+
+/** Returns the exercises for a routine, normalising old workoutIds-only data. */
+export function getRoutineExercises(routine: Routine): RoutineExercise[] {
+	return routine.exercises ?? routine.workoutIds.map((id) => ({ workoutId: id }));
+}
+
+export type ProgramExercise = {
+	workoutId: string;
+	targetSets: number;
+};
+
+export type ProgramItem =
+	| { type: 'routine'; routineId: string }
+	| { type: 'exercise'; workoutId: string; targetSets: number };
+
+export type ProgramDay = {
+	day: number; // 0=Sun … 6=Sat
+	label?: string; // optional custom label e.g. "Upper Hypertrophy"
+	items: ProgramItem[];
+};
+
+export type Program = {
+	id: string;
+	name: string;
+	schedule?: ProgramDay[]; // new: per-day items; source of truth when present
+	// Backward-compat fields:
+	days?: number[];
+	exercises?: ProgramExercise[];
+	items?: ProgramItem[];
+};
+
+/** Returns the full weekly schedule, normalising legacy flat-items data. */
+export function getProgramSchedule(program: Program): ProgramDay[] {
+	if (program.schedule?.length) return program.schedule;
+	const items: ProgramItem[] = program.items
+		? program.items
+		: (program.exercises ?? []).map((e) => ({
+				type: 'exercise' as const,
+				workoutId: e.workoutId,
+				targetSets: e.targetSets
+			}));
+	return (program.days ?? []).map((day) => ({ day, items }));
+}
+
+/** Returns all days that have scheduled items. */
+export function getProgramDays(program: Program): number[] {
+	if (program.schedule) return program.schedule.map((sd) => sd.day);
+	return program.days ?? [];
+}
+
+/** Returns items for a specific day of the week. */
+export function getProgramItemsForDay(program: Program, day: number): ProgramItem[] {
+	return getProgramSchedule(program).find((sd) => sd.day === day)?.items ?? [];
+}
+
+/**
+ * Returns a flat item list — for today if scheduled, else the first day.
+ * Kept for backward compat with legacy callers.
+ */
+export function getProgramItems(program: Program): ProgramItem[] {
+	if (program.schedule?.length) {
+		const today = new Date().getDay();
+		const sd = program.schedule.find((sd) => sd.day === today) ?? program.schedule[0];
+		return sd?.items ?? [];
+	}
+	if (program.items) return program.items;
+	return (program.exercises ?? []).map((e) => ({
+		type: 'exercise' as const,
+		workoutId: e.workoutId,
+		targetSets: e.targetSets
+	}));
+}
 
 export type Toast = {
 	id?: string;

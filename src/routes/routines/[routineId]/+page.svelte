@@ -5,40 +5,53 @@
 	import { v4 as uuidv4 } from 'uuid';
 	import { formatDistanceToNow } from 'date-fns';
 	import BackButton from '$lib/components/Buttons/BackButton.svelte';
-	import EditIcon from '$lib/icons/edit.svg?raw';
 	import AddIcon from '$lib/icons/add.svg?raw';
 	import UpIcon from '$lib/icons/up.svg?raw';
 	import DownIcon from '$lib/icons/down.svg?raw';
 	import DeleteIcon from '$lib/icons/delete.svg?raw';
-	import type { Workout } from '$lib/state.svelte';
+	import RemoveIcon from '$lib/icons/remove.svg?raw';
+	import type { Workout, RoutineExercise } from '$lib/state.svelte';
+	import { getRoutineExercises } from '$lib/state.svelte';
 	import { getWorkoutNameValidationMsg } from '$lib/utils';
 	import { fade } from 'svelte/transition';
 
 	let routine = $derived($userData?.routines?.find((r) => r.id === page.params.routineId));
 
+	// Source of truth: exercises array (normalised from workoutIds if needed)
+	let routineExercises = $derived(
+		routine ? getRoutineExercises(routine) : ([] as RoutineExercise[])
+	);
+
 	let workoutsInRoutine = $derived(
-		(routine?.workoutIds ?? [])
-			.map((id) => $userData?.workouts.find((w) => w.id === id))
-			.filter(Boolean) as import('$lib/state.svelte').Workout[]
+		routineExercises
+			.map((ex) => ({
+				ex,
+				workout: $userData?.workouts.find((w) => w.id === ex.workoutId)
+			}))
+			.filter((item) => item.workout !== undefined) as { ex: RoutineExercise; workout: Workout }[]
 	);
 
 	let workoutsNotInRoutine = $derived(
-		($userData?.workouts ?? []).filter((w) => !routine?.workoutIds.includes(w.id))
+		($userData?.workouts ?? []).filter((w) => !routineExercises.some((ex) => ex.workoutId === w.id))
 	);
 
 	let weightUnit = $derived($userData?.preferences?.weightUnit ?? 'lbs');
 
 	let doneToday = $derived(
-		workoutsInRoutine.filter((w) =>
-			w.sets.some((s) => new Date(s.date).toDateString() === new Date().toDateString())
+		workoutsInRoutine.filter(({ workout }) =>
+			workout.sets.some((s) => new Date(s.date).toDateString() === new Date().toDateString())
 		).length
 	);
 
-	let totalSets = $derived(workoutsInRoutine.reduce((sum, w) => sum + w.sets.length, 0));
+	let totalSets = $derived(
+		workoutsInRoutine.reduce((sum, { workout }) => sum + workout.sets.length, 0)
+	);
 
 	let lastRoutineDate = $derived(
 		(() => {
-			const times = workoutsInRoutine.flatMap((w) => w.sets.map((s) => new Date(s.date).getTime()));
+			const times = workoutsInRoutine.flatMap(({ workout }) =>
+				workout.sets.map((s) => new Date(s.date).getTime())
+			);
 			return times.length ? new Date(Math.max(...times)) : null;
 		})()
 	);
@@ -48,16 +61,16 @@
 			if (!workoutsInRoutine.length) return undefined;
 			const today = new Date().toDateString();
 			const notDoneToday = workoutsInRoutine.filter(
-				(w) => !w.sets.some((s) => new Date(s.date).toDateString() === today)
+				({ workout }) => !workout.sets.some((s) => new Date(s.date).toDateString() === today)
 			);
 			const pool = notDoneToday.length ? notDoneToday : workoutsInRoutine;
-			return pool.reduce((oldest, w) => {
-				if (!w.sets.length) return w;
-				if (!oldest.sets.length) return oldest;
-				const lastW = Math.max(...w.sets.map((s) => new Date(s.date).getTime()));
-				const lastO = Math.max(...oldest.sets.map((s) => new Date(s.date).getTime()));
-				return lastW < lastO ? w : oldest;
-			});
+			return pool.reduce((oldest, item) => {
+				if (!item.workout.sets.length) return item;
+				if (!oldest.workout.sets.length) return oldest;
+				const lastW = Math.max(...item.workout.sets.map((s) => new Date(s.date).getTime()));
+				const lastO = Math.max(...oldest.workout.sets.map((s) => new Date(s.date).getTime()));
+				return lastW < lastO ? item : oldest;
+			}).workout;
 		})()
 	);
 
@@ -76,16 +89,41 @@
 	let newExerciseName = $state('');
 	let newExerciseError = $state('');
 	let newExerciseInput: HTMLInputElement | undefined = $state();
+	let exerciseSearch = $state('');
+
+	let filteredWorkoutsNotInRoutine = $derived(
+		exerciseSearch.trim()
+			? workoutsNotInRoutine.filter((w) =>
+					w.name.toLowerCase().includes(exerciseSearch.toLowerCase())
+				)
+			: workoutsNotInRoutine
+	);
 
 	$effect(() => {
 		if (showNewExerciseInput) {
-			// focus after the DOM updates
 			queueMicrotask(() => newExerciseInput?.focus());
 		} else {
 			newExerciseName = '';
 			newExerciseError = '';
 		}
 	});
+
+	/** Build a plain object for saving — always includes both exercises (new) and workoutIds (back-compat). */
+	function buildUpdatedRoutine(exercises: RoutineExercise[]) {
+		return {
+			...routine!,
+			exercises,
+			workoutIds: exercises.map((ex) => ex.workoutId)
+		};
+	}
+
+	async function saveRoutines(exercises: RoutineExercise[]) {
+		if (!$userData || !routine) return;
+		const updated = buildUpdatedRoutine(exercises);
+		const routines = $userData.routines!.map((r) => (r.id === routine!.id ? updated : r));
+		const userRef = doc(db, 'users', $user!.uid);
+		await updateDoc(userRef, { routines });
+	}
 
 	async function handleCreateAndAddExercise() {
 		const trimmed = newExerciseName.trim();
@@ -97,14 +135,14 @@
 		if (!routine || !$userData) return;
 
 		const newWorkout = { id: uuidv4(), name: trimmed, sets: [] };
+		const newExercises = [...routineExercises, { workoutId: newWorkout.id }];
 		const userRef = doc(db, 'users', $user!.uid);
 
 		try {
-			// Add the exercise to the workouts list and to this routine atomically
 			await updateDoc(userRef, {
 				workouts: arrayUnion(newWorkout),
 				routines: $userData.routines!.map((r) =>
-					r.id === routine!.id ? { ...r, workoutIds: [...r.workoutIds, newWorkout.id] } : r
+					r.id === routine!.id ? buildUpdatedRoutine(newExercises) : r
 				)
 			});
 			showNewExerciseInput = false;
@@ -114,63 +152,83 @@
 		}
 	}
 
-	async function saveRoutines() {
-		if (!$userData || !routine) return;
-		const routines = $userData.routines!.map((r) => (r.id === routine!.id ? routine! : r));
-		const userRef = doc(db, 'users', $user!.uid);
-		await updateDoc(userRef, { routines });
-	}
-
 	async function handleRemoveWorkout(workoutId: string) {
-		if (!routine) return;
-		const original = [...routine.workoutIds];
-		routine.workoutIds = routine.workoutIds.filter((id) => id !== workoutId);
+		const original = [...routineExercises];
+		const updated = routineExercises.filter((ex) => ex.workoutId !== workoutId);
+		// optimistic
+		routine!.exercises = updated;
+		routine!.workoutIds = updated.map((ex) => ex.workoutId);
 		try {
-			await saveRoutines();
-		} catch (error) {
-			routine.workoutIds = original;
-			console.error('Failed to remove workout from routine:', error);
+			await saveRoutines(updated);
+		} catch {
+			routine!.exercises = original;
+			routine!.workoutIds = original.map((ex) => ex.workoutId);
 		}
 	}
 
 	async function handleAddWorkout() {
 		if (!routine || !selectedWorkoutId) return;
-		const original = [...routine.workoutIds];
-		routine.workoutIds = [...routine.workoutIds, selectedWorkoutId];
+		const updated = [...routineExercises, { workoutId: selectedWorkoutId }];
 		selectedWorkoutId = '';
+		routine!.exercises = updated;
+		routine!.workoutIds = updated.map((ex) => ex.workoutId);
 		try {
-			await saveRoutines();
-		} catch (error) {
-			routine.workoutIds = original;
-			console.error('Failed to add workout to routine:', error);
+			await saveRoutines(updated);
+		} catch {
+			// revert by removing last
+			const reverted = updated.slice(0, -1);
+			routine!.exercises = reverted;
+			routine!.workoutIds = reverted.map((ex) => ex.workoutId);
 		}
 	}
 
 	async function handleMoveUp(index: number) {
 		if (!routine || index === 0) return;
-		const original = [...routine.workoutIds];
-		const ids = [...routine.workoutIds];
-		[ids[index - 1], ids[index]] = [ids[index], ids[index - 1]];
-		routine.workoutIds = ids;
+		const exercises = [...routineExercises];
+		[exercises[index - 1], exercises[index]] = [exercises[index], exercises[index - 1]];
+		routine!.exercises = exercises;
+		routine!.workoutIds = exercises.map((ex) => ex.workoutId);
 		try {
-			await saveRoutines();
-		} catch (error) {
-			routine.workoutIds = original;
-			console.error('Failed to reorder routine:', error);
+			await saveRoutines(exercises);
+		} catch {
+			const reverted = [...routineExercises];
+			[reverted[index - 1], reverted[index]] = [reverted[index], reverted[index - 1]];
+			routine!.exercises = reverted;
+			routine!.workoutIds = reverted.map((ex) => ex.workoutId);
 		}
 	}
 
 	async function handleMoveDown(index: number) {
-		if (!routine || index >= routine.workoutIds.length - 1) return;
-		const original = [...routine.workoutIds];
-		const ids = [...routine.workoutIds];
-		[ids[index], ids[index + 1]] = [ids[index + 1], ids[index]];
-		routine.workoutIds = ids;
+		if (!routine || index >= routineExercises.length - 1) return;
+		const exercises = [...routineExercises];
+		[exercises[index], exercises[index + 1]] = [exercises[index + 1], exercises[index]];
+		routine!.exercises = exercises;
+		routine!.workoutIds = exercises.map((ex) => ex.workoutId);
 		try {
-			await saveRoutines();
-		} catch (error) {
-			routine.workoutIds = original;
-			console.error('Failed to reorder routine:', error);
+			await saveRoutines(exercises);
+		} catch {
+			const reverted = [...routineExercises];
+			[reverted[index], reverted[index + 1]] = [reverted[index + 1], reverted[index]];
+			routine!.exercises = reverted;
+			routine!.workoutIds = reverted.map((ex) => ex.workoutId);
+		}
+	}
+
+	async function handleUpdateTargetSets(workoutId: string, delta: number) {
+		if (!routine) return;
+		const exercises = routineExercises.map((ex) => {
+			if (ex.workoutId !== workoutId) return ex;
+			const current = ex.targetSets;
+			if (delta < 0 && current === undefined) return ex; // already free-form
+			const next = current === undefined ? 1 : Math.max(1, Math.min(99, current + delta));
+			return { ...ex, targetSets: next };
+		});
+		routine!.exercises = exercises;
+		routine!.workoutIds = exercises.map((ex) => ex.workoutId);
+		try {
+			await saveRoutines(exercises);
+		} catch {
+			/* leave optimistic state */
 		}
 	}
 </script>
@@ -261,29 +319,66 @@
 					out:fade={{ duration: 120 }}
 					in:fade={{ duration: 120, delay: 120 }}
 				>
-					{#each workoutsInRoutine as workout, i}
+					{#each workoutsInRoutine as item, i}
+						{@const ex = item.ex}
+						{@const workout = item.workout}
 						{#if isEditing}
-							<div class="bg-base-200 flex items-center gap-2 rounded-2xl px-3 py-2">
-								<span class="text-base-content/40 w-5 shrink-0 text-right text-xs">{i + 1}</span>
-								<span class="min-w-0 flex-1 truncate text-sm font-medium">{workout.name}</span>
-								<div class="flex gap-0.5">
-									<button
-										class="btn btn-circle btn-ghost btn-sm"
-										disabled={i === 0}
-										onclick={() => handleMoveUp(i)}
-										aria-label="Move up">{@html UpIcon}</button
+							<div class="bg-base-200 flex flex-col gap-1.5 rounded-2xl px-4 py-3">
+								<!-- Row 1: number + name -->
+								<div class="flex items-start gap-2">
+									<span class="text-base-content/40 mt-0.5 w-5 shrink-0 text-right text-xs"
+										>{i + 1}</span
 									>
-									<button
-										class="btn btn-circle btn-ghost btn-sm"
-										disabled={i === workoutsInRoutine.length - 1}
-										onclick={() => handleMoveDown(i)}
-										aria-label="Move down">{@html DownIcon}</button
+									<span class="min-w-0 flex-1 text-sm leading-snug font-semibold"
+										>{workout.name}</span
 									>
-									<button
-										class="btn btn-circle btn-ghost btn-sm text-error"
-										onclick={() => handleRemoveWorkout(workout.id)}
-										aria-label="Remove from routine">{@html DeleteIcon}</button
-									>
+								</div>
+								<!-- Row 2: sets stepper + reorder + delete -->
+								<div class="flex items-center gap-1 pl-7">
+									<div class="mr-1 flex flex-col items-center">
+										<span
+											class="text-base-content/40 mb-0.5 text-[9px] font-semibold tracking-widest uppercase"
+											>Sets</span
+										>
+										<div class="flex items-center gap-1">
+											<button
+												class="btn btn-circle btn-ghost btn-xs"
+												onclick={() => handleUpdateTargetSets(workout.id, -1)}
+												aria-label="Decrease target sets">{@html RemoveIcon}</button
+											>
+											<span
+												class="text-base-content/60 min-w-8 text-center text-xs font-semibold tabular-nums"
+												title="Target sets (— = free-form)"
+											>
+												{ex.targetSets ?? '—'}
+											</span>
+											<button
+												class="btn btn-circle btn-ghost btn-xs"
+												onclick={() => handleUpdateTargetSets(workout.id, 1)}
+												aria-label="Increase target sets">{@html AddIcon}</button
+											>
+										</div>
+									</div>
+									<div class="flex-1"></div>
+									<div class="flex gap-0.5">
+										<button
+											class="btn btn-circle btn-ghost btn-sm"
+											disabled={i === 0}
+											onclick={() => handleMoveUp(i)}
+											aria-label="Move up">{@html UpIcon}</button
+										>
+										<button
+											class="btn btn-circle btn-ghost btn-sm"
+											disabled={i === workoutsInRoutine.length - 1}
+											onclick={() => handleMoveDown(i)}
+											aria-label="Move down">{@html DownIcon}</button
+										>
+										<button
+											class="btn btn-circle btn-ghost btn-sm text-error"
+											onclick={() => handleRemoveWorkout(workout.id)}
+											aria-label="Remove from routine">{@html DeleteIcon}</button
+										>
+									</div>
 								</div>
 							</div>
 						{:else}
@@ -375,9 +470,18 @@
 						Add exercise
 					</p>
 
+					{#if workoutsNotInRoutine.length > 4}
+						<input
+							type="search"
+							placeholder="Search exercises…"
+							class="input input-sm input-bordered w-full"
+							bind:value={exerciseSearch}
+						/>
+					{/if}
+
 					{#if workoutsNotInRoutine.length}
 						<div class="flex flex-wrap gap-2">
-							{#each workoutsNotInRoutine as workout}
+							{#each filteredWorkoutsNotInRoutine as workout}
 								<button
 									class="btn btn-sm btn-ghost gap-1"
 									onclick={() => {
@@ -388,6 +492,9 @@
 									<span class="text-base leading-none">+</span>{workout.name}
 								</button>
 							{/each}
+							{#if filteredWorkoutsNotInRoutine.length === 0}
+								<p class="text-base-content/40 text-sm">No matches.</p>
+							{/if}
 						</div>
 					{:else if !showNewExerciseInput}
 						<p class="text-base-content/40 text-sm">All exercises are already in this routine.</p>

@@ -1,10 +1,15 @@
 <script lang="ts">
 	import { user, userData, type UserData } from '$lib/firebase';
+	import {
+		getProgramSchedule,
+		getProgramItemsForDay,
+		getRoutineExercises
+	} from '$lib/state.svelte';
+	import { goto, afterNavigate } from '$app/navigation';
 	import { formatDistanceToNow } from 'date-fns';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
-	import { afterNavigate } from '$app/navigation';
 	import PullToRefresh from '$lib/components/PullToRefresh.svelte';
 
 	// Only animate on fresh page load, not on in-app navigation
@@ -299,6 +304,54 @@
 						</div>
 					{/if}
 				</div>
+			{/if}
+
+			<!-- Active program ──────────────────────────────────────────────────── -->
+			{#if effectiveUserData?.activeProgramId}
+				{@const activeProgram = (effectiveUserData.programs ?? []).find(
+					(s) => s.id === effectiveUserData!.activeProgramId
+				)}
+				{#if activeProgram}
+					{@const todayDow = new Date().getDay()}
+					{@const todayEntry = getProgramSchedule(activeProgram).find((sd) => sd.day === todayDow)}
+					{@const todayItems = todayEntry ? getProgramItemsForDay(activeProgram, todayDow) : []}
+					{@const flatCount = todayItems.reduce((sum, item) => {
+						if (item.type === 'exercise') return sum + 1;
+						const r = (effectiveUserData?.routines ?? []).find((r) => r.id === item.routineId);
+						return sum + (r ? getRoutineExercises(r).length : 0);
+					}, 0)}
+					<div in:landingFly|global={{ y: 20, duration: 400, delay: 200, easing: cubicOut }}>
+						<p class="text-base-content/40 mb-2 text-xs font-semibold tracking-wider uppercase">
+							Active Program
+						</p>
+						<div
+							class="bg-primary/8 border-primary/20 rounded-box flex items-center gap-3 border px-4 py-3"
+						>
+							<div class="flex flex-1 flex-col gap-0.5 overflow-hidden">
+								<span class="font-semibold">{activeSession.name}</span>
+								{#if todayEntry}
+									{#if todayEntry.label}
+										<span class="text-base-content/60 text-xs">{todayEntry.label}</span>
+									{/if}
+									<span class="text-base-content/40 text-xs"
+										>{flatCount} exercise{flatCount !== 1 ? 's' : ''} today</span
+									>
+								{:else}
+									<span class="text-base-content/40 text-xs">Rest day</span>
+								{/if}
+							</div>
+							{#if todayEntry && flatCount > 0}
+								<button
+									class="btn btn-primary btn-sm"
+									onclick={() => goto(`/programs/${activeSession!.id}/run?day=${todayDow}`)}
+									>Start</button
+								>
+							{:else}
+								<a class="btn btn-ghost btn-sm" href={`/programs/${activeSession.id}`}>View</a>
+							{/if}
+						</div>
+					</div>
+				{/if}
 			{/if}
 
 			<!-- Quick-start routines -->
