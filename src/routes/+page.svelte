@@ -328,7 +328,7 @@
 							class="bg-primary/8 border-primary/20 rounded-box flex items-center gap-3 border px-4 py-3"
 						>
 							<div class="flex flex-1 flex-col gap-0.5 overflow-hidden">
-						<span class="font-semibold">{activeProgram.name}</span>
+								<span class="font-semibold">{activeProgram.name}</span>
 								{#if todayEntry}
 									{#if todayEntry.label}
 										<span class="text-base-content/60 text-xs">{todayEntry.label}</span>
