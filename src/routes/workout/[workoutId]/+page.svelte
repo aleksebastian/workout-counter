@@ -51,12 +51,20 @@
 
 	const repsDown = createHoldHandler(() => (reps = Math.max(1, reps - 1)));
 	const repsUp = createHoldHandler(() => (reps += 1));
-	const weightDown = createHoldHandler(() => (weight = Math.max(0, Math.round((weight - 2.5) * 10) / 10)));
+	const weightDown = createHoldHandler(
+		() => (weight = Math.max(0, Math.round((weight - 2.5) * 10) / 10))
+	);
 	const weightUp = createHoldHandler(() => (weight = Math.round((weight + 2.5) * 10) / 10));
 
 	const QUICK_REPS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 20, 25, 30];
-	const QUICK_WEIGHTS_LBS = [2.5, 5, 7.5, 10, 12.5, 15, 17.5, 20, 22.5, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 95, 100, 115, 135, 155, 185, 225, 275, 315];
-	const QUICK_WEIGHTS_KG = [2.5, 5, 7.5, 10, 12.5, 15, 17.5, 20, 22.5, 25, 30, 35, 40, 45, 50, 55, 60, 70, 80, 90, 100, 110, 120, 140];
+	const QUICK_WEIGHTS_LBS = [
+		2.5, 5, 7.5, 10, 12.5, 15, 17.5, 20, 22.5, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 95,
+		100, 115, 135, 155, 185, 225, 275, 315
+	];
+	const QUICK_WEIGHTS_KG = [
+		2.5, 5, 7.5, 10, 12.5, 15, 17.5, 20, 22.5, 25, 30, 35, 40, 45, 50, 55, 60, 70, 80, 90, 100, 110,
+		120, 140
+	];
 	let quickWeights = $derived(weightUnit === 'kg' ? QUICK_WEIGHTS_KG : QUICK_WEIGHTS_LBS);
 	let isPRPreview = $derived(checkPR(reps, weight));
 	let todaySets = $derived(
@@ -245,7 +253,9 @@
 								>
 							{/each}
 						</div>
-						<div class="from-base-200 pointer-events-none absolute top-0 right-0 bottom-1 w-8 bg-linear-to-l to-transparent"></div>
+						<div
+							class="from-base-200 pointer-events-none absolute top-0 right-0 bottom-1 w-8 bg-linear-to-l to-transparent"
+						></div>
 					</div>
 				</div>
 
@@ -296,7 +306,9 @@
 								>
 							{/each}
 						</div>
-						<div class="from-base-200 pointer-events-none absolute top-0 right-0 bottom-1 w-8 bg-linear-to-l to-transparent"></div>
+						<div
+							class="from-base-200 pointer-events-none absolute top-0 right-0 bottom-1 w-8 bg-linear-to-l to-transparent"
+						></div>
 					</div>
 				</div>
 			</div>
