@@ -368,7 +368,7 @@
 							>
 								<span class="flex-1 text-sm font-semibold">{routine.name}</span>
 								<span class="text-base-content/40 text-xs"
-									>{routine.workoutIds.length} exercises</span
+									>{getRoutineExercises(routine).length} exercises</span
 								>
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
@@ -444,17 +444,193 @@
 				</div>
 			{/if}
 
-			<!-- Empty state: brand-new user -->
-			{#if !allSets.length && !effectiveUserData?.routines?.length && !effectiveUserData?.workouts?.length}
+			<!-- Empty state: brand-new user / onboarding checklist -->
+			{#if !allSets.length}
+				{@const hasExercises = (effectiveUserData?.workouts?.length ?? 0) > 0}
+				{@const hasRoutines = (effectiveUserData?.routines?.length ?? 0) > 0}
+				{@const hasSet = allSets.length > 0}
+				{@const firstWorkout = effectiveUserData?.workouts?.[0]}
 				<div
-					class="flex flex-col items-center gap-4 pt-4 text-center"
+					class="flex flex-col gap-3 pt-2"
 					in:landingFly|global={{ y: 20, duration: 400, delay: 400, easing: cubicOut }}
 				>
-					<p class="text-base-content/50 text-sm">Ready to start tracking?</p>
-					<div class="flex gap-2">
-						<a class="btn btn-primary btn-sm" href="/exercises">Add exercises</a>
-						<a class="btn btn-ghost btn-sm" href="/routines">Create a routine</a>
-					</div>
+					<p class="text-base-content/40 text-xs font-semibold tracking-wider uppercase">
+						Get started
+					</p>
+
+					<!-- Step 1: Add exercises -->
+					<a
+						href="/exercises"
+						class="bg-base-200 hover:bg-base-300 rounded-box flex items-center gap-4 px-4 py-4 transition-all active:scale-[0.98]"
+					>
+						<div
+							class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full {hasExercises
+								? 'bg-success/15'
+								: 'bg-primary/10'}"
+						>
+							{#if hasExercises}
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="text-success h-4 w-4"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+									stroke-width="2.5"
+								>
+									<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+								</svg>
+							{:else}
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="text-primary h-4 w-4"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+									stroke-width="2"
+								>
+									<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+								</svg>
+							{/if}
+						</div>
+						<div class="flex-1">
+							<p class="text-sm font-semibold {hasExercises ? 'line-through opacity-40' : ''}">
+								Add exercises
+							</p>
+							<p class="text-base-content/40 text-xs">The building blocks of every workout</p>
+						</div>
+						{#if !hasExercises}
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="text-base-content/30 h-4 w-4 shrink-0"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+								stroke-width="2.5"
+							>
+								<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+							</svg>
+						{/if}
+					</a>
+
+					<!-- Step 2: Create a routine -->
+					<a
+						href="/routines"
+						class="rounded-box flex items-center gap-4 px-4 py-4 transition-all active:scale-[0.98] {hasExercises
+							? 'bg-base-200 hover:bg-base-300'
+							: 'bg-base-200/50 pointer-events-none opacity-40'}"
+					>
+						<div
+							class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full {hasRoutines
+								? 'bg-success/15'
+								: 'bg-base-300'}"
+						>
+							{#if hasRoutines}
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="text-success h-4 w-4"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+									stroke-width="2.5"
+								>
+									<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+								</svg>
+							{:else}
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="text-base-content/40 h-4 w-4"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+									stroke-width="2"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										d="M4 6h16M4 10h16M4 14h10"
+									/>
+								</svg>
+							{/if}
+						</div>
+						<div class="flex-1">
+							<p class="text-sm font-semibold {hasRoutines ? 'line-through opacity-40' : ''}">
+								Create a routine
+							</p>
+							<p class="text-base-content/40 text-xs">Group exercises for quick-start sessions</p>
+						</div>
+						{#if hasExercises && !hasRoutines}
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="text-base-content/30 h-4 w-4 shrink-0"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+								stroke-width="2.5"
+							>
+								<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+							</svg>
+						{/if}
+					</a>
+
+					<!-- Step 3: Log your first set -->
+					<a
+						href={firstWorkout ? `/workout/${firstWorkout.id}` : '/exercises'}
+						class="rounded-box flex items-center gap-4 px-4 py-4 transition-all active:scale-[0.98] {hasRoutines
+							? 'bg-base-200 hover:bg-base-300'
+							: 'bg-base-200/50 pointer-events-none opacity-40'}"
+					>
+						<div
+							class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full {hasSet
+								? 'bg-success/15'
+								: 'bg-base-300'}"
+						>
+							{#if hasSet}
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="text-success h-4 w-4"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+									stroke-width="2.5"
+								>
+									<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+								</svg>
+							{:else}
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="text-base-content/40 h-4 w-4"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+									stroke-width="2"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										d="M13 10V3L4 14h7v7l9-11h-7z"
+									/>
+								</svg>
+							{/if}
+						</div>
+						<div class="flex-1">
+							<p class="text-sm font-semibold {hasSet ? 'line-through opacity-40' : ''}">
+								Log your first set
+							</p>
+							<p class="text-base-content/40 text-xs">Tap an exercise and record a rep</p>
+						</div>
+						{#if hasRoutines && !hasSet}
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="text-base-content/30 h-4 w-4 shrink-0"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+								stroke-width="2.5"
+							>
+								<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+							</svg>
+						{/if}
+					</a>
 				</div>
 			{/if}
 		</div>

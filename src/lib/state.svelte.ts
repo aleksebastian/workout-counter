@@ -21,13 +21,11 @@ export type RoutineExercise = {
 export type Routine = {
 	id: string;
 	name: string;
-	workoutIds: string[]; // kept for backward compat
-	exercises?: RoutineExercise[]; // new format; source of truth when present
+	exercises: RoutineExercise[];
 };
 
-/** Returns the exercises for a routine, normalising old workoutIds-only data. */
 export function getRoutineExercises(routine: Routine): RoutineExercise[] {
-	return routine.exercises ?? routine.workoutIds.map((id) => ({ workoutId: id }));
+	return routine.exercises;
 }
 
 export type ProgramExercise = {

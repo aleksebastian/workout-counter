@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { user, userData, db } from '$lib/firebase';
-	import { type Routine, type Workout } from '$lib/state.svelte';
+	import { type Routine, type Workout, getRoutineExercises } from '$lib/state.svelte';
 	import { v4 as uuidv4 } from 'uuid';
 	import { arrayUnion, doc, updateDoc } from 'firebase/firestore';
 	import { formatDistanceToNow } from 'date-fns';
@@ -21,8 +21,8 @@
 	let isEditingRoutines = $state(false);
 
 	function getRoutineStats(routine: Routine) {
-		const workouts = (routine.workoutIds ?? [])
-			.map((id) => $userData?.workouts.find((w) => w.id === id))
+		const workouts = getRoutineExercises(routine)
+			.map((ex) => $userData?.workouts.find((w) => w.id === ex.workoutId))
 			.filter(Boolean) as Workout[];
 		const today = new Date().toDateString();
 		const doneToday = workouts.filter((w) =>
@@ -41,7 +41,7 @@
 		if (!$userData) return;
 		if (newRoutineDialog?.returnValue === 'add') {
 			const userRef = doc(db, 'users', $user!.uid);
-			const newRoutine: Routine = { id: uuidv4(), name: newRoutineName, workoutIds: [] };
+			const newRoutine: Routine = { id: uuidv4(), name: newRoutineName, exercises: [] };
 			try {
 				await updateDoc(userRef, { routines: arrayUnion(newRoutine) });
 				newRoutineName = '';
@@ -119,6 +119,7 @@
 				<div class="flex flex-col gap-2 pb-16">
 					{#each $userData.routines! as routine}
 						{@const stats = getRoutineStats(routine)}
+						{@const routineExCount = getRoutineExercises(routine).length}
 						<a
 							href={'/routines/' + routine.id}
 							onclick={isEditingRoutines
@@ -135,12 +136,12 @@
 									<span class="truncate font-semibold">{routine.name}</span>
 									{#if stats.doneToday > 0}
 										<span class="badge badge-success badge-xs shrink-0">
-											{stats.doneToday}/{routine.workoutIds.length} today
+											{stats.doneToday}/{routineExCount} today
 										</span>
-									{:else if routine.workoutIds.length > 0}
+									{:else if routineExCount > 0}
 										<span class="badge badge-ghost badge-xs shrink-0">
-											{routine.workoutIds.length}
-											{routine.workoutIds.length === 1 ? 'exercise' : 'exercises'}
+											{routineExCount}
+											{routineExCount === 1 ? 'exercise' : 'exercises'}
 										</span>
 									{/if}
 								</div>
@@ -152,7 +153,9 @@
 									<div class="overflow-hidden">
 										<div class="text-base-content/40 flex items-center gap-1.5 text-xs">
 											{#if stats.doneToday > 0}
-												<span>{stats.doneToday} of {routine.workoutIds.length} done today</span>
+												<span
+													>{stats.doneToday} of {getRoutineExercises(routine).length} done today</span
+												>
 											{:else if stats.lastSession}
 												<span
 													>Last: {formatDistanceToNow(stats.lastSession, { addSuffix: true })}</span

@@ -77,7 +77,6 @@ export function docStore<T>(path: string) {
 
 export interface UserData {
 	username: string;
-	bio: string;
 	photoURL: string;
 	workouts: Workout[];
 	routines?: Routine[];

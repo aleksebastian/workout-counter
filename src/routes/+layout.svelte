@@ -201,7 +201,7 @@
 	let deferredInstallPrompt: BeforeInstallPromptEvent | null = null;
 	let showInstallBanner = $state(false);
 	let recordedSetCount = 0;
-	let isAuthLoading = $state(false);
+	let isAuthLoading = $state(true);
 </script>
 
 <svelte:head>

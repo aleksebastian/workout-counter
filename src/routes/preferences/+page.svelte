@@ -125,7 +125,7 @@
 		<div class="bg-primary/10 rounded-2xl px-4 py-4">
 			<p class="font-semibold">Let's get you set up</p>
 			<p class="text-base-content/60 mt-0.5 text-sm">
-				These can be changed any time from settings.
+				These can be changed any time from preferences
 			</p>
 		</div>
 	{/if}

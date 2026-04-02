@@ -17,7 +17,7 @@
 
 	let routine = $derived($userData?.routines?.find((r) => r.id === page.params.routineId));
 
-	// Source of truth: exercises array (normalised from workoutIds if needed)
+	// Source of truth: exercises array
 	let routineExercises = $derived(
 		routine ? getRoutineExercises(routine) : ([] as RoutineExercise[])
 	);
@@ -108,13 +108,8 @@
 		}
 	});
 
-	/** Build a plain object for saving — always includes both exercises (new) and workoutIds (back-compat). */
 	function buildUpdatedRoutine(exercises: RoutineExercise[]) {
-		return {
-			...routine!,
-			exercises,
-			workoutIds: exercises.map((ex) => ex.workoutId)
-		};
+		return { ...routine!, exercises };
 	}
 
 	async function saveRoutines(exercises: RoutineExercise[]) {
@@ -157,12 +152,10 @@
 		const updated = routineExercises.filter((ex) => ex.workoutId !== workoutId);
 		// optimistic
 		routine!.exercises = updated;
-		routine!.workoutIds = updated.map((ex) => ex.workoutId);
 		try {
 			await saveRoutines(updated);
 		} catch {
 			routine!.exercises = original;
-			routine!.workoutIds = original.map((ex) => ex.workoutId);
 		}
 	}
 
@@ -171,14 +164,11 @@
 		const updated = [...routineExercises, { workoutId: selectedWorkoutId }];
 		selectedWorkoutId = '';
 		routine!.exercises = updated;
-		routine!.workoutIds = updated.map((ex) => ex.workoutId);
 		try {
 			await saveRoutines(updated);
 		} catch {
 			// revert by removing last
-			const reverted = updated.slice(0, -1);
-			routine!.exercises = reverted;
-			routine!.workoutIds = reverted.map((ex) => ex.workoutId);
+			routine!.exercises = updated.slice(0, -1);
 		}
 	}
 
@@ -187,14 +177,12 @@
 		const exercises = [...routineExercises];
 		[exercises[index - 1], exercises[index]] = [exercises[index], exercises[index - 1]];
 		routine!.exercises = exercises;
-		routine!.workoutIds = exercises.map((ex) => ex.workoutId);
 		try {
 			await saveRoutines(exercises);
 		} catch {
 			const reverted = [...routineExercises];
 			[reverted[index - 1], reverted[index]] = [reverted[index], reverted[index - 1]];
 			routine!.exercises = reverted;
-			routine!.workoutIds = reverted.map((ex) => ex.workoutId);
 		}
 	}
 
@@ -203,14 +191,12 @@
 		const exercises = [...routineExercises];
 		[exercises[index], exercises[index + 1]] = [exercises[index + 1], exercises[index]];
 		routine!.exercises = exercises;
-		routine!.workoutIds = exercises.map((ex) => ex.workoutId);
 		try {
 			await saveRoutines(exercises);
 		} catch {
 			const reverted = [...routineExercises];
 			[reverted[index], reverted[index + 1]] = [reverted[index + 1], reverted[index]];
 			routine!.exercises = reverted;
-			routine!.workoutIds = reverted.map((ex) => ex.workoutId);
 		}
 	}
 
@@ -224,7 +210,6 @@
 			return { ...ex, targetSets: next };
 		});
 		routine!.exercises = exercises;
-		routine!.workoutIds = exercises.map((ex) => ex.workoutId);
 		try {
 			await saveRoutines(exercises);
 		} catch {
