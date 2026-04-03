@@ -121,9 +121,6 @@
 		})()
 	);
 
-	// All-time count of weeks where the goal was met
-	let totalCompletedWeeks = $derived(completedWeeks.size);
-
 	// This-week stats (current calendar week)
 	let weekSets = $derived(
 		(() => {
@@ -268,37 +265,79 @@
 				<div in:landingFly|global={{ y: 20, duration: 400, delay: 490, easing: cubicOut }}>
 					{#if streaksEnabled}
 						<div class="grid grid-cols-3 gap-2">
-							<div class="bg-base-200 rounded-box flex flex-col items-center gap-0.5 py-3">
+							<div
+								class="bg-base-200 rounded-box flex flex-col items-center justify-center gap-0.5 py-3"
+							>
+								<span class="text-2xl font-bold tabular-nums">
+									{#if lastSet}
+										{(() => {
+											const ms = now - new Date(lastSet.date).getTime();
+											const secs = Math.floor(ms / 1000);
+											const mins = Math.floor(secs / 60);
+											const hrs = Math.floor(mins / 60);
+											const days = Math.floor(hrs / 24);
+											if (days > 0) return `${days}d`;
+											if (hrs > 0) return `${hrs}h`;
+											if (mins > 0) return `${mins}m`;
+											return `${secs}s`;
+										})()}
+									{:else}
+										—
+									{/if}
+								</span>
+								<span class="text-base-content/50 text-center text-xs leading-tight">
+									since last set
+								</span>
+							</div>
+							<div
+								class="bg-base-200 rounded-box flex flex-col items-center justify-center gap-0.5 py-3"
+							>
+								<span class="text-2xl font-bold tabular-nums">{weekDayCount}</span>
+								<span class="text-base-content/50 text-center text-xs leading-tight"
+									>days this week</span
+								>
+							</div>
+							<div
+								class="bg-base-200 rounded-box flex flex-col items-center justify-center gap-0.5 py-3"
+							>
 								<span class="text-2xl font-bold tabular-nums">{streak}</span>
 								<span class="text-base-content/50 text-center text-xs leading-tight">
 									week streak
 								</span>
 							</div>
-							<div class="bg-base-200 rounded-box flex flex-col items-center gap-0.5 py-3">
-								<span class="text-2xl font-bold tabular-nums">{totalCompletedWeeks}</span>
-								<span class="text-base-content/50 text-center text-xs leading-tight"
-									>total<br />weeks</span
-								>
-							</div>
-							<div class="bg-base-200 rounded-box flex flex-col items-center gap-0.5 py-3">
-								<span class="text-2xl font-bold tabular-nums">{weekDayCount}</span>
-								<span class="text-base-content/50 text-center text-xs leading-tight"
-									>days this<br />week</span
-								>
-							</div>
 						</div>
 					{:else}
 						<div class="grid grid-cols-2 gap-2">
-							<div class="bg-base-200 rounded-box flex flex-col items-center gap-0.5 py-3">
+							<div
+								class="bg-base-200 rounded-box flex flex-col items-center justify-center gap-0.5 py-3"
+							>
+								<span class="text-2xl font-bold tabular-nums">
+									{#if lastSet}
+										{(() => {
+											const ms = now - new Date(lastSet.date).getTime();
+											const secs = Math.floor(ms / 1000);
+											const mins = Math.floor(secs / 60);
+											const hrs = Math.floor(mins / 60);
+											const days = Math.floor(hrs / 24);
+											if (days > 0) return `${days}d`;
+											if (hrs > 0) return `${hrs}h`;
+											if (mins > 0) return `${mins}m`;
+											return `${secs}s`;
+										})()}
+									{:else}
+										—
+									{/if}
+								</span>
+								<span class="text-base-content/50 text-center text-xs leading-tight">
+									since last set
+								</span>
+							</div>
+							<div
+								class="bg-base-200 rounded-box flex flex-col items-center justify-center gap-0.5 py-3"
+							>
 								<span class="text-2xl font-bold tabular-nums">{weekDayCount}</span>
 								<span class="text-base-content/50 text-center text-xs leading-tight"
-									>days this<br />week</span
-								>
-							</div>
-							<div class="bg-base-200 rounded-box flex flex-col items-center gap-0.5 py-3">
-								<span class="text-2xl font-bold tabular-nums">{weekSets.length}</span>
-								<span class="text-base-content/50 text-center text-xs leading-tight"
-									>sets this<br />week</span
+									>days this week</span
 								>
 							</div>
 						</div>

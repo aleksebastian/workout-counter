@@ -1,23 +1,32 @@
-<script module>
-	let didLaunch = false;
-</script>
-
 <script lang="ts">
 	import { page } from '$app/state';
 	import { fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import type { TransitionConfig } from 'svelte/transition';
+	import { browser } from '$app/environment';
+
+	// Use sessionStorage to persist animation state across navigation
+	// This ensures the animation only plays once per session, even after login redirects
+	function hasLaunchedThisSession(): boolean {
+		if (!browser) return true;
+		return sessionStorage.getItem('bottom-nav-launched') === 'true';
+	}
+
+	function markAsLaunched(): void {
+		if (!browser) return;
+		sessionStorage.setItem('bottom-nav-launched', 'true');
+	}
 
 	function launchSlide(node: HTMLElement): TransitionConfig {
-		if (didLaunch) return { duration: 0 };
-		didLaunch = true;
+		if (hasLaunchedThisSession()) return { duration: 0 };
+		markAsLaunched();
 		return fly(node, { y: 80, duration: 380, easing: cubicOut });
 	}
 
 	let path = $derived(page.url.pathname);
 	let isHome = $derived(path === '/');
-	let isExercises = $derived(path.startsWith('/exercises'));
-	let isRoutines = $derived(path.startsWith('/routines') || path.startsWith('/workout'));
+	let isExercises = $derived(path.startsWith('/exercises') || path.startsWith('/workout'));
+	let isRoutines = $derived(path.startsWith('/routines'));
 	let isSessions = $derived(path.startsWith('/programs'));
 </script>
 
