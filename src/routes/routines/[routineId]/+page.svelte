@@ -13,7 +13,6 @@
 	import type { Workout, RoutineExercise } from '$lib/state.svelte';
 	import { getRoutineExercises } from '$lib/state.svelte';
 	import { getWorkoutNameValidationMsg } from '$lib/utils';
-	import { fade } from 'svelte/transition';
 
 	let routine = $derived($userData?.routines?.find((r) => r.id === page.params.routineId));
 
@@ -216,6 +215,33 @@
 			/* leave optimistic state */
 		}
 	}
+
+	async function handleUpdateRepRange(
+		workoutId: string,
+		field: 'minReps' | 'maxReps',
+		delta: number
+	) {
+		if (!routine) return;
+		const exercises = routineExercises.map((ex) => {
+			if (ex.workoutId !== workoutId) return ex;
+			const current = ex[field] ?? (field === 'minReps' ? 1 : 12);
+			const next = Math.max(1, Math.min(99, current + delta));
+			// Ensure min <= max
+			if (field === 'minReps' && ex.maxReps !== undefined && next > ex.maxReps) {
+				return { ...ex, minReps: next, maxReps: next };
+			}
+			if (field === 'maxReps' && ex.minReps !== undefined && next < ex.minReps) {
+				return { ...ex, minReps: next, maxReps: next };
+			}
+			return { ...ex, [field]: next };
+		});
+		routine!.exercises = exercises;
+		try {
+			await saveRoutines(exercises);
+		} catch {
+			/* leave optimistic state */
+		}
+	}
 </script>
 
 {#if !$userData}
@@ -258,11 +284,7 @@
 
 		{#if !isEditing && workoutsInRoutine.length > 0}
 			<!-- Context strip -->
-			<div
-				out:fade={{ duration: 120 }}
-				in:fade={{ duration: 120, delay: 120 }}
-				class="scrollbar-none -mx-1 flex gap-2 overflow-x-auto px-1 pb-1"
-			>
+			<div class="scrollbar-none -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
 				<div class="bg-base-200 flex-none rounded-xl px-4 py-2.5 text-center">
 					<p class="text-base-content/50 text-xs">Today</p>
 					<p class="text-sm font-semibold">{doneToday}/{workoutsInRoutine.length}</p>
@@ -286,8 +308,6 @@
 			<!-- Start / Continue CTA -->
 			{#if nextWorkout}
 				<a
-					out:fade={{ duration: 120 }}
-					in:fade={{ duration: 120, delay: 120 }}
 					href={`/workout/${nextWorkout.id}?from=/routines/${routine.id}`}
 					class="btn btn-primary btn-lg w-full"
 				>
@@ -298,126 +318,171 @@
 
 		<!-- Workout list -->
 		{#if workoutsInRoutine.length}
-			{#key isEditing}
-				<div
-					class="flex flex-col gap-2"
-					out:fade={{ duration: 120 }}
-					in:fade={{ duration: 120, delay: 120 }}
-				>
-					{#each workoutsInRoutine as item, i}
-						{@const ex = item.ex}
-						{@const workout = item.workout}
-						{#if isEditing}
-							<div class="bg-base-200 flex flex-col gap-1.5 rounded-2xl px-4 py-3">
-								<!-- Row 1: number + name -->
-								<div class="flex items-start gap-2">
-									<span class="text-base-content/40 mt-0.5 w-5 shrink-0 text-right text-xs"
-										>{i + 1}</span
+			<div class="flex flex-col gap-2">
+				{#each workoutsInRoutine as item, i}
+					{@const ex = item.ex}
+					{@const workout = item.workout}
+					{#if isEditing}
+						<div class="bg-base-200 flex flex-col gap-3 rounded-2xl px-4 py-3">
+							<!-- Row 1: number + name + delete -->
+							<div class="flex items-center gap-2">
+								<span class="text-base-content/40 w-5 shrink-0 text-right text-xs">{i + 1}</span>
+								<span class="min-w-0 flex-1 text-sm leading-snug font-semibold">{workout.name}</span
+								>
+								<div class="flex gap-0.5">
+									<button
+										class="btn btn-circle btn-ghost btn-sm"
+										disabled={i === 0}
+										onclick={() => handleMoveUp(i)}
+										aria-label="Move up">{@html UpIcon}</button
 									>
-									<span class="min-w-0 flex-1 text-sm leading-snug font-semibold"
-										>{workout.name}</span
+									<button
+										class="btn btn-circle btn-ghost btn-sm"
+										disabled={i === workoutsInRoutine.length - 1}
+										onclick={() => handleMoveDown(i)}
+										aria-label="Move down">{@html DownIcon}</button
+									>
+									<button
+										class="btn btn-circle btn-ghost btn-sm text-error"
+										onclick={() => handleRemoveWorkout(workout.id)}
+										aria-label="Remove from routine">{@html DeleteIcon}</button
 									>
 								</div>
-								<!-- Row 2: sets stepper + reorder + delete -->
-								<div class="flex items-center gap-1 pl-7">
-									<div class="mr-1 flex flex-col items-center">
-										<span
-											class="text-base-content/40 mb-0.5 text-[9px] font-semibold tracking-widest uppercase"
-											>Sets</span
+							</div>
+							<!-- Row 2: sets + rep range as two clear columns -->
+							<div class="grid grid-cols-2 gap-2 pl-7">
+								<!-- Sets -->
+								<div class="bg-base-300 flex flex-col items-center gap-1 rounded-xl py-2">
+									<span
+										class="text-base-content/40 text-[9px] font-semibold tracking-widest uppercase"
+										>Sets</span
+									>
+									<div class="flex items-center gap-2">
+										<button
+											class="btn btn-circle btn-ghost btn-xs"
+											onclick={() => handleUpdateTargetSets(workout.id, -1)}
+											aria-label="Decrease target sets">{@html RemoveIcon}</button
 										>
-										<div class="flex items-center gap-1">
-											<button
-												class="btn btn-circle btn-ghost btn-xs"
-												onclick={() => handleUpdateTargetSets(workout.id, -1)}
-												aria-label="Decrease target sets">{@html RemoveIcon}</button
-											>
-											<span
-												class="text-base-content/60 min-w-8 text-center text-xs font-semibold tabular-nums"
-												title="Target sets (— = free-form)"
-											>
-												{ex.targetSets ?? '—'}
-											</span>
-											<button
-												class="btn btn-circle btn-ghost btn-xs"
-												onclick={() => handleUpdateTargetSets(workout.id, 1)}
-												aria-label="Increase target sets">{@html AddIcon}</button
-											>
-										</div>
+										<span class="text-base-content w-6 text-center text-sm font-bold tabular-nums">
+											{ex.targetSets ?? '—'}
+										</span>
+										<button
+											class="btn btn-circle btn-ghost btn-xs"
+											onclick={() => handleUpdateTargetSets(workout.id, 1)}
+											aria-label="Increase target sets">{@html AddIcon}</button
+										>
 									</div>
-									<div class="flex-1"></div>
-									<div class="flex gap-0.5">
-										<button
-											class="btn btn-circle btn-ghost btn-sm"
-											disabled={i === 0}
-											onclick={() => handleMoveUp(i)}
-											aria-label="Move up">{@html UpIcon}</button
+								</div>
+								<!-- Rep range: explicit min/max rows -->
+								<div class="bg-base-300 flex flex-col gap-1.5 rounded-xl px-3 py-2">
+									<span
+										class="text-base-content/40 text-center text-[9px] font-semibold tracking-widest uppercase"
+										>Rep range</span
+									>
+									<div class="flex items-center gap-2">
+										<span
+											class="text-base-content/40 w-6 text-right text-[9px] font-semibold uppercase"
+											>Min</span
 										>
 										<button
-											class="btn btn-circle btn-ghost btn-sm"
-											disabled={i === workoutsInRoutine.length - 1}
-											onclick={() => handleMoveDown(i)}
-											aria-label="Move down">{@html DownIcon}</button
+											class="btn btn-circle btn-ghost btn-xs"
+											onclick={() => handleUpdateRepRange(workout.id, 'minReps', -1)}
+											aria-label="Decrease min reps">{@html RemoveIcon}</button
+										>
+										<span class="text-base-content w-6 text-center text-sm font-bold tabular-nums">
+											{ex.minReps ?? '—'}
+										</span>
+										<button
+											class="btn btn-circle btn-ghost btn-xs"
+											onclick={() => handleUpdateRepRange(workout.id, 'minReps', 1)}
+											aria-label="Increase min reps">{@html AddIcon}</button
+										>
+									</div>
+									<div class="flex items-center gap-2">
+										<span
+											class="text-base-content/40 w-6 text-right text-[9px] font-semibold uppercase"
+											>Max</span
 										>
 										<button
-											class="btn btn-circle btn-ghost btn-sm text-error"
-											onclick={() => handleRemoveWorkout(workout.id)}
-											aria-label="Remove from routine">{@html DeleteIcon}</button
+											class="btn btn-circle btn-ghost btn-xs"
+											onclick={() => handleUpdateRepRange(workout.id, 'maxReps', -1)}
+											aria-label="Decrease max reps">{@html RemoveIcon}</button
+										>
+										<span class="text-base-content w-6 text-center text-sm font-bold tabular-nums">
+											{ex.maxReps ?? '—'}
+										</span>
+										<button
+											class="btn btn-circle btn-ghost btn-xs"
+											onclick={() => handleUpdateRepRange(workout.id, 'maxReps', 1)}
+											aria-label="Increase max reps">{@html AddIcon}</button
 										>
 									</div>
 								</div>
 							</div>
-						{:else}
-							{@const lastSet = getLastSet(workout)}
-							{@const doneNow = workout.sets.some(
-								(s) => new Date(s.date).toDateString() === new Date().toDateString()
-							)}
-							<a
-								class="bg-base-200 hover:bg-base-300 flex w-full items-center gap-3 rounded-2xl px-4 py-3.5 transition-colors active:scale-[0.99]"
-								href={`/workout/${workout.id}?from=/routines/${routine.id}`}
+						</div>
+					{:else}
+						{@const lastSet = getLastSet(workout)}
+						{@const doneNow = workout.sets.some(
+							(s) => new Date(s.date).toDateString() === new Date().toDateString()
+						)}
+						<a
+							class="bg-base-200 hover:bg-base-300 flex w-full items-center gap-3 rounded-2xl px-4 py-3.5 transition-colors active:scale-[0.99]"
+							href={`/workout/${workout.id}?from=/routines/${routine.id}`}
+						>
+							<span class="text-base-content/40 w-5 shrink-0 text-right text-xs font-medium"
+								>{i + 1}</span
 							>
-								<span class="text-base-content/40 w-5 shrink-0 text-right text-xs font-medium"
-									>{i + 1}</span
-								>
-								<div class="flex min-w-0 flex-1 flex-col gap-1">
-									<div class="flex items-center gap-2">
-										<span class="truncate text-sm font-semibold">{workout.name}</span>
-										{#if doneNow}
-											<span class="badge badge-success badge-xs shrink-0">Today</span>
-										{/if}
-									</div>
-									{#if lastSet}
-										<div class="flex flex-wrap items-center gap-1.5">
-											<span class="text-base-content/50 text-xs">
-												{formatDistanceToNow(new Date(lastSet.date), { addSuffix: true })}
-											</span>
-											<span class="badge badge-sm badge-ghost font-medium">{lastSet.reps} reps</span
-											>
-											{#if lastSet.weight && lastSet.weight > 0}
-												<span class="badge badge-sm badge-ghost font-medium">
-													{lastSet.weight}
-													{weightUnit}
-												</span>
-											{/if}
-										</div>
-									{:else}
-										<span class="text-base-content/35 text-xs">Not done yet</span>
+							<div class="flex min-w-0 flex-1 flex-col gap-1">
+								<div class="flex items-center gap-2">
+									<span class="truncate text-sm font-semibold">{workout.name}</span>
+									{#if doneNow}
+										<span class="badge badge-success badge-xs shrink-0">Today</span>
 									{/if}
 								</div>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="text-base-content/30 h-4 w-4 shrink-0"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									stroke-width="2.5"
-								>
-									<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-								</svg>
-							</a>
-						{/if}
-					{/each}
-				</div>
-			{/key}
+								<!-- Target sets and rep range -->
+								<div class="flex flex-wrap items-center gap-1.5">
+									{#if ex.targetSets}
+										<span class="badge badge-sm badge-outline font-medium"
+											>{ex.targetSets} sets</span
+										>
+									{/if}
+									{#if ex.minReps || ex.maxReps}
+										<span class="badge badge-sm badge-outline font-medium">
+											{ex.minReps ?? '?'}–{ex.maxReps ?? '?'} reps
+										</span>
+									{/if}
+								</div>
+								{#if lastSet}
+									<div class="flex flex-wrap items-center gap-1.5">
+										<span class="text-base-content/50 text-xs">
+											{formatDistanceToNow(new Date(lastSet.date), { addSuffix: true })}
+										</span>
+										<span class="badge badge-sm badge-ghost font-medium">{lastSet.reps} reps</span>
+										{#if lastSet.weight && lastSet.weight > 0}
+											<span class="badge badge-sm badge-ghost font-medium">
+												{lastSet.weight}
+												{weightUnit}
+											</span>
+										{/if}
+									</div>
+								{:else}
+									<span class="text-base-content/35 text-xs">Not done yet</span>
+								{/if}
+							</div>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="text-base-content/30 h-4 w-4 shrink-0"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+								stroke-width="2.5"
+							>
+								<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+							</svg>
+						</a>
+					{/if}
+				{/each}
+			</div>
 		{:else if !isEditing}
 			<!-- Empty state -->
 			<div class="flex flex-col items-center gap-3 py-16 text-center">
@@ -449,89 +514,86 @@
 
 		<!-- Add workout panel (edit mode) -->
 		{#if isEditing}
-			<div out:fade={{ duration: 120 }} in:fade={{ duration: 120, delay: 120 }}>
-				<div class="bg-base-200 flex flex-col gap-3 rounded-2xl p-4">
-					<p class="text-base-content/50 text-xs font-semibold tracking-widest uppercase">
-						Add exercise
-					</p>
+			<div class="bg-base-200 flex flex-col gap-3 rounded-2xl p-4">
+				<p class="text-base-content/50 text-xs font-semibold tracking-widest uppercase">
+					Add exercise
+				</p>
 
-					{#if workoutsNotInRoutine.length > 4}
-						<input
-							type="search"
-							placeholder="Search exercises…"
-							class="input input-sm input-bordered w-full"
-							bind:value={exerciseSearch}
-						/>
-					{/if}
+				{#if workoutsNotInRoutine.length > 4}
+					<input
+						type="search"
+						placeholder="Search exercises…"
+						class="input input-sm input-bordered w-full"
+						bind:value={exerciseSearch}
+					/>
+				{/if}
 
-					{#if workoutsNotInRoutine.length}
-						<div class="flex flex-wrap gap-2">
-							{#each filteredWorkoutsNotInRoutine as workout}
-								<button
-									class="btn btn-sm btn-ghost gap-1"
-									onclick={() => {
-										selectedWorkoutId = workout.id;
-										handleAddWorkout();
-									}}
-								>
-									<span class="text-base leading-none">+</span>{workout.name}
-								</button>
-							{/each}
-							{#if filteredWorkoutsNotInRoutine.length === 0}
-								<p class="text-base-content/40 text-sm">No matches.</p>
-							{/if}
-						</div>
-					{:else if !showNewExerciseInput}
-						<p class="text-base-content/40 text-sm">All exercises are already in this routine.</p>
-					{/if}
-
-					{#if showNewExerciseInput}
-						<div class="flex flex-col gap-2" transition:fade={{ duration: 120 }}>
-							<div class="flex gap-2">
-								<input
-									bind:this={newExerciseInput}
-									bind:value={newExerciseName}
-									type="text"
-									placeholder="Exercise name"
-									class="input input-bordered input-sm flex-1"
-									class:input-error={!!newExerciseError}
-									onkeydown={(e) => {
-										if (e.key === 'Enter') handleCreateAndAddExercise();
-										if (e.key === 'Escape') showNewExerciseInput = false;
-									}}
-									oninput={() => (newExerciseError = '')}
-								/>
-								<button class="btn btn-primary btn-sm" onclick={handleCreateAndAddExercise}
-									>Add</button
-								>
-								<button class="btn btn-ghost btn-sm" onclick={() => (showNewExerciseInput = false)}
-									>Cancel</button
-								>
-							</div>
-							{#if newExerciseError}
-								<p class="text-error text-xs" transition:fade={{ duration: 100 }}>
-									{newExerciseError}
-								</p>
-							{/if}
-						</div>
-					{:else}
-						<button
-							class="btn btn-outline btn-primary btn-sm self-start"
-							onclick={() => (showNewExerciseInput = true)}
-						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								height="16"
-								width="16"
-								viewBox="0 -960 960 960"
-								fill="currentColor"
-								><path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" /></svg
+				{#if workoutsNotInRoutine.length}
+					<div class="flex flex-wrap gap-2">
+						{#each filteredWorkoutsNotInRoutine as workout}
+							<button
+								class="btn btn-sm btn-ghost gap-1"
+								onclick={() => {
+									selectedWorkoutId = workout.id;
+									handleAddWorkout();
+								}}
 							>
-							New exercise
-						</button>
-					{/if}
-				</div>
+								<span class="text-base leading-none">+</span>{workout.name}
+							</button>
+						{/each}
+						{#if filteredWorkoutsNotInRoutine.length === 0}
+							<p class="text-base-content/40 text-sm">No matches.</p>
+						{/if}
+					</div>
+				{:else if !showNewExerciseInput}
+					<p class="text-base-content/40 text-sm">All exercises are already in this routine.</p>
+				{/if}
+
+				{#if showNewExerciseInput}
+					<div class="flex flex-col gap-2">
+						<div class="flex gap-2">
+							<input
+								bind:this={newExerciseInput}
+								bind:value={newExerciseName}
+								type="text"
+								placeholder="Exercise name"
+								class="input input-bordered input-sm flex-1"
+								class:input-error={!!newExerciseError}
+								onkeydown={(e) => {
+									if (e.key === 'Enter') handleCreateAndAddExercise();
+									if (e.key === 'Escape') showNewExerciseInput = false;
+								}}
+								oninput={() => (newExerciseError = '')}
+							/>
+							<button class="btn btn-primary btn-sm" onclick={handleCreateAndAddExercise}
+								>Add</button
+							>
+							<button class="btn btn-ghost btn-sm" onclick={() => (showNewExerciseInput = false)}
+								>Cancel</button
+							>
+						</div>
+						{#if newExerciseError}
+							<p class="text-error text-xs">
+								{newExerciseError}
+							</p>
+						{/if}
+					</div>
+				{:else}
+					<button
+						class="btn btn-outline btn-primary btn-sm self-start"
+						onclick={() => (showNewExerciseInput = true)}
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							height="16"
+							width="16"
+							viewBox="0 -960 960 960"
+							fill="currentColor"
+							><path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" /></svg
+						>
+						New exercise
+					</button>
+				{/if}
 			</div>
 		{/if}
-	</div>
-{/if}
+	</div>{/if}

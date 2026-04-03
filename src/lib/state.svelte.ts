@@ -16,6 +16,8 @@ export type Workout = {
 export type RoutineExercise = {
 	workoutId: string;
 	targetSets?: number; // undefined = free-form (user advances manually)
+	minReps?: number; // minimum reps in range (e.g., 4)
+	maxReps?: number; // maximum reps in range (e.g., 6)
 };
 
 export type Routine = {

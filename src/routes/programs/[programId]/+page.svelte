@@ -5,7 +5,6 @@
 		type ProgramItem,
 		type ProgramDay,
 		getProgramSchedule,
-		getProgramDays,
 		getProgramItemsForDay,
 		getRoutineExercises
 	} from '$lib/state.svelte';
@@ -14,6 +13,7 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import BackButton from '$lib/components/Buttons/BackButton.svelte';
+	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
 	import AddIcon from '$lib/icons/add.svg?raw';
 	import RemoveIcon from '$lib/icons/remove.svg?raw';
 	import DeleteIcon from '$lib/icons/delete.svg?raw';
@@ -71,6 +71,7 @@
 	let isEditing = $state(false);
 	let addPanelSection = $state<'none' | 'routines' | 'exercises'>('none');
 	let addDayOpen = $state(false);
+	let pendingDays = $state<number[]>([]);
 	let showNewExerciseInput = $state(false);
 	let newExerciseName = $state('');
 	let newExerciseError = $state('');
@@ -78,6 +79,8 @@
 	let editingDayLabel = $state(false);
 	let dayLabelDraft = $state('');
 	let weightUnit = $derived($userData?.preferences?.weightUnit ?? 'lbs');
+	let deleteDayDialog = $state() as HTMLDialogElement;
+	let dayToDelete = $state<number | undefined>(undefined);
 
 	function filteredWorkouts() {
 		return searchQuery.trim()
@@ -119,27 +122,48 @@
 
 	// ── Day management ───────────────────────────────────────────────────────────
 
-	async function handleAddDay(day: number) {
-		if (!session) return;
-		const newSchedule = [...schedule, { day, items: [] }].sort((a, b) => a.day - b.day);
+	function togglePendingDay(day: number) {
+		if (pendingDays.includes(day)) {
+			pendingDays = pendingDays.filter((d) => d !== day);
+		} else {
+			pendingDays = [...pendingDays, day];
+		}
+	}
+
+	async function handleAddDays() {
+		if (!session || pendingDays.length === 0) return;
+		const newDayEntries = pendingDays.map((day) => ({ day, items: [] }));
+		const newSchedule = [...schedule, ...newDayEntries].sort((a, b) => a.day - b.day);
 		try {
 			await updateSession({ ...session, schedule: newSchedule });
-			selectedDay = day;
+			selectedDay = pendingDays[0];
 			addDayOpen = false;
+			pendingDays = [];
 		} catch (e) {
 			console.error(e);
 		}
 	}
 
-	async function handleRemoveDay(day: number) {
-		if (!session) return;
-		const newSchedule = schedule.filter((sd) => sd.day !== day);
+	function handleCancelAddDays() {
+		addDayOpen = false;
+		pendingDays = [];
+	}
+
+	function handleRemoveDay(day: number) {
+		dayToDelete = day;
+		deleteDayDialog?.showModal();
+	}
+
+	async function confirmRemoveDay() {
+		if (!session || dayToDelete === undefined) return;
+		const newSchedule = schedule.filter((sd) => sd.day !== dayToDelete);
 		try {
 			await updateSession({ ...session, schedule: newSchedule });
-			if (selectedDay === day) {
+			if (selectedDay === dayToDelete) {
 				const today = new Date().getDay();
 				selectedDay = newSchedule.find((sd) => sd.day === today)?.day ?? newSchedule[0]?.day;
 			}
+			dayToDelete = undefined;
 		} catch (e) {
 			console.error(e);
 		}
@@ -337,22 +361,38 @@
 				{#if isEditing && unscheduledDays.length > 0}
 					<button
 						class="btn btn-ghost btn-sm text-primary shrink-0"
-						onclick={() => (addDayOpen = !addDayOpen)}>+ Day</button
+						onclick={() => {
+							addDayOpen = !addDayOpen;
+							if (addDayOpen) pendingDays = [];
+						}}>+ Day</button
 					>
 				{/if}
 			</div>
 
 			<!-- Add day picker -->
 			{#if isEditing && addDayOpen && unscheduledDays.length > 0}
-				<div class="bg-base-200 rounded-box flex flex-wrap gap-2 px-4 py-3">
-					<p class="text-base-content/50 w-full text-xs font-semibold tracking-widest uppercase">
+				<div class="bg-base-200 rounded-box flex flex-col gap-3 px-4 py-3">
+					<p class="text-base-content/50 text-xs font-semibold tracking-widest uppercase">
 						Add day
 					</p>
-					{#each unscheduledDays as d}
-						<button class="btn btn-outline btn-primary btn-sm" onclick={() => handleAddDay(d)}
-							>{DAY_FULL[d]}</button
+					<div class="flex flex-wrap gap-2">
+						{#each unscheduledDays as d}
+							<button
+								class="btn btn-sm"
+								class:btn-primary={pendingDays.includes(d)}
+								class:btn-outline={!pendingDays.includes(d)}
+								onclick={() => togglePendingDay(d)}>{DAY_FULL[d]}</button
+							>
+						{/each}
+					</div>
+					<div class="flex gap-2">
+						<button
+							class="btn btn-primary btn-sm flex-1"
+							disabled={pendingDays.length === 0}
+							onclick={handleAddDays}>Done</button
 						>
-					{/each}
+						<button class="btn btn-ghost btn-sm" onclick={handleCancelAddDays}>Cancel</button>
+					</div>
 				</div>
 			{/if}
 		{/if}
@@ -685,3 +725,17 @@
 		<div class="skeleton h-64 w-full rounded-2xl"></div>
 	</div>
 {/if}
+
+<!-- Delete day confirmation -->
+<ConfirmationDialog
+	bind:dialog={deleteDayDialog}
+	header="Delete {dayToDelete !== undefined ? DAY_FULL[dayToDelete] : 'day'}?"
+	content="This will remove the day and all its exercises from your program schedule."
+	actionLabel="Delete"
+	destructive={true}
+	onclose={(e) => {
+		if ((e.target as HTMLDialogElement).returnValue === 'confirm') {
+			confirmRemoveDay();
+		}
+	}}
+/>

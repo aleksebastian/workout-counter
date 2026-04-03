@@ -54,10 +54,12 @@
 		});
 
 		document.addEventListener('startTimer', startTimer);
+		document.addEventListener('stopTimer', stopTimer);
 
 		return () => {
 			cleanupTimer();
 			document.removeEventListener('startTimer', startTimer);
+			document.removeEventListener('stopTimer', stopTimer);
 			document.removeEventListener('setRecorded', handleSetRecorded);
 			window.removeEventListener('online', handleOnline);
 			window.removeEventListener('offline', handleOffline);

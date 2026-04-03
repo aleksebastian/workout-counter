@@ -6,7 +6,7 @@
 	import { type Set, type Workout } from '$lib/state.svelte';
 	import EditIcon from '$lib/icons/edit.svg?raw';
 	import DeleteIcon from '$lib/icons/delete.svg?raw';
-	import EditSetDialog from './EditSetDialog.svelte';
+	import EditSetSheet from '$lib/components/EditSetSheet.svelte';
 	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
 	import { db, userData, user } from '$lib/firebase';
 	import { doc, updateDoc } from 'firebase/firestore';
@@ -22,8 +22,7 @@
 	let weightUnit = $derived($userData?.preferences?.weightUnit ?? 'lbs');
 
 	let deleteSetDialog: HTMLDialogElement = $state()!;
-	let editSetDialog: HTMLDialogElement = $state()!;
-	let inputEle: HTMLInputElement = $state()!;
+	let showEditSetSheet = $state(false);
 	let organizedSets: OrganizedSet[] = $derived(organizeSetsByDate(workout.sets));
 
 	let editSetId: string | undefined = undefined;
@@ -83,8 +82,7 @@
 		editSetId = set.id;
 		reps = set.reps;
 		weight = set.weight ?? 0;
-
-		editSetDialog?.showModal();
+		showEditSetSheet = true;
 	}
 
 	function handleDeleteSetModalOpen(set: Set) {
@@ -121,29 +119,27 @@
 
 	let reps = $state(0);
 	let weight = $state(0);
-	async function handleEditSetResult() {
+	async function handleEditSetSave(newReps: number, newWeight: number) {
 		if (!$userData) return;
 
-		if (editSetDialog?.returnValue === 'default') {
-			const workouts = $userData.workouts;
+		const workouts = $userData.workouts;
 
-			const editedSet = workout!.sets.find((set) => set.id === editSetId)!;
-			editedSet.reps = reps;
-			if (weight > 0) {
-				editedSet.weight = weight;
-			} else {
-				delete editedSet.weight;
-			}
-			const index = $userData.workouts.findIndex((currWorkout) => currWorkout.id === workout!.id);
-
-			workouts[index] = workout!;
-
-			const userRef = doc(db, 'users', $user!.uid);
-
-			await updateDoc(userRef, {
-				workouts
-			});
+		const editedSet = workout!.sets.find((set) => set.id === editSetId)!;
+		editedSet.reps = newReps;
+		if (newWeight > 0) {
+			editedSet.weight = newWeight;
+		} else {
+			delete editedSet.weight;
 		}
+		const index = $userData.workouts.findIndex((currWorkout) => currWorkout.id === workout!.id);
+
+		workouts[index] = workout!;
+
+		const userRef = doc(db, 'users', $user!.uid);
+
+		await updateDoc(userRef, {
+			workouts
+		});
 	}
 
 	function getRelativeDate(date: string) {
@@ -254,13 +250,7 @@
 	{/each}
 {/if}
 
-<EditSetDialog
-	bind:dialog={editSetDialog}
-	bind:reps
-	bind:weight
-	bind:inputEle
-	onclose={handleEditSetResult}
-/>
+<EditSetSheet bind:open={showEditSetSheet} bind:reps bind:weight onSave={handleEditSetSave} />
 
 <ConfirmationDialog
 	bind:dialog={deleteSetDialog}

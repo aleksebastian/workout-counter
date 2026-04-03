@@ -6,15 +6,13 @@
 	import { formatDistanceToNow } from 'date-fns';
 	import EditIcon from '$lib/icons/edit.svg?raw';
 	import AddIcon from '$lib/icons/add.svg?raw';
-	import NewRoutineDialog from '../NewRoutineDialog.svelte';
-	import EditRoutineDialog from '../EditRoutineDialog.svelte';
+	import NewRoutineSheet from '$lib/components/NewRoutineSheet.svelte';
+	import EditRoutineSheet from '$lib/components/EditRoutineSheet.svelte';
 	import PullToRefresh from '$lib/components/PullToRefresh.svelte';
 	import FAB from '$lib/components/Buttons/FAB.svelte';
 
-	let newRoutineDialog: HTMLDialogElement = $state()!;
-	let newRoutineNameInputEle: HTMLInputElement = $state()!;
-	let editRoutineDialog: HTMLDialogElement = $state()!;
-	let editRoutineInputEle: HTMLInputElement = $state()!;
+	let showNewRoutineSheet = $state(false);
+	let showEditRoutineSheet = $state(false);
 	let newRoutineName = $state('');
 	let editedRoutineName = $state('');
 	let editingRoutine: Routine | undefined = $state(undefined);
@@ -34,50 +32,52 @@
 	}
 
 	async function handleAddRoutineClick() {
-		newRoutineDialog?.showModal();
+		showNewRoutineSheet = true;
 	}
 
-	async function handleNewRoutineDialogResult() {
+	async function handleNewRoutineSave(name: string) {
 		if (!$userData) return;
-		if (newRoutineDialog?.returnValue === 'add') {
-			const userRef = doc(db, 'users', $user!.uid);
-			const newRoutine: Routine = { id: uuidv4(), name: newRoutineName, exercises: [] };
-			try {
-				await updateDoc(userRef, { routines: arrayUnion(newRoutine) });
-				newRoutineName = '';
-			} catch (error) {
-				console.error('Failed to create routine:', error);
-			}
+		const userRef = doc(db, 'users', $user!.uid);
+		const newRoutine: Routine = { id: uuidv4(), name, exercises: [] };
+		try {
+			await updateDoc(userRef, { routines: arrayUnion(newRoutine) });
+			newRoutineName = '';
+		} catch (error) {
+			console.error('Failed to create routine:', error);
 		}
 	}
 
 	async function handleRoutineEditClick(routine: Routine) {
 		editingRoutine = routine;
-		editRoutineDialog?.showModal();
+		showEditRoutineSheet = true;
 	}
 
-	async function handleEditRoutineResult() {
+	async function handleEditRoutineSave(name: string) {
 		if (!$userData) return;
 		const routines = $userData.routines ?? [];
 		const routineIndex = routines.findIndex((r) => r.id === editingRoutine?.id);
 		const userRef = doc(db, 'users', $user!.uid);
-		if (editRoutineDialog?.returnValue === 'edit') {
-			const originalName = routines[routineIndex].name;
-			routines[routineIndex].name = editedRoutineName;
-			try {
-				await updateDoc(userRef, { routines });
-			} catch (error) {
-				routines[routineIndex].name = originalName;
-				console.error('Failed to update routine:', error);
-			}
-		} else if (editRoutineDialog?.returnValue === 'delete') {
-			const deleted = routines.splice(routineIndex, 1)[0];
-			try {
-				await updateDoc(userRef, { routines });
-			} catch (error) {
-				routines.splice(routineIndex, 0, deleted);
-				console.error('Failed to delete routine:', error);
-			}
+		const originalName = routines[routineIndex].name;
+		routines[routineIndex].name = name;
+		try {
+			await updateDoc(userRef, { routines });
+		} catch (error) {
+			routines[routineIndex].name = originalName;
+			console.error('Failed to update routine:', error);
+		}
+	}
+
+	async function handleEditRoutineDelete() {
+		if (!$userData) return;
+		const routines = $userData.routines ?? [];
+		const routineIndex = routines.findIndex((r) => r.id === editingRoutine?.id);
+		const userRef = doc(db, 'users', $user!.uid);
+		const deleted = routines.splice(routineIndex, 1)[0];
+		try {
+			await updateDoc(userRef, { routines });
+		} catch (error) {
+			routines.splice(routineIndex, 0, deleted);
+			console.error('Failed to delete routine:', error);
 		}
 	}
 
@@ -224,19 +224,18 @@
 	{/if}
 </PullToRefresh>
 
-<NewRoutineDialog
-	bind:dialog={newRoutineDialog}
-	bind:inputEle={newRoutineNameInputEle}
+<NewRoutineSheet
+	bind:open={showNewRoutineSheet}
 	bind:newRoutineName
-	onclose={handleNewRoutineDialogResult}
+	onSave={handleNewRoutineSave}
 />
 
-<EditRoutineDialog
-	bind:dialog={editRoutineDialog}
+<EditRoutineSheet
+	bind:open={showEditRoutineSheet}
 	bind:name={editedRoutineName}
-	bind:inputEle={editRoutineInputEle}
-	onclose={handleEditRoutineResult}
 	{editingRoutine}
+	onSave={handleEditRoutineSave}
+	onDelete={handleEditRoutineDelete}
 />
 
 <FAB onclick={handleAddRoutineClick} hidden={isEditingRoutines} />

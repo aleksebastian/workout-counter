@@ -161,6 +161,7 @@
 	// Elapsed timer
 	let startedAt = $state(Date.now());
 	let now = $state(Date.now());
+	let finalDuration = $state<string | null>(null);
 	$effect(() => {
 		const id = setInterval(() => (now = Date.now()), 1000);
 		return () => clearInterval(id);
@@ -170,6 +171,15 @@
 		const m = Math.floor(s / 60);
 		return `${m}:${(s % 60).toString().padStart(2, '0')}`;
 	});
+	function formatDuration(ms: number): string {
+		const totalSeconds = Math.floor(ms / 1000);
+		const h = Math.floor(totalSeconds / 3600);
+		const m = Math.floor((totalSeconds % 3600) / 60);
+		const s = totalSeconds % 60;
+		if (h > 0) return `${h}h ${m}m`;
+		if (m > 0) return `${m}m ${s}s`;
+		return `${s}s`;
+	}
 
 	// Summary totals for completion screen
 	let sessionTotalSets = $derived(
@@ -232,12 +242,15 @@
 	$effect(() => {
 		if (isComplete && !prevComplete) {
 			prevComplete = true;
+			finalDuration = formatDuration(Date.now() - startedAt);
 			HAPTIC.success();
+			document.dispatchEvent(new CustomEvent('stopTimer'));
 			confetti({
-				particleCount: 150,
-				spread: 90,
+				particleCount: 60,
+				spread: 70,
 				origin: { y: 0.5 },
-				colors: ['#a855f7', '#3b82f6', '#10b981', '#f59e0b', '#ef4444']
+				scalar: 0.9,
+				colors: ['#a855f7', '#3b82f6', '#10b981']
 			});
 		}
 		if (!isComplete) prevComplete = false;
@@ -249,19 +262,40 @@
 		{#if isComplete}
 			<!-- ── Completion screen ──────────────────────────────────────── -->
 			<div class="flex flex-col items-center gap-6 py-8 text-center">
-				<div class="bg-success/10 rounded-full p-6">
+				<!-- Completion ring -->
+				<div class="relative flex h-28 w-28 items-center justify-center">
+					<svg class="absolute h-full w-full -rotate-90" viewBox="0 0 100 100">
+						<circle
+							cx="50"
+							cy="50"
+							r="44"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="5"
+							class="text-success/15"
+						/>
+						<circle
+							cx="50"
+							cy="50"
+							r="44"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="5"
+							stroke-linecap="round"
+							stroke-dasharray="276.5"
+							stroke-dashoffset="0"
+							class="text-success"
+						/>
+					</svg>
 					<svg
+						class="text-success h-10 w-10"
+						viewBox="0 0 36 36"
 						xmlns="http://www.w3.org/2000/svg"
-						class="text-success h-12 w-12"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="2"
+						aria-hidden="true"
 					>
 						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+							fill="currentColor"
+							d="M34.459 1.375a2.999 2.999 0 0 0-4.149.884L13.5 28.17l-8.198-7.58a2.999 2.999 0 1 0-4.073 4.405l10.764 9.952s.309.266.452.359a2.999 2.999 0 0 0 4.15-.884L35.343 5.524a2.999 2.999 0 0 0-.884-4.149z"
 						/>
 					</svg>
 				</div>
@@ -285,23 +319,7 @@
 					</div>
 				</div>
 
-				<div class="text-base-content/40 flex items-center gap-1.5 text-sm">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-4 w-4"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="2"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-						/>
-					</svg>
-					<span>{elapsedLabel}</span>
-				</div>
+				<p class="text-base-content/40 text-sm">Duration: {finalDuration ?? elapsedLabel}</p>
 
 				<button class="btn btn-primary btn-lg w-full" onclick={() => goto('/programs')}>
 					Back to Programs

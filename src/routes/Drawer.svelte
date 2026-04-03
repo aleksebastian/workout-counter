@@ -5,8 +5,8 @@
 	import { type Workout } from '$lib/state.svelte';
 	import EditIcon from '$lib/icons/edit.svg?raw';
 	import AddIcon from '$lib/icons/add.svg?raw';
-	import EditWorkoutsDialog from './EditWorkoutsDialog.svelte';
-	import NewWorkoutDialog from './NewWorkoutDialog.svelte';
+	import EditWorkoutSheet from '$lib/components/EditWorkoutSheet.svelte';
+	import NewWorkoutSheet from '$lib/components/NewWorkoutSheet.svelte';
 	import { arrayUnion, doc, updateDoc } from 'firebase/firestore';
 	import { db, user } from '$lib/firebase';
 	import { userData } from '$lib/firebase';
@@ -19,10 +19,8 @@
 	let { open = $bindable(false), children }: Props = $props();
 
 	let isEditingWorkouts = $state(false);
-	let editWorkoutsDialog: HTMLDialogElement = $state()!;
-	let editWorkoutsInputEle: HTMLInputElement = $state()!;
-	let newWorkoutDialog: HTMLDialogElement = $state()!;
-	let newWorkoutNameInputEle: HTMLInputElement = $state()!;
+	let showEditWorkoutSheet = $state(false);
+	let showNewWorkoutSheet = $state(false);
 	let editingWorkout: Workout | undefined = $state(undefined);
 
 	let newWorkoutName = $state('');
@@ -43,10 +41,10 @@
 
 	async function handleWorkoutEditClick(workout: Workout) {
 		editingWorkout = workout;
-		editWorkoutsDialog?.showModal();
+		showEditWorkoutSheet = true;
 	}
 
-	async function handleEditWorkoutResult() {
+	async function handleEditWorkoutSave(name: string) {
 		if (!$userData) return;
 
 		const userRef = doc(db, 'users', $user!.uid);
@@ -55,64 +53,63 @@
 		);
 		const workouts = $userData.workouts;
 
-		if (editWorkoutsDialog?.returnValue === 'edit') {
-			if (!editedWorkoutName.trim()) return;
-			// Save original state for rollback
-			const originalName = workouts[workoutIndex].name;
-			workouts[workoutIndex].name = editedWorkoutName;
+		if (!name.trim()) return;
+		const originalName = workouts[workoutIndex].name;
+		workouts[workoutIndex].name = name;
 
-			try {
-				await updateDoc(userRef, {
-					workouts
-				});
-			} catch (error) {
-				// Rollback on error
-				workouts[workoutIndex].name = originalName;
-				console.error('Failed to update workout:', error);
+		try {
+			await updateDoc(userRef, {
+				workouts
+			});
+		} catch (error) {
+			workouts[workoutIndex].name = originalName;
+			console.error('Failed to update workout:', error);
+		}
+	}
+
+	async function handleEditWorkoutDelete() {
+		if (!$userData) return;
+
+		const userRef = doc(db, 'users', $user!.uid);
+		const workoutIndex = $userData.workouts.findIndex(
+			(currWorkout) => currWorkout.id === editingWorkout?.id
+		);
+		const deletedWorkout = $userData.workouts[workoutIndex];
+		$userData.workouts.splice(workoutIndex, 1);
+
+		try {
+			await updateDoc(userRef, {
+				workouts: $userData.workouts
+			});
+
+			if (page.params.workoutId === editingWorkout?.id) {
+				goto('/');
 			}
-		} else if (editWorkoutsDialog?.returnValue === 'delete') {
-			// Save original state for rollback
-			const deletedWorkout = $userData.workouts[workoutIndex];
-			$userData.workouts.splice(workoutIndex, 1);
-
-			try {
-				await updateDoc(userRef, {
-					workouts
-				});
-
-				if (page.params.workoutId === editingWorkout?.id) {
-					goto('/');
-				}
-			} catch (error) {
-				// Rollback on error
-				$userData.workouts.splice(workoutIndex, 0, deletedWorkout);
-				console.error('Failed to delete workout:', error);
-			}
+		} catch (error) {
+			$userData.workouts.splice(workoutIndex, 0, deletedWorkout);
+			console.error('Failed to delete workout:', error);
 		}
 	}
 
 	async function handleAddWorkoutClick() {
-		newWorkoutDialog?.showModal();
+		showNewWorkoutSheet = true;
 	}
 
-	async function handleNewWorkoutDialogResult() {
+	async function handleNewWorkoutSave(name: string) {
 		if (!$userData) return;
 
-		if (newWorkoutDialog?.returnValue === 'add') {
-			const userRef = doc(db, 'users', $user!.uid);
-			const newWorkout = { id: uuidv4(), name: newWorkoutName, sets: [] };
+		const userRef = doc(db, 'users', $user!.uid);
+		const newWorkout = { id: uuidv4(), name, sets: [] };
 
-			try {
-				await updateDoc(userRef, {
-					workouts: arrayUnion(newWorkout)
-				});
+		try {
+			await updateDoc(userRef, {
+				workouts: arrayUnion(newWorkout)
+			});
 
-				goto(`/workout/${newWorkout.id}`);
-				newWorkoutName = '';
-			} catch (error) {
-				console.error('Failed to create workout:', error);
-				// Could show a toast notification here
-			}
+			goto(`/workout/${newWorkout.id}`);
+			newWorkoutName = '';
+		} catch (error) {
+			console.error('Failed to create workout:', error);
 		}
 	}
 </script>
@@ -188,17 +185,16 @@
 	</div>
 </div>
 
-<EditWorkoutsDialog
-	bind:dialog={editWorkoutsDialog}
+<EditWorkoutSheet
+	bind:open={showEditWorkoutSheet}
 	bind:name={editedWorkoutName}
-	bind:inputEle={editWorkoutsInputEle}
-	onclose={handleEditWorkoutResult}
 	{editingWorkout}
+	onSave={handleEditWorkoutSave}
+	onDelete={handleEditWorkoutDelete}
 />
 
-<NewWorkoutDialog
-	bind:dialog={newWorkoutDialog}
-	bind:inputEle={newWorkoutNameInputEle}
+<NewWorkoutSheet
+	bind:open={showNewWorkoutSheet}
 	bind:newWorkoutName
-	onclose={handleNewWorkoutDialogResult}
+	onSave={handleNewWorkoutSave}
 />

@@ -8,8 +8,8 @@
 	} from '$lib/state.svelte';
 	import { v4 as uuidv4 } from 'uuid';
 	import { arrayUnion, doc, updateDoc } from 'firebase/firestore';
-	import NewProgramDialog from '../NewProgramDialog.svelte';
-	import EditProgramDialog from '../EditProgramDialog.svelte';
+	import NewProgramSheet from '$lib/components/NewProgramSheet.svelte';
+	import EditProgramSheet from '$lib/components/EditProgramSheet.svelte';
 	import FAB from '$lib/components/Buttons/FAB.svelte';
 	import EditIcon from '$lib/icons/edit.svg?raw';
 	import { goto } from '$app/navigation';
@@ -17,10 +17,8 @@
 	const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 	const DAY_SHORT = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
-	let newProgramDialog: HTMLDialogElement = $state()!;
-	let newProgramNameInputEle: HTMLInputElement = $state()!;
-	let editProgramDialog: HTMLDialogElement = $state()!;
-	let editProgramInputEle: HTMLInputElement = $state()!;
+	let showNewProgramSheet = $state(false);
+	let showEditProgramSheet = $state(false);
 
 	let newProgramName = $state('');
 	let editedProgramName = $state('');
@@ -59,53 +57,55 @@
 		}, 0);
 	}
 
-	async function handleNewProgramDialogResult() {
+	async function handleNewProgramSave(name: string) {
 		if (!$userData) return;
-		if (newProgramDialog?.returnValue === 'add') {
-			const userRef = doc(db, 'users', $user!.uid);
-			const newProgram: Program = {
-				id: uuidv4(),
-				name: newProgramName,
-				schedule: []
-			};
-			try {
-				await updateDoc(userRef, { programs: arrayUnion(newProgram) });
-				goto(`/programs/${newProgram.id}`);
-				newProgramName = '';
-			} catch (error) {
-				console.error('Failed to create program:', error);
-			}
+		const userRef = doc(db, 'users', $user!.uid);
+		const newProgram: Program = {
+			id: uuidv4(),
+			name,
+			schedule: []
+		};
+		try {
+			await updateDoc(userRef, { programs: arrayUnion(newProgram) });
+			goto(`/programs/${newProgram.id}`);
+			newProgramName = '';
+		} catch (error) {
+			console.error('Failed to create program:', error);
 		}
 	}
 
 	function handleProgramEditClick(program: Program) {
 		editingProgram = program;
-		editProgramDialog?.showModal();
+		showEditProgramSheet = true;
 	}
 
-	async function handleEditProgramResult() {
+	async function handleEditProgramSave(name: string) {
 		if (!$userData) return;
 		const programs = $userData.programs ?? [];
 		const idx = programs.findIndex((s) => s.id === editingProgram?.id);
 		const userRef = doc(db, 'users', $user!.uid);
+		const original = { ...programs[idx] };
+		programs[idx] = { ...programs[idx], name };
+		try {
+			await updateDoc(userRef, { programs });
+		} catch {
+			programs[idx] = original;
+		}
+		isEditingPrograms = false;
+	}
 
-		if (editProgramDialog?.returnValue === 'edit') {
-			const original = { ...programs[idx] };
-			programs[idx] = { ...programs[idx], name: editedProgramName };
-			try {
-				await updateDoc(userRef, { programs });
-			} catch {
-				programs[idx] = original;
-			}
-		} else if (editProgramDialog?.returnValue === 'delete') {
-			const deleted = programs.splice(idx, 1)[0];
-			const extra: Record<string, unknown> = { programs };
-			if (deleted.id === activeProgramId) extra.activeProgramId = null;
-			try {
-				await updateDoc(userRef, extra);
-			} catch {
-				programs.splice(idx, 0, deleted);
-			}
+	async function handleEditProgramDelete() {
+		if (!$userData) return;
+		const programs = $userData.programs ?? [];
+		const idx = programs.findIndex((s) => s.id === editingProgram?.id);
+		const userRef = doc(db, 'users', $user!.uid);
+		const deleted = programs.splice(idx, 1)[0];
+		const extra: Record<string, unknown> = { programs };
+		if (deleted.id === activeProgramId) extra.activeProgramId = null;
+		try {
+			await updateDoc(userRef, extra);
+		} catch {
+			programs.splice(idx, 0, deleted);
 		}
 		isEditingPrograms = false;
 	}
@@ -373,26 +373,25 @@
 					each day.
 				</p>
 			</div>
-			<button class="btn btn-primary" onclick={() => newProgramDialog?.showModal()}>
+			<button class="btn btn-primary" onclick={() => (showNewProgramSheet = true)}>
 				Create your first program
 			</button>
 		</div>
 	{/if}
 </div>
 
-<FAB onclick={() => newProgramDialog?.showModal()} hidden={isEditingPrograms} />
+<FAB onclick={() => (showNewProgramSheet = true)} hidden={isEditingPrograms} />
 
-<NewProgramDialog
-	bind:dialog={newProgramDialog}
-	bind:inputEle={newProgramNameInputEle}
+<NewProgramSheet
+	bind:open={showNewProgramSheet}
 	bind:newProgramName
-	onclose={handleNewProgramDialogResult}
+	onSave={handleNewProgramSave}
 />
 
-<EditProgramDialog
-	bind:dialog={editProgramDialog}
-	bind:inputEle={editProgramInputEle}
+<EditProgramSheet
+	bind:open={showEditProgramSheet}
 	bind:name={editedProgramName}
-	onclose={handleEditProgramResult}
 	{editingProgram}
+	onSave={handleEditProgramSave}
+	onDelete={handleEditProgramDelete}
 />
