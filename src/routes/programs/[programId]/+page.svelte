@@ -14,6 +14,7 @@
 	import { goto } from '$app/navigation';
 	import BackButton from '$lib/components/Buttons/BackButton.svelte';
 	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
+	import ExerciseSearch from '$lib/components/ExerciseSearch.svelte';
 	import AddIcon from '$lib/icons/add.svg?raw';
 	import RemoveIcon from '$lib/icons/remove.svg?raw';
 	import DeleteIcon from '$lib/icons/delete.svg?raw';
@@ -81,12 +82,6 @@
 	let weightUnit = $derived($userData?.preferences?.weightUnit ?? 'lbs');
 	let deleteDayDialog = $state() as HTMLDialogElement;
 	let dayToDelete = $state<number | undefined>(undefined);
-
-	function filteredWorkouts() {
-		return searchQuery.trim()
-			? workoutsNotInDay.filter((w) => w.name.toLowerCase().includes(searchQuery.toLowerCase()))
-			: workoutsNotInDay;
-	}
 
 	function getSetsToday(workoutId: string): number {
 		return (
@@ -642,24 +637,16 @@
 					{/if}
 
 					{#if addPanelSection === 'exercises'}
-						{#if workoutsNotInDay.length > 0}
-							<input
-								type="search"
-								placeholder="Search exercises…"
-								class="input input-bordered input-sm w-full"
-								bind:value={searchQuery}
+						{#if !showNewExerciseInput}
+							<ExerciseSearch
+								exercises={workoutsNotInDay}
+								bind:searchValue={searchQuery}
+								onSelect={(workoutId) => handleAddWorkout(workoutId)}
+								showCreateNew={true}
+								onCreateNew={() => (showNewExerciseInput = true)}
 							/>
-							<div class="flex flex-wrap gap-2">
-								{#each filteredWorkouts() as w}
-									<button class="btn btn-ghost btn-sm" onclick={() => handleAddWorkout(w.id)}
-										>+ {w.name}</button
-									>
-								{/each}
-								{#if filteredWorkouts().length === 0 && searchQuery}
-									<p class="text-base-content/40 text-xs">No matches</p>
-								{/if}
-							</div>
 						{/if}
+
 						{#if showNewExerciseInput}
 							<div class="flex flex-col gap-1.5">
 								<div class="flex gap-2">
@@ -691,15 +678,6 @@
 								</div>
 								{#if newExerciseError}<p class="text-error text-xs">{newExerciseError}</p>{/if}
 							</div>
-						{:else}
-							<button
-								class="btn btn-outline btn-primary btn-sm w-full"
-								onclick={() => {
-									showNewExerciseInput = true;
-									newExerciseName = '';
-									newExerciseError = '';
-								}}>+ New exercise</button
-							>
 						{/if}
 					{/if}
 				</div>

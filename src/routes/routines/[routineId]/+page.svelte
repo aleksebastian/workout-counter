@@ -9,6 +9,7 @@
 	import { cubicOut } from 'svelte/easing';
 	import BackButton from '$lib/components/Buttons/BackButton.svelte';
 	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
+	import ExerciseSearch from '$lib/components/ExerciseSearch.svelte';
 	import AddIcon from '$lib/icons/add.svg?raw';
 	import CloseIcon from '$lib/icons/close.svg?raw';
 	import RemoveIcon from '$lib/icons/remove.svg?raw';
@@ -112,14 +113,6 @@
 	let newExerciseError = $state('');
 	let newExerciseInput: HTMLInputElement | undefined = $state();
 	let exerciseSearch = $state('');
-
-	let filteredWorkoutsNotInRoutine = $derived(
-		exerciseSearch.trim()
-			? workoutsNotInRoutine.filter((w) =>
-					w.name.toLowerCase().includes(exerciseSearch.toLowerCase())
-				)
-			: workoutsNotInRoutine
-	);
 
 	$effect(() => {
 		if (showNewExerciseInput) {
@@ -648,34 +641,17 @@
 					Add exercise
 				</p>
 
-				{#if workoutsNotInRoutine.length > 4}
-					<input
-						type="search"
-						placeholder="Search exercises…"
-						class="input input-sm input-bordered search-input w-full"
-						bind:value={exerciseSearch}
+				{#if !showNewExerciseInput}
+					<ExerciseSearch
+						exercises={workoutsNotInRoutine}
+						bind:searchValue={exerciseSearch}
+						onSelect={(workoutId) => {
+							selectedWorkoutId = workoutId;
+							handleAddWorkout();
+						}}
+						showCreateNew={true}
+						onCreateNew={() => (showNewExerciseInput = true)}
 					/>
-				{/if}
-
-				{#if workoutsNotInRoutine.length}
-					<div class="flex flex-wrap gap-2">
-						{#each filteredWorkoutsNotInRoutine as workout (workout.id)}
-							<button
-								class="btn btn-sm btn-ghost chip-button gap-1"
-								onclick={() => {
-									selectedWorkoutId = workout.id;
-									handleAddWorkout();
-								}}
-							>
-								<span class="text-base leading-none">+</span>{workout.name}
-							</button>
-						{/each}
-						{#if filteredWorkoutsNotInRoutine.length === 0}
-							<p class="text-base-content/40 fade-in-fast py-2 text-sm">No matches.</p>
-						{/if}
-					</div>
-				{:else if !showNewExerciseInput}
-					<p class="text-base-content/40 text-sm">All exercises are already in this routine.</p>
 				{/if}
 
 				{#if showNewExerciseInput}
@@ -709,21 +685,6 @@
 							</p>
 						{/if}
 					</div>
-				{:else}
-					<button
-						class="btn btn-outline btn-primary btn-sm smooth-hover self-start"
-						onclick={() => (showNewExerciseInput = true)}
-					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							height="16"
-							width="16"
-							viewBox="0 -960 960 960"
-							fill="currentColor"
-							><path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" /></svg
-						>
-						New exercise
-					</button>
 				{/if}
 			</div>
 		{/if}
