@@ -135,7 +135,7 @@
 				</div>
 			{/if}
 			<!-- Content -->
-			<div class="overflow-y-auto px-6 py-4" style="max-height: calc(90vh - 120px)">
+			<div class="overflow-y-auto px-6 py-4" style="max-height: calc(90dvh - 120px)">
 				{@render children?.()}
 			</div>
 		</div>

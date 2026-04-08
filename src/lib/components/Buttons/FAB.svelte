@@ -16,7 +16,7 @@
 {#if !hidden}
 	<button
 		transition:scale={{ duration: 150, start: 0.8 }}
-		class="btn btn-circle btn-lg btn-primary fixed z-70 shadow-xl transition-[bottom] duration-300 ease-out [&>svg]:h-6 [&>svg]:w-6"
+		class="btn btn-circle btn-lg btn-primary fixed z-[550] shadow-xl transition-[bottom] duration-300 ease-out [&>svg]:h-6 [&>svg]:w-6"
 		style="bottom: {bottomPosition}; right: 1rem;"
 		{onclick}
 		aria-label="Add"

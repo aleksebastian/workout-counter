@@ -155,8 +155,30 @@
 	}
 </script>
 
-{#if organizedSets}
-	{#each organizedSets as organizedSet}
+{#if organizedSets.length === 0}
+	<!-- Empty state -->
+	<div class="fade-in flex flex-col items-center gap-3 py-16 text-center">
+		<div class="bg-base-200 rounded-full p-6">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="text-base-content/40 h-10 w-10"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke="currentColor"
+				stroke-width="1.5"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"
+				/>
+			</svg>
+		</div>
+		<p class="font-semibold">No sets yet</p>
+		<p class="text-base-content/50 max-w-xs text-sm">Tap the + button to record your first set.</p>
+	</div>
+{:else if organizedSets}
+	{#each organizedSets as organizedSet, index}
 		{@const hasWeight = organizedSet.sets.some((s) => s.weight)}
 		<div>
 			<div class="mb-2 flex justify-between">
@@ -245,11 +267,12 @@
 					</div>
 				</div>
 			{/each}
-			<div class="divider"></div>
 		</div>
+		{#if index < organizedSets.length - 1}
+			<div class="divider"></div>
+		{/if}
 	{/each}
 {/if}
-
 <EditSetSheet bind:open={showEditSetSheet} bind:reps bind:weight onSave={handleEditSetSave} />
 
 <ConfirmationDialog

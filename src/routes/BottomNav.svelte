@@ -32,7 +32,7 @@
 
 <nav
 	class="bg-base-100 border-base-300 bottom-nav fixed right-0 bottom-0 left-0 z-500 border-t"
-	style="padding-bottom: 0; padding-bottom: env(safe-area-inset-bottom, 0)"
+	style="padding-bottom: env(safe-area-inset-bottom, 0)"
 	in:launchSlide|global
 >
 	<div class="flex h-16 items-center justify-around">
