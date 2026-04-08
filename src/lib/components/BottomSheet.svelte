@@ -21,8 +21,8 @@
 	const sizeClasses = {
 		small: 'max-h-[40svh]',
 		medium: 'max-h-[60svh]',
-		large: 'max-h-[75svh]',
-		full: 'max-h-[90svh]'
+		large: 'max-h-[85svh]',
+		full: 'max-h-[95svh]'
 	};
 
 	function close() {

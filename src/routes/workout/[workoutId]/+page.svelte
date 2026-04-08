@@ -87,11 +87,6 @@
 		showRecordSetSheet = true;
 	}
 
-	let lastSetText = $derived.by(() => {
-		if (!lastSet) return '';
-		return `${lastSet.reps} reps${lastSet.weight ? ` · ${lastSet.weight} ${weightUnit}` : ''}`;
-	});
-
 	async function handleRecordSet(newReps: number, newWeight: number) {
 		if (!$userData) return;
 
@@ -186,7 +181,6 @@
 		bind:open={showRecordSetSheet}
 		bind:reps
 		bind:weight
-		{lastSetText}
 		exerciseName={workout?.name}
 		onRecord={handleRecordSet}
 	/>

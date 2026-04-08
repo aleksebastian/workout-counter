@@ -9,7 +9,6 @@
 		open?: boolean;
 		reps?: number;
 		weight?: number;
-		lastSetText?: string;
 		exerciseName?: string;
 		onRecord?: (reps: number, weight: number) => void;
 		onCancel?: () => void;
@@ -19,13 +18,24 @@
 		open = $bindable(false),
 		reps = $bindable(10),
 		weight = $bindable(0),
-		lastSetText = '',
 		exerciseName = '',
 		onRecord,
 		onCancel
 	}: Props = $props();
 
+	let repsInputElement = $state<HTMLInputElement>();
+
 	let weightUnit = $derived($userData?.preferences?.weightUnit ?? 'lbs');
+
+	// Auto-focus reps input when sheet opens to trigger keyboard
+	$effect(() => {
+		if (open && repsInputElement) {
+			setTimeout(() => {
+				repsInputElement?.focus();
+				repsInputElement?.select();
+			}, 100);
+		}
+	});
 
 	// ── Hold-to-repeat logic ────────────────────────────────────────────────────
 	function createHoldHandler(action: () => void) {
@@ -82,14 +92,6 @@
 
 <BottomSheet bind:open size="large" title={exerciseName || 'Record Set'} onClose={handleCancel}>
 	<div class="flex flex-col gap-5">
-		<!-- Last set context -->
-		{#if lastSetText}
-			<div class="bg-base-200 rounded-xl px-4 py-2.5 text-center">
-				<p class="text-base-content/50 text-xs">Last set</p>
-				<p class="text-sm font-semibold">{lastSetText}</p>
-			</div>
-		{/if}
-
 		<!-- Reps -->
 		<div class="flex flex-col gap-2">
 			<span class="text-base-content/50 text-xs font-semibold tracking-widest uppercase">Reps</span>
@@ -103,6 +105,7 @@
 					aria-label="Decrease reps">{@html RemoveIcon}</button
 				>
 				<input
+					bind:this={repsInputElement}
 					type="number"
 					inputmode="numeric"
 					class="min-w-0 flex-1 [appearance:textfield] bg-transparent text-center text-5xl font-black tabular-nums outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
