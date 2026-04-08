@@ -19,10 +19,10 @@
 	let isDragging = false;
 
 	const sizeClasses = {
-		small: 'max-h-[40dvh]',
-		medium: 'max-h-[60dvh]',
-		large: 'max-h-[85dvh]',
-		full: 'max-h-[95dvh]'
+		small: 'max-h-[40svh]',
+		medium: 'max-h-[60svh]',
+		large: 'max-h-[75svh]',
+		full: 'max-h-[90svh]'
 	};
 
 	function close() {
@@ -113,7 +113,7 @@
 		<!-- Bottom Sheet -->
 		<div
 			bind:this={sheetElement}
-			class="bg-base-100 relative w-full rounded-t-3xl shadow-2xl {sizeClasses[size]}"
+			class="bg-base-100 relative flex w-full flex-col rounded-t-3xl shadow-2xl {sizeClasses[size]}"
 			style="padding-bottom: env(safe-area-inset-bottom, 0px)"
 			in:fly={{ y: 500, duration: 350, easing: cubicOut }}
 			out:fly={{ y: 500, duration: 300, easing: cubicOut }}
@@ -126,18 +126,18 @@
 			ontouchend={handleTouchEnd}
 		>
 			<!-- Drag Handle -->
-			<div class="flex justify-center pt-3 pb-2">
+			<div class="flex shrink-0 justify-center pt-3 pb-2">
 				<div class="bg-base-content/20 h-1 w-10 rounded-full"></div>
 			</div>
 
 			<!-- Header -->
 			{#if title}
-				<div class="border-base-300 border-b px-6 pt-2 pb-4">
+				<div class="border-base-300 shrink-0 border-b px-6 pt-2 pb-4">
 					<h2 id="sheet-title" class="text-lg font-bold">{title}</h2>
 				</div>
 			{/if}
 			<!-- Content -->
-			<div class="overflow-y-auto px-6 py-4" style="max-height: calc(90dvh - 120px)">
+			<div class="flex-1 overflow-y-auto px-6 py-4" style="min-height: 0">
 				{@render children?.()}
 			</div>
 		</div>
