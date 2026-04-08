@@ -19,10 +19,10 @@
 	let isDragging = false;
 
 	const sizeClasses = {
-		small: 'max-h-[40vh]',
-		medium: 'max-h-[60vh]',
-		large: 'max-h-[85vh]',
-		full: 'max-h-[95vh]'
+		small: 'max-h-[40dvh]',
+		medium: 'max-h-[60dvh]',
+		large: 'max-h-[85dvh]',
+		full: 'max-h-[95dvh]'
 	};
 
 	function close() {
@@ -95,7 +95,8 @@
 {#if open}
 	<div
 		class="fixed inset-0 z-1000 flex items-end"
-		transition:fade={{ duration: 200 }}
+		in:fade={{ duration: 200 }}
+		out:fade={{ duration: 250 }}
 		onkeydown={handleKeydown}
 		role="presentation"
 	>
@@ -114,7 +115,8 @@
 			bind:this={sheetElement}
 			class="bg-base-100 relative w-full rounded-t-3xl shadow-2xl {sizeClasses[size]}"
 			style="padding-bottom: env(safe-area-inset-bottom, 0px)"
-			transition:fly={{ y: 500, duration: 350, easing: cubicOut }}
+			in:fly={{ y: 500, duration: 350, easing: cubicOut }}
+			out:fly={{ y: 500, duration: 300, easing: cubicOut }}
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby={title ? 'sheet-title' : undefined}
