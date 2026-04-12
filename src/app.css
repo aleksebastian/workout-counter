@@ -10,11 +10,18 @@
 		dracula --prefersdark;
 }
 
+/* iOS Safari/PWA fix: Use custom property for dynamic viewport height */
+:root {
+	--app-height: 100%;
+}
+
 html,
 body {
+	height: var(--app-height);
 	min-height: 100dvh;
 	scrollbar-gutter: stable;
 	overscroll-behavior: none;
+	overflow: hidden;
 }
 
 svg {

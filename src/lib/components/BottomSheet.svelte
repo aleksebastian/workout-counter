@@ -72,15 +72,34 @@
 		}
 	}
 
-	// Focus trap
+	// Focus trap and iOS keyboard handling
 	onMount(() => {
-		if (open && sheetElement) {
-			const focusableElements = sheetElement.querySelectorAll(
-				'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-			);
-			const firstElement = focusableElements[0] as HTMLElement;
-			firstElement?.focus();
-		}
+		if (!open || !sheetElement) return;
+
+		const focusableElements = sheetElement.querySelectorAll(
+			'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+		);
+		const firstElement = focusableElements[0] as HTMLElement;
+		firstElement?.focus();
+
+		// iOS keyboard handling: scroll input into view when focused
+		const inputs = sheetElement.querySelectorAll('input, textarea');
+		const handleFocus = (e: Event) => {
+			const target = e.target as HTMLElement;
+			setTimeout(() => {
+				target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+			}, 300); // delay for keyboard animation
+		};
+
+		inputs.forEach((input) => {
+			input.addEventListener('focus', handleFocus);
+		});
+
+		return () => {
+			inputs.forEach((input) => {
+				input.removeEventListener('focus', handleFocus);
+			});
+		};
 	});
 
 	// iOS-safe scroll lock: position:fixed prevents touch-scroll on background
@@ -108,6 +127,7 @@
 {#if open}
 	<div
 		class="fixed inset-0 z-1000 flex items-end"
+		style="overflow-y: auto; -webkit-overflow-scrolling: touch;"
 		in:fade={{ duration: 200 }}
 		out:fade={{ duration: 250 }}
 		onkeydown={handleKeydown}

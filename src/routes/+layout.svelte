@@ -25,6 +25,13 @@
 	let userStoreUnsubscribe: (() => void) | undefined;
 
 	onMount(() => {
+		// iOS Safari/PWA fix: Update --app-height on resize to handle keyboard
+		const setAppHeight = () => {
+			document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
+		};
+		setAppHeight();
+		window.addEventListener('resize', setAppHeight);
+
 		isOnline = navigator.onLine;
 
 		const handleOnline = () => (isOnline = true);
@@ -64,6 +71,7 @@
 			window.removeEventListener('online', handleOnline);
 			window.removeEventListener('offline', handleOffline);
 			window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+			window.removeEventListener('resize', setAppHeight);
 			userStoreUnsubscribe?.();
 		};
 	});
