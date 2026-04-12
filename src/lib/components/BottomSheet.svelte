@@ -15,7 +15,10 @@
 	let { open = $bindable(false), size = 'medium', title, onClose, children }: Props = $props();
 
 	// Custom slide transition that uses element's actual height to prevent overshoot
-	function slideUp(node: HTMLElement, { duration = 350 }: { duration?: number } = {}): TransitionConfig {
+	function slideUp(
+		node: HTMLElement,
+		{ duration = 350 }: { duration?: number } = {}
+	): TransitionConfig {
 		const height = node.offsetHeight;
 		return {
 			duration,
@@ -159,8 +162,8 @@
 			bind:this={sheetElement}
 			class="bg-base-100 relative flex w-full flex-col rounded-t-3xl shadow-2xl {sizeClasses[size]}"
 			style="padding-bottom: env(safe-area-inset-bottom, 0px)"
-		in:slideUp={{ duration: 350 }}
-		out:slideUp={{ duration: 300 }}
+			in:slideUp={{ duration: 350 }}
+			out:slideUp={{ duration: 300 }}
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby={title ? 'sheet-title' : undefined}
