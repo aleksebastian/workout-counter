@@ -23,19 +23,7 @@
 		onCancel
 	}: Props = $props();
 
-	let repsInputElement = $state<HTMLInputElement>();
-
 	let weightUnit = $derived($userData?.preferences?.weightUnit ?? 'lbs');
-
-	// Auto-focus reps input when sheet opens to trigger keyboard
-	$effect(() => {
-		if (open && repsInputElement) {
-			setTimeout(() => {
-				repsInputElement?.focus();
-				repsInputElement?.select();
-			}, 100);
-		}
-	});
 
 	// ── Hold-to-repeat logic ────────────────────────────────────────────────────
 	function createHoldHandler(action: () => void) {
@@ -105,7 +93,6 @@
 					aria-label="Decrease reps">{@html RemoveIcon}</button
 				>
 				<input
-					bind:this={repsInputElement}
 					type="number"
 					inputmode="numeric"
 					class="min-w-0 flex-1 [appearance:textfield] bg-transparent text-center text-5xl font-black tabular-nums outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"

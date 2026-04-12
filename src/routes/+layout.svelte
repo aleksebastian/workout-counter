@@ -143,6 +143,16 @@
 			return;
 		}
 
+		// Set the initial display value immediately (don't wait for first interval tick)
+		{
+			const diff = expirationDate!.getTime() - Date.now();
+			if (diff > 0) {
+				const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+				const s = Math.floor((diff % (1000 * 60)) / 1000);
+				restTimer.value = `${m}:${s < 10 ? '0' + s : s}`;
+			}
+		}
+
 		restTimerHandle = setInterval(() => {
 			const now = new Date();
 			if (now >= expirationDate!) {

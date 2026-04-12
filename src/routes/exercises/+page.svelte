@@ -151,12 +151,23 @@
 
 	<!-- Search + Sort -->
 	{#if $userData?.workouts?.length}
-		<input
-			type="search"
-			placeholder="Search exercises…"
-			class="input input-bordered w-full"
-			bind:value={search}
-		/>
+		<div class="relative">
+			<input
+				type="search"
+				placeholder="Search exercises…"
+				class="input input-bordered w-full pr-9"
+				bind:value={search}
+			/>
+			{#if search}
+				<button
+					class="absolute top-1/2 right-2.5 -translate-y-1/2 text-base-content/30 hover:text-base-content/60 transition-colors"
+					onclick={() => (search = '')}
+					aria-label="Clear search"
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+				</button>
+			{/if}
+		</div>
 		<!-- Sort pills -->
 		<div class="flex gap-1.5" role="group" aria-label="Sort by">
 			{#each [['last-done', 'Last done'], ['a-z', 'A–Z'], ['most-sets', 'Most sets']] as const as [key, label]}
@@ -236,7 +247,19 @@
 			{/each}
 		</ul>
 	{:else if search.trim()}
-		<p class="text-base-content/50 text-center text-sm">No results for "{search}"</p>
+		<div class="flex flex-col items-center gap-4 pt-4">
+			<p class="text-base-content/50 text-sm">No exercises match "{search}"</p>
+			<button
+				class="btn btn-primary btn-sm gap-1.5"
+				onclick={() => {
+					newWorkoutName = search.trim();
+					handleNewWorkoutSave(newWorkoutName);
+				}}
+			>
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+				Create "{search.trim()}"
+			</button>
+		</div>
 	{:else if $user}
 		<div class="flex flex-col items-center gap-3 pt-8">
 			<p class="text-base-content/50 text-center text-sm">No exercises yet.</p>

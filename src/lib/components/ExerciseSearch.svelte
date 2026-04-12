@@ -28,12 +28,23 @@
 
 <div class="flex flex-col gap-3">
 	<!-- Search input -->
-	<input
-		type="search"
-		{placeholder}
-		class="input input-sm input-bordered search-input w-full"
-		bind:value={searchValue}
-	/>
+	<div class="relative">
+		<input
+			type="search"
+			{placeholder}
+			class="input input-sm input-bordered search-input w-full pr-8"
+			bind:value={searchValue}
+		/>
+		{#if searchValue}
+			<button
+				class="absolute top-1/2 right-2.5 -translate-y-1/2 text-base-content/30 hover:text-base-content/60 transition-colors"
+				onclick={() => (searchValue = '')}
+				aria-label="Clear search"
+			>
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+			</button>
+		{/if}
+	</div>
 
 	<!-- Exercise chips -->
 	{#if exercises.length}

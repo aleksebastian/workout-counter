@@ -111,12 +111,12 @@
 
 		const userRef = doc(db, 'users', $user!.uid);
 
+		HAPTIC.medium();
+		document.dispatchEvent(new CustomEvent('startTimer'));
+		document.dispatchEvent(new CustomEvent('setRecorded'));
+
 		try {
 			await updateDoc(userRef, { workouts });
-
-			HAPTIC.medium();
-			document.dispatchEvent(new CustomEvent('startTimer'));
-			document.dispatchEvent(new CustomEvent('setRecorded'));
 
 			if (isPR) celebratePR();
 		} catch (error) {
