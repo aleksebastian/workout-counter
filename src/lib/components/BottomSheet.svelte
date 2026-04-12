@@ -83,11 +83,24 @@
 		}
 	});
 
+	// iOS-safe scroll lock: position:fixed prevents touch-scroll on background
+	let savedScrollY = 0;
+
 	$effect(() => {
 		if (open) {
+			savedScrollY = window.scrollY;
+			document.body.style.position = 'fixed';
+			document.body.style.top = `-${savedScrollY}px`;
+			document.body.style.left = '0';
+			document.body.style.right = '0';
 			document.body.style.overflow = 'hidden';
 		} else {
+			document.body.style.position = '';
+			document.body.style.top = '';
+			document.body.style.left = '';
+			document.body.style.right = '';
 			document.body.style.overflow = '';
+			window.scrollTo(0, savedScrollY);
 		}
 	});
 </script>

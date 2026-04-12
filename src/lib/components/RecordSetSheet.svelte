@@ -78,14 +78,14 @@
 	}
 </script>
 
-<BottomSheet bind:open size="large" title={exerciseName || 'Record Set'} onClose={handleCancel}>
-	<div class="flex flex-col gap-5">
+<BottomSheet bind:open size="medium" title={exerciseName || 'Record Set'} onClose={handleCancel}>
+	<div class="flex flex-col gap-3">
 		<!-- Reps -->
-		<div class="flex flex-col gap-2">
+		<div class="flex flex-col gap-1.5">
 			<span class="text-base-content/50 text-xs font-semibold tracking-widest uppercase">Reps</span>
 			<div class="flex items-center gap-3">
 				<button
-					class="btn btn-circle btn-lg flex-none"
+					class="btn btn-circle flex-none"
 					onpointerdown={repsDown.start}
 					onpointerup={repsDown.stop}
 					onpointerleave={repsDown.stop}
@@ -95,12 +95,12 @@
 				<input
 					type="number"
 					inputmode="numeric"
-					class="min-w-0 flex-1 [appearance:textfield] bg-transparent text-center text-5xl font-black tabular-nums outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+					class="min-w-0 flex-1 [appearance:textfield] bg-transparent text-center text-4xl font-black tabular-nums outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
 					bind:value={reps}
 					onfocus={(e) => (e.currentTarget as HTMLInputElement).select()}
 				/>
 				<button
-					class="btn btn-circle btn-lg flex-none"
+					class="btn btn-circle flex-none"
 					onpointerdown={repsUp.start}
 					onpointerup={repsUp.stop}
 					onpointerleave={repsUp.stop}
@@ -128,16 +128,14 @@
 			</div>
 		</div>
 
-		<div class="divider my-0"></div>
-
 		<!-- Weight -->
-		<div class="flex flex-col gap-2">
+		<div class="flex flex-col gap-1.5">
 			<span class="text-base-content/50 text-xs font-semibold tracking-widest uppercase"
 				>Weight ({weightUnit})</span
 			>
 			<div class="flex items-center gap-3">
 				<button
-					class="btn btn-circle btn-lg flex-none"
+					class="btn btn-circle flex-none"
 					onpointerdown={weightDown.start}
 					onpointerup={weightDown.stop}
 					onpointerleave={weightDown.stop}
@@ -147,13 +145,13 @@
 				<input
 					type="number"
 					inputmode="decimal"
-					class="min-w-0 flex-1 [appearance:textfield] bg-transparent text-center text-5xl font-black tabular-nums outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+					class="min-w-0 flex-1 [appearance:textfield] bg-transparent text-center text-4xl font-black tabular-nums outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
 					bind:value={weight}
 					min="0"
 					onfocus={(e) => (e.currentTarget as HTMLInputElement).select()}
 				/>
 				<button
-					class="btn btn-circle btn-lg flex-none"
+					class="btn btn-circle flex-none"
 					onpointerdown={weightUp.start}
 					onpointerup={weightUp.stop}
 					onpointerleave={weightUp.stop}
