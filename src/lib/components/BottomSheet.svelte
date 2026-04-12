@@ -1,7 +1,8 @@
 <script lang="ts">
-	import { fly, fade } from 'svelte/transition';
+	import { fade } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import { onMount } from 'svelte';
+	import type { TransitionConfig } from 'svelte/transition';
 
 	interface Props {
 		open?: boolean;
@@ -12,6 +13,16 @@
 	}
 
 	let { open = $bindable(false), size = 'medium', title, onClose, children }: Props = $props();
+
+	// Custom slide transition that uses element's actual height to prevent overshoot
+	function slideUp(node: HTMLElement, { duration = 350 }: { duration?: number } = {}): TransitionConfig {
+		const height = node.offsetHeight;
+		return {
+			duration,
+			easing: cubicOut,
+			css: (t) => `transform: translateY(${(1 - t) * height}px);`
+		};
+	}
 
 	let sheetElement = $state<HTMLElement>();
 	let startY = 0;
@@ -148,8 +159,8 @@
 			bind:this={sheetElement}
 			class="bg-base-100 relative flex w-full flex-col rounded-t-3xl shadow-2xl {sizeClasses[size]}"
 			style="padding-bottom: env(safe-area-inset-bottom, 0px)"
-			in:fly={{ y: 500, duration: 350, easing: cubicOut }}
-			out:fly={{ y: 500, duration: 300, easing: cubicOut }}
+		in:slideUp={{ duration: 350 }}
+		out:slideUp={{ duration: 300 }}
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby={title ? 'sheet-title' : undefined}
