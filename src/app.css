@@ -21,7 +21,6 @@ body {
 	min-height: 100dvh;
 	scrollbar-gutter: stable;
 	overscroll-behavior: none;
-	overflow: hidden;
 }
 
 svg {
