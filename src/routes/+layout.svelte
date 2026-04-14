@@ -261,8 +261,8 @@
 	class="mx-auto p-4 transition-[padding] duration-200"
 	class:invisible={isAuthLoading}
 	style={hasUser
-		? `padding-bottom: calc(${restTimer.value ? '9.5rem' : '4rem'} + env(safe-area-inset-bottom, 0px))`
-		: ''}
+		? `padding-bottom: calc(${restTimer.value ? '11rem' : '6rem'} + env(safe-area-inset-bottom, 0px))`
+		: 'padding-bottom: 2rem;'}
 >
 	{@render children?.()}
 	<Toasts />

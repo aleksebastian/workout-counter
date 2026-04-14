@@ -20,7 +20,7 @@ body {
 	height: var(--app-height);
 	min-height: 100dvh;
 	scrollbar-gutter: stable;
-	overscroll-behavior: none;
+	/* overscroll-behavior: none; */
 }
 
 svg {

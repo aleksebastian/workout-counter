@@ -12,6 +12,7 @@
 	import { doc, updateDoc } from 'firebase/firestore';
 	import { format, formatRelative } from 'date-fns';
 	import { HAPTIC } from '$lib/haptic';
+	import { v4 as uuidv4 } from 'uuid';
 
 	interface Props {
 		workout: Workout;
@@ -28,10 +29,11 @@
 	let editSetId: string | undefined = undefined;
 	let pendingDeleteSet: Set | undefined = $state(undefined);
 
-	// ── Swipe-to-delete state ───────────────────────────────────────────────────
+	// ── Swipe state (left = duplicate, right = delete) ─────────────────────────
 	let swipeX: Record<string, number> = $state({});
 	let swipeTouchStartX: Record<string, number> = {};
 	const SWIPE_DELETE_THRESHOLD = 80;
+	const SWIPE_DUPLICATE_THRESHOLD = 80;
 	const SWIPE_REVEAL_THRESHOLD = 40;
 
 	function onSwipeTouchStart(setId: string, e: TouchEvent) {
@@ -40,18 +42,31 @@
 
 	function onSwipeTouchMove(setId: string, e: TouchEvent) {
 		const dx = swipeTouchStartX[setId] - e.touches[0].clientX;
+		// Right swipe (negative dx) = duplicate, Left swipe (positive dx) = delete
 		if (dx > 0) {
 			swipeX[setId] = Math.min(dx, SWIPE_DELETE_THRESHOLD + 20);
-			// Light haptic feedback when delete zone is revealed
 			if (Math.round(dx) === SWIPE_REVEAL_THRESHOLD) HAPTIC.tap();
+		} else if (dx < 0) {
+			swipeX[setId] = Math.max(dx, -(SWIPE_DUPLICATE_THRESHOLD + 20));
+			if (Math.round(Math.abs(dx)) === SWIPE_REVEAL_THRESHOLD) HAPTIC.tap();
 		}
 	}
 
 	function onSwipeTouchEnd(setId: string, set: Set) {
 		const dx = swipeX[setId] ?? 0;
+		console.log('Swipe end:', {
+			setId,
+			dx,
+			deleteThreshold: SWIPE_DELETE_THRESHOLD,
+			duplicateThreshold: -SWIPE_DUPLICATE_THRESHOLD
+		});
 		if (dx >= SWIPE_DELETE_THRESHOLD) {
 			swipeX[setId] = 0;
 			handleDeleteSetModalOpen(set);
+		} else if (dx <= -SWIPE_DUPLICATE_THRESHOLD) {
+			swipeX[setId] = 0;
+			console.log('Triggering duplicate');
+			handleDuplicateSet(set);
 		} else {
 			swipeX[setId] = 0;
 		}
@@ -89,6 +104,38 @@
 		editSetId = set.id;
 		pendingDeleteSet = set;
 		deleteSetDialog?.showModal();
+	}
+
+	async function handleDuplicateSet(set: Set) {
+		if (!$userData) return;
+		console.log('handleDuplicateSet called', set);
+		HAPTIC.success();
+
+		const newSet = {
+			id: uuidv4(),
+			reps: set.reps,
+			date: new Date().toISOString(),
+			...(set.weight && { weight: set.weight })
+		};
+
+		const originalSets = [...workout.sets];
+		workout.sets = [...workout.sets, newSet];
+
+		const workouts = $userData.workouts.map((currWorkout) =>
+			currWorkout.id === workout.id ? workout : currWorkout
+		);
+
+		const userRef = doc(db, 'users', $user!.uid);
+
+		try {
+			await updateDoc(userRef, { workouts });
+			document.dispatchEvent(new CustomEvent('startTimer'));
+			document.dispatchEvent(new CustomEvent('setRecorded'));
+			console.log('Set duplicated successfully');
+		} catch (err) {
+			workout.sets = originalSets;
+			console.error('Failed to duplicate set:', err);
+		}
 	}
 
 	async function handleDeleteSetResult() {
@@ -212,6 +259,14 @@
 					ontouchmove={(e) => onSwipeTouchMove(set.id, e)}
 					ontouchend={() => onSwipeTouchEnd(set.id, set)}
 				>
+					<!-- Duplicate action panel — fixed on the left, revealed on swipe right -->
+					<div
+						class="bg-success absolute inset-y-0 left-0 flex w-20 items-center justify-center rounded-l-lg"
+						aria-hidden="true"
+					>
+						<span class="text-success-content text-sm font-semibold">Record</span>
+					</div>
+
 					<!-- Delete action panel — fixed on the right, revealed as content slides away -->
 					<div
 						class="bg-error absolute inset-y-0 right-0 flex w-20 items-center justify-center rounded-r-lg"
@@ -227,7 +282,7 @@
 								'bg-base-100 grid items-center gap-2 py-3 pr-10 pl-1',
 								hasWeight ? 'grid-cols-[1fr_1fr_1fr]' : 'grid-cols-[1fr_1fr]'
 							].join(' ')}
-							style="transform: translateX(-{offsetX}px); transition: {offsetX === 0
+							style="transform: translateX({-offsetX}px); transition: {offsetX === 0
 								? 'transform 0.2s ease'
 								: 'none'};"
 						>
@@ -243,9 +298,9 @@
 					     Same translateX keeps it visually in sync with the sliding row. -->
 					<div
 						class="dropdown dropdown-end absolute top-1/2 right-1 z-[201] -translate-y-1/2 focus-within:z-[202]"
-						style="transform: translateY(-50%) translateX(-{offsetX}px); transition: {offsetX === 0
+						style="transform: translateY(-50%) translateX({-offsetX}px); transition: {offsetX === 0
 							? 'transform 0.2s ease'
-							: 'none'}; {offsetX > 0 ? 'pointer-events: none;' : ''}"
+							: 'none'}; {Math.abs(offsetX) > 0 ? 'pointer-events: none;' : ''}"
 					>
 						<button tabindex="0" class="btn btn-ghost btn-xs btn-circle">•••</button>
 						<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
