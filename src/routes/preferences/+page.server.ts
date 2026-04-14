@@ -45,9 +45,10 @@ export const actions = {
 				...(theme && ['light', 'dark', 'system'].includes(theme) ? { theme } : {}),
 				...(weightUnit && ['lbs', 'kg'].includes(weightUnit) ? { weightUnit } : {}),
 				...(weekStartRaw !== null ? { weekStart: Number(weekStartRaw) === 1 ? 1 : 0 } : {}),
-				weeklyGoal: weeklyGoalRaw !== null
-					? Math.min(7, Math.max(1, parseBoundedInt(weeklyGoalRaw, 1, 7, 3)))
-					: 3,
+				weeklyGoal:
+					weeklyGoalRaw !== null
+						? Math.min(7, Math.max(1, parseBoundedInt(weeklyGoalRaw, 1, 7, 3)))
+						: 3,
 				streaksEnabled: streaksEnabledRaw !== 'false'
 			};
 

@@ -14,5 +14,5 @@ export const HAPTIC = {
 	/** Double pulse — success / PR */
 	success: () => haptic([60, 40, 60]),
 	/** Triple pulse — timer expired */
-	timerDone: () => haptic([80, 50, 80, 50, 80]),
+	timerDone: () => haptic([80, 50, 80, 50, 80])
 } as const;

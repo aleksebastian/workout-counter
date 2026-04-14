@@ -16,14 +16,14 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string)
 
 export async function handleSignIn() {
 	const provider = new GoogleAuthProvider();
-	
+
 	// Add 15-second timeout to prevent hanging on closed/abandoned popups
 	const credential = await withTimeout(
 		signInWithPopup(auth, provider),
 		15000,
 		'Sign-in timed out. Please try again.'
 	);
-	
+
 	const idToken = await credential.user.getIdToken();
 
 	await fetch('/api/signin', {
