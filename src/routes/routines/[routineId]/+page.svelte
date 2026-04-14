@@ -63,24 +63,6 @@
 		})()
 	);
 
-	let nextWorkout = $derived(
-		(() => {
-			if (!workoutsInRoutine.length) return undefined;
-			const today = new Date().toDateString();
-			const notDoneToday = workoutsInRoutine.filter(
-				({ workout }) => !workout.sets.some((s) => new Date(s.date).toDateString() === today)
-			);
-			const pool = notDoneToday.length ? notDoneToday : workoutsInRoutine;
-			return pool.reduce((oldest, item) => {
-				if (!item.workout.sets.length) return item;
-				if (!oldest.workout.sets.length) return oldest;
-				const lastW = Math.max(...item.workout.sets.map((s) => new Date(s.date).getTime()));
-				const lastO = Math.max(...oldest.workout.sets.map((s) => new Date(s.date).getTime()));
-				return lastW < lastO ? item : oldest;
-			}).workout;
-		})()
-	);
-
 	function getLastSet(workout: Workout) {
 		if (!workout.sets.length) return undefined;
 		return workout.sets.reduce((latest, s) =>
@@ -163,18 +145,15 @@
 	}
 
 	// Touch-based drag and drop for reordering
-	let dragStartY = 0;
-	let dragCurrentY = 0;
 	let isDragging = false;
 	let lastHoveredIndex: number | null = null;
 
-	function handleDragStart(index: number, e: TouchEvent) {
+	function handleDragStart(index: number) {
 		// Prevent if swiping to delete
 		if (swipeX[reorderList[index].workout.id]) return;
 
 		draggedIndex = index;
 		lastHoveredIndex = index;
-		dragStartY = e.touches[0].clientY;
 		isDragging = true;
 		HAPTIC.tap();
 	}
@@ -768,6 +747,7 @@
 			ontouchend={handleDragEnd}
 			role="dialog"
 			aria-label="Reorder exercises"
+			tabindex="-1"
 		>
 			<!-- Drag Handle -->
 			<div class="flex justify-center pt-3 pb-2">
@@ -838,7 +818,7 @@
 								// Check if touch started on drag handle
 								const target = e.target as HTMLElement;
 								if (target.closest('.drag-handle')) {
-									handleDragStart(i, e);
+									handleDragStart(i);
 								} else {
 									onSwipeTouchStart(workout.id, e);
 								}
@@ -930,26 +910,6 @@
 		animation: slideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 	}
 
-	.chip-button {
-		backface-visibility: hidden;
-		transform: translateZ(0);
-		transition:
-			background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
-			color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
-			transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-	}
-
-	.chip-button:hover {
-		background-color: oklch(var(--p) / 1);
-		color: oklch(var(--pc) / 1);
-		transform: translateY(-1px) translateZ(0);
-	}
-
-	.chip-button:active {
-		transform: translateY(0) translateZ(0);
-		transition-duration: 0.1s;
-	}
-
 	.search-input {
 		transition:
 			border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
@@ -1020,9 +980,7 @@
 			transition-duration: 0.01ms !important;
 		}
 
-		.workout-link:active,
-		.chip-button:hover,
-		.chip-button:active {
+		.workout-link:active {
 			transform: none;
 		}
 	}

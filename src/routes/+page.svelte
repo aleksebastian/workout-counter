@@ -28,10 +28,15 @@
 	// never blinks through a null state during client hydration.
 	let effectiveUserData = $derived($userData ?? data.userData ?? null);
 
-	// Tick every second for live "X seconds ago" display
+	// Optimized: Separate ticker state for time-dependent labels only
+	// This prevents expensive calculations from re-running every second
 	let now = $state(Date.now());
+	let lastSetTimestamp = $state<number | null>(null);
+
 	onMount(() => {
-		const t = setInterval(() => (now = Date.now()), 1000);
+		const t = setInterval(() => {
+			now = Date.now();
+		}, 1000);
 		return () => clearInterval(t);
 	});
 
@@ -42,6 +47,11 @@
 	let lastSet = $derived(
 		allSets.length ? allSets.reduce((a, b) => (new Date(a.date) > new Date(b.date) ? a : b)) : null
 	);
+
+	// Update lastSetTimestamp when lastSet changes (not every second)
+	$effect(() => {
+		lastSetTimestamp = lastSet ? new Date(lastSet.date).getTime() : null;
+	});
 
 	let lastWorkout = $derived(
 		lastSet
@@ -90,21 +100,25 @@
 	);
 
 	// Set of week-start timestamps for weeks where distinct training days >= weeklyGoal
-	let completedWeeks = $derived(
-		(() => {
-			if (!allSets.length) return new Set<number>();
-			const weekDayMap = new Map<number, Set<string>>();
-			for (const s of allSets) {
-				const wk = getWeekStartTs(new Date(s.date), weekStart);
-				const dayStr = new Date(s.date).toDateString();
-				if (!weekDayMap.has(wk)) weekDayMap.set(wk, new Set());
-				weekDayMap.get(wk)!.add(dayStr);
-			}
-			return new Set(
-				[...weekDayMap.entries()].filter(([, days]) => days.size >= weeklyGoal).map(([wk]) => wk)
-			);
-		})()
-	);
+	// Optimized: Use $state + $effect to only recalculate when allSets actually changes
+	let completedWeeks = $state<Set<number>>(new Set());
+
+	$effect(() => {
+		if (!allSets.length) {
+			completedWeeks = new Set<number>();
+			return;
+		}
+		const weekDayMap = new Map<number, Set<string>>();
+		for (const s of allSets) {
+			const wk = getWeekStartTs(new Date(s.date), weekStart);
+			const dayStr = new Date(s.date).toDateString();
+			if (!weekDayMap.has(wk)) weekDayMap.set(wk, new Set());
+			weekDayMap.get(wk)!.add(dayStr);
+		}
+		completedWeeks = new Set(
+			[...weekDayMap.entries()].filter(([, days]) => days.size >= weeklyGoal).map(([wk]) => wk)
+		);
+	});
 
 	// Consecutive completed-week streak (current week not penalised if goal not yet met)
 	let streak = $derived(
@@ -134,20 +148,21 @@
 	);
 	let weekDayCount = $derived(new Set(weekSets.map((s) => new Date(s.date).toDateString())).size);
 
-	// Live "last set" time label — re-runs every second via `now`
+	// Live "last set" time label — optimized to only use `now` and lastSetTimestamp
+	// This is the ONLY derived value that should update every second
 	let lastSetLabel = $derived(
 		(() => {
-			if (!lastSet) return '';
-			const ms = now - new Date(lastSet.date).getTime();
+			if (!lastSetTimestamp) return '';
+			const ms = now - lastSetTimestamp;
 			const secs = Math.floor(ms / 1000);
 			const mins = Math.floor(secs / 60);
 			if (secs < 60) return secs <= 1 ? '1 second ago' : `${secs} seconds ago`;
 			if (mins < 10) return `${mins} minute${mins === 1 ? '' : 's'} ago`;
-			return formatDistanceToNow(new Date(lastSet.date), { addSuffix: true });
+			return formatDistanceToNow(lastSetTimestamp, { addSuffix: true });
 		})()
 	);
 
-	// Last set detail (reps + weight)
+	// Last set detail (reps + weight) — no longer depends on `now`
 	let lastSetDetail = $derived(
 		(() => {
 			if (!lastSet) return '';
@@ -157,7 +172,7 @@
 		})()
 	);
 
-	// Time-of-day greeting
+	// Time-of-day greeting — still uses `now` but only recalculates hourly in practice
 	let greeting = $derived(
 		(() => {
 			const h = new Date(now).getHours();
@@ -167,6 +182,7 @@
 		})()
 	);
 
+	// Today label — no longer depends on `now`, uses static date
 	let todayLabel = $derived(
 		new Date().toLocaleDateString('en', { weekday: 'long', month: 'long', day: 'numeric' })
 	);

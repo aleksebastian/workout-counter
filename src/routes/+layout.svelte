@@ -11,14 +11,12 @@
 	import { restTimer } from '$lib/state.svelte';
 	import { HAPTIC } from '$lib/haptic';
 
-	let { data, children } = $props();
+	let { children } = $props();
 
 	let defaultRestTime = { minutes: 1, seconds: 30 };
 	let restTime = { minutes: 1, seconds: 30 };
-	let hasUser = $derived(
-		(data.userData ? Object.hasOwn(data.userData, 'username') : false) &&
-			($userData ? Object.hasOwn($userData, 'username') : false)
-	);
+	// Fixed: Use client-side $userData store as source of truth since server load is now deferred
+	let hasUser = $derived($userData ? Object.hasOwn($userData, 'username') : false);
 
 	const localStorageKey = 'workout-counter-rest-timer';
 
@@ -91,8 +89,17 @@
 		if (navigation.type === 'popstate' && !window.__backButtonClicked) return;
 		window.__backButtonClicked = false;
 
+		// Skip view transitions for BottomNav clicks (instant navigation)
+		const fromBottomNav =
+			navigation.from &&
+			navigation.to?.route.id &&
+			['/', '/exercises', '/routines', '/programs'].includes(navigation.to.route.id) &&
+			['/', '/exercises', '/routines', '/programs'].includes(navigation.from.route.id || '');
+		if (fromBottomNav) return;
+
 		document.documentElement.dataset.navDirection = 'forward';
 
+		// Wrap navigation in view transition
 		return new Promise((resolve) => {
 			document.startViewTransition(async () => {
 				resolve();

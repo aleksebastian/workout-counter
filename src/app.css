@@ -38,6 +38,12 @@ svg {
 	}
 }
 
+/* View Transitions: Reduced duration for snappier navigation (300ms → 150ms) */
+::view-transition-old(root),
+::view-transition-new(root) {
+	animation-duration: 150ms;
+}
+
 @media (prefers-reduced-motion) {
 	::view-transition-group(*),
 	::view-transition-old(*),

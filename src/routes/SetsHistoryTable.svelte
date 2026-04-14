@@ -32,6 +32,7 @@
 	// ── Swipe state (left = duplicate, right = delete) ─────────────────────────
 	let swipeX: Record<string, number> = $state({});
 	let swipeTouchStartX: Record<string, number> = {};
+	let lastHapticTime = 0; // Throttle haptic feedback
 	const SWIPE_DELETE_THRESHOLD = 80;
 	const SWIPE_DUPLICATE_THRESHOLD = 80;
 	const SWIPE_REVEAL_THRESHOLD = 40;
@@ -45,10 +46,20 @@
 		// Right swipe (negative dx) = duplicate, Left swipe (positive dx) = delete
 		if (dx > 0) {
 			swipeX[setId] = Math.min(dx, SWIPE_DELETE_THRESHOLD + 20);
-			if (Math.round(dx) === SWIPE_REVEAL_THRESHOLD) HAPTIC.tap();
+			// Throttle haptic to max once per 100ms to prevent micro-stutters
+			if (Math.round(dx) === SWIPE_REVEAL_THRESHOLD && Date.now() - lastHapticTime > 100) {
+				HAPTIC.tap();
+				lastHapticTime = Date.now();
+			}
 		} else if (dx < 0) {
 			swipeX[setId] = Math.max(dx, -(SWIPE_DUPLICATE_THRESHOLD + 20));
-			if (Math.round(Math.abs(dx)) === SWIPE_REVEAL_THRESHOLD) HAPTIC.tap();
+			if (
+				Math.round(Math.abs(dx)) === SWIPE_REVEAL_THRESHOLD &&
+				Date.now() - lastHapticTime > 100
+			) {
+				HAPTIC.tap();
+				lastHapticTime = Date.now();
+			}
 		}
 	}
 
@@ -255,6 +266,7 @@
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<div
 					class="relative mb-1 rounded-lg"
+					style="touch-action: pan-x;"
 					ontouchstart={(e) => onSwipeTouchStart(set.id, e)}
 					ontouchmove={(e) => onSwipeTouchMove(set.id, e)}
 					ontouchend={() => onSwipeTouchEnd(set.id, set)}

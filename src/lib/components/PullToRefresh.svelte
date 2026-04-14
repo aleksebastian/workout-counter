@@ -62,6 +62,7 @@
 	role="region"
 	aria-label="Pull to refresh"
 	class="relative"
+	style="touch-action: pan-y;"
 	ontouchstart={onTouchStart}
 	ontouchmove={onTouchMove}
 	ontouchend={onTouchEnd}

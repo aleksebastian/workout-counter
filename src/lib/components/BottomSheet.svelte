@@ -161,7 +161,7 @@
 		<div
 			bind:this={sheetElement}
 			class="bg-base-100 relative flex w-full flex-col rounded-t-3xl shadow-2xl {sizeClasses[size]}"
-			style="padding-bottom: env(safe-area-inset-bottom, 0px)"
+			style="padding-bottom: env(safe-area-inset-bottom, 0px); touch-action: pan-y;"
 			in:slideUp={{ duration: 350 }}
 			out:slideUp={{ duration: 300 }}
 			role="dialog"
