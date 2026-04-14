@@ -186,13 +186,29 @@
 	/>
 {:else}
 	<!-- Skeleton while loading -->
-	<div class="mx-auto flex w-full max-w-lg flex-col gap-4">
+	<div class="mx-auto flex min-h-[80vh] w-full max-w-lg flex-col justify-center gap-6">
+		<!-- Header skeleton -->
 		<div class="flex items-center justify-between">
-			<div class="skeleton h-10 w-10 rounded-full"></div>
-			<div class="skeleton h-7 w-40 rounded-lg"></div>
-			<div class="skeleton h-10 w-10 rounded-full"></div>
+			<div class="skeleton h-10 w-10 shrink-0 rounded-full"></div>
+			<div class="skeleton h-8 w-48 rounded-lg"></div>
+			<div class="skeleton h-10 w-10 shrink-0 rounded-full"></div>
 		</div>
-		<div class="skeleton h-64 w-full rounded-2xl"></div>
-		<div class="skeleton h-14 w-full rounded-2xl"></div>
+
+		<!-- Context strip skeleton -->
+		<div class="flex gap-2">
+			<div class="skeleton h-16 w-32 shrink-0 rounded-xl"></div>
+			<div class="skeleton h-16 w-40 shrink-0 rounded-xl"></div>
+		</div>
+
+		<!-- History section skeleton -->
+		<div class="flex flex-col gap-3">
+			<div class="flex justify-between">
+				<div class="skeleton h-5 w-24 rounded"></div>
+				<div class="skeleton h-5 w-16 rounded"></div>
+			</div>
+			<div class="skeleton h-12 w-full rounded-lg"></div>
+			<div class="skeleton h-12 w-full rounded-lg"></div>
+			<div class="skeleton h-12 w-full rounded-lg"></div>
+		</div>
 	</div>
 {/if}
