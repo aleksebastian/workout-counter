@@ -297,8 +297,8 @@
 					<!-- Dropdown sits OUTSIDE overflow-hidden so the menu isn't clipped.
 					     Same translateX keeps it visually in sync with the sliding row. -->
 					<div
-						class="dropdown dropdown-end absolute top-1/2 right-1 z-[201] -translate-y-1/2 focus-within:z-[202]"
-						style="transform: translateY(-50%) translateX({-offsetX}px); transition: {offsetX === 0
+						class="dropdown dropdown-end absolute top-0 right-1 z-[201] flex h-full items-center focus-within:z-[202]"
+						style="transform: translateX({-offsetX}px); transition: {offsetX === 0
 							? 'transform 0.2s ease'
 							: 'none'}; {Math.abs(offsetX) > 0 ? 'pointer-events: none;' : ''}"
 					>
