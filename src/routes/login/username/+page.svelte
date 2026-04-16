@@ -52,8 +52,7 @@
 			await batch.commit();
 
 			goto('/');
-		} catch (error) {
-		}
+		} catch (error) {}
 	}
 </script>
 

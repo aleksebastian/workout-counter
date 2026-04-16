@@ -7,7 +7,7 @@
 	import { flip } from 'svelte/animate';
 	import { fade, fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
-	import BackButton from '$lib/components/Buttons/BackButton.svelte';
+	import { HAPTIC } from '$lib/haptic';
 	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
 	import ExerciseSearch from '$lib/components/ExerciseSearch.svelte';
 	import AddIcon from '$lib/icons/add.svg?raw';
@@ -17,9 +17,8 @@
 	import DragIndicatorIcon from '$lib/icons/drag_indicator.svg?raw';
 	import CheckIcon from '$lib/icons/check.svg?raw';
 	import EditIcon from '$lib/icons/edit.svg?raw';
-	import { HAPTIC } from '$lib/haptic';
 	import type { Workout, RoutineExercise } from '$lib/state.svelte';
-	import { getRoutineExercises } from '$lib/state.svelte';
+	import { getRoutineExercises, navState } from '$lib/state.svelte';
 	import { getWorkoutNameValidationMsg } from '$lib/utils';
 
 	let routine = $derived($userData?.routines?.find((r) => r.id === page.params.routineId));
@@ -43,6 +42,14 @@
 	);
 
 	let weightUnit = $derived($userData?.preferences?.weightUnit ?? 'lbs');
+
+	$effect(() => {
+		navState.title = routine?.name ?? '';
+		navState.backHref = '/';
+		return () => {
+			navState.title = '';
+		};
+	});
 
 	let doneToday = $derived(
 		workoutsInRoutine.filter(({ workout }) =>
@@ -139,8 +146,7 @@
 		try {
 			await saveRoutines(newExercises);
 			closeReorderMode();
-		} catch (error) {
-		}
+		} catch (error) {}
 	}
 
 	// Touch-based drag and drop for reordering
@@ -359,15 +365,9 @@
 	<div class="mx-auto flex w-full max-w-lg flex-col gap-4">
 		<!-- Header -->
 		<div class="flex items-center justify-between">
-			<div class="w-14">
-				<BackButton />
-			</div>
-			<div class="text-center">
-				<h1 class="text-xl leading-tight font-bold">{routine.name}</h1>
-				<p class="text-base-content/50 text-xs">
-					{workoutsInRoutine.length} exercise{workoutsInRoutine.length !== 1 ? 's' : ''}
-				</p>
-			</div>
+			<p class="text-base-content/50 text-xs">
+				{workoutsInRoutine.length} exercise{workoutsInRoutine.length !== 1 ? 's' : ''}
+			</p>
 			<button
 				class="btn btn-circle btn-ghost btn-sm"
 				onclick={() => {

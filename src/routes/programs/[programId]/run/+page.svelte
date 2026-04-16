@@ -1,11 +1,10 @@
 <script lang="ts">
 	import { user, userData, db } from '$lib/firebase';
-	import { getProgramItemsForDay, getProgramDays, getRoutineExercises } from '$lib/state.svelte';
+	import { getProgramItemsForDay, getProgramDays, getRoutineExercises, navState } from '$lib/state.svelte';
 	import { v4 as uuidv4 } from 'uuid';
 	import { doc, updateDoc } from 'firebase/firestore';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import BackButton from '$lib/components/Buttons/BackButton.svelte';
 	import AddIcon from '$lib/icons/add.svg?raw';
 	import RemoveIcon from '$lib/icons/remove.svg?raw';
 	import { HAPTIC } from '$lib/haptic';
@@ -32,6 +31,14 @@
 	let weightUnit = $derived($userData?.preferences?.weightUnit ?? 'lbs');
 	let quickWeights = $derived(weightUnit === 'kg' ? QUICK_WEIGHTS_KG : QUICK_WEIGHTS_LBS);
 	let todayStr = $derived(new Date().toDateString());
+
+	$effect(() => {
+		navState.title = session?.name ?? '';
+		navState.backHref = `/programs/${session?.id ?? ''}`;
+		return () => {
+			navState.title = '';
+		};
+	});
 
 	// Resolve which day to run based on ?day param, fallback to today or first scheduled day
 	let dayParam = $derived.by(() => {
@@ -329,20 +336,17 @@
 		{:else}
 			<!-- ── Active exercise ────────────────────────────────────────── -->
 
-			<!-- Header: back + progress bar -->
-			<div class="flex items-center gap-3">
-				<BackButton href={`/programs/${session.id}`} />
-				<div class="flex flex-1 flex-col gap-1.5">
-					<div class="bg-base-300 h-1.5 w-full overflow-hidden rounded-full">
-						<div
-							class="bg-primary h-full rounded-full transition-all duration-500"
-							style:width="{Math.round((autoIndex / planEntries.length) * 100)}%"
-						></div>
-					</div>
-					<p class="text-base-content/40 text-xs">
-						Exercise {currentIndex + 1} of {planEntries.length} · {elapsedLabel}
-					</p>
+			<!-- Header: progress bar -->
+			<div class="flex flex-col gap-1.5">
+				<div class="bg-base-300 h-1.5 w-full overflow-hidden rounded-full">
+					<div
+						class="bg-primary h-full rounded-full transition-all duration-500"
+						style:width="{Math.round((autoIndex / planEntries.length) * 100)}%"
+					></div>
 				</div>
+				<p class="text-base-content/40 text-xs">
+					Exercise {currentIndex + 1} of {planEntries.length} · {elapsedLabel}
+				</p>
 			</div>
 
 			<!-- Exercise name + dot indicators -->

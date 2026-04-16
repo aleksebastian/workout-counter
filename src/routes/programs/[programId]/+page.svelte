@@ -6,13 +6,13 @@
 		type ProgramDay,
 		getProgramSchedule,
 		getProgramItemsForDay,
-		getRoutineExercises
+		getRoutineExercises,
+		navState
 	} from '$lib/state.svelte';
 	import { v4 as uuidv4 } from 'uuid';
 	import { doc, updateDoc } from 'firebase/firestore';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import BackButton from '$lib/components/Buttons/BackButton.svelte';
 	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
 	import ExerciseSearch from '$lib/components/ExerciseSearch.svelte';
 	import AddIcon from '$lib/icons/add.svg?raw';
@@ -26,6 +26,14 @@
 
 	let session = $derived($userData?.programs?.find((s) => s.id === page.params.programId));
 	let isActive = $derived($userData?.activeProgramId === session?.id);
+
+	$effect(() => {
+		navState.title = session?.name ?? '';
+		navState.backHref = '/programs';
+		return () => {
+			navState.title = '';
+		};
+	});
 
 	let schedule = $derived(session ? getProgramSchedule(session) : ([] as ProgramDay[]));
 	let scheduledDays = $derived(schedule.map((sd) => sd.day));
@@ -110,8 +118,7 @@
 		const newSchedule = schedule.map((sd) => (sd.day === selectedDay ? { ...sd, items } : sd));
 		try {
 			await updateSession({ ...session, schedule: newSchedule });
-		} catch (e) {
-		}
+		} catch (e) {}
 	}
 
 	// ── Day management ───────────────────────────────────────────────────────────
@@ -133,8 +140,7 @@
 			selectedDay = pendingDays[0];
 			addDayOpen = false;
 			pendingDays = [];
-		} catch (e) {
-		}
+		} catch (e) {}
 	}
 
 	function handleCancelAddDays() {
@@ -157,8 +163,7 @@
 				selectedDay = newSchedule.find((sd) => sd.day === today)?.day ?? newSchedule[0]?.day;
 			}
 			dayToDelete = undefined;
-		} catch (e) {
-		}
+		} catch (e) {}
 	}
 
 	async function handleSaveDayLabel() {
@@ -169,8 +174,7 @@
 		try {
 			await updateSession({ ...session, schedule: newSchedule });
 			editingDayLabel = false;
-		} catch (e) {
-		}
+		} catch (e) {}
 	}
 
 	// ── Item management (per day) ────────────────────────────────────────────────
@@ -238,8 +242,7 @@
 			newExerciseName = '';
 			newExerciseError = '';
 			showNewExerciseInput = false;
-		} catch (e) {
-		}
+		} catch (e) {}
 	}
 
 	// ── Active session ───────────────────────────────────────────────────────────
@@ -279,9 +282,7 @@
 	<div class="mx-auto flex w-full max-w-lg flex-col gap-4">
 		<!-- ── Header ──────────────────────────────────────────────────────────── -->
 		<div class="flex items-center justify-between">
-			<BackButton href="/programs" />
-			<div class="flex flex-col items-center gap-0.5 text-center">
-				<h1 class="text-xl leading-tight font-bold">{session.name}</h1>
+			<div>
 				{#if isActive}
 					<span class="badge badge-primary badge-xs">Active Program</span>
 				{/if}

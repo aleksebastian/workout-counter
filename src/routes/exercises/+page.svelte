@@ -124,26 +124,22 @@
 			await updateDoc(userRef, { workouts: arrayUnion(newWorkout) });
 			goto(`/workout/${newWorkout.id}`);
 			newWorkoutName = '';
-		} catch (error) {
-		}
+		} catch (error) {}
 	}
 </script>
 
 <div class="mx-auto flex max-w-lg flex-col gap-4">
 	<!-- Header -->
-	<div class="flex items-center justify-between">
-		<h1 class="text-xl font-bold">Exercises</h1>
-		<div class="flex items-center gap-1">
-			{#if $userData?.workouts?.length}
-				<button
-					class="btn btn-ghost btn-sm w-14 font-semibold"
-					class:text-primary={isEditingWorkouts}
-					onclick={() => (isEditingWorkouts = !isEditingWorkouts)}
-				>
-					{isEditingWorkouts ? 'Done' : 'Edit'}
-				</button>
-			{/if}
-		</div>
+	<div class="flex justify-end">
+		{#if $userData?.workouts?.length}
+			<button
+				class="btn btn-ghost btn-sm w-14 font-semibold"
+				class:text-primary={isEditingWorkouts}
+				onclick={() => (isEditingWorkouts = !isEditingWorkouts)}
+			>
+				{isEditingWorkouts ? 'Done' : 'Edit'}
+			</button>
+		{/if}
 	</div>
 
 	<!-- Search + Sort -->

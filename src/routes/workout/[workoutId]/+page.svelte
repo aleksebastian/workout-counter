@@ -6,7 +6,7 @@
 	import { db, userData, user } from '$lib/firebase';
 	import { doc, updateDoc } from 'firebase/firestore';
 	import { page } from '$app/state';
-	import BackButton from '$lib/components/Buttons/BackButton.svelte';
+	import { navState } from '$lib/state.svelte';
 	import { HAPTIC } from '$lib/haptic';
 	import confetti from 'canvas-confetti';
 
@@ -17,6 +17,14 @@
 	let showRecordSetSheet = $state(false);
 	let reps = $state(10);
 	let weight = $state(0);
+
+	$effect(() => {
+		navState.title = workout?.name ?? '';
+		navState.backHref = '/';
+		return () => {
+			navState.title = '';
+		};
+	});
 
 	$effect(() => {
 		if (!workout?.sets.length) return;
@@ -128,19 +136,12 @@
 
 {#if workout}
 	<div class="mx-auto flex w-full max-w-lg flex-col gap-4">
-		<!-- Header -->
-		<div class="flex items-center justify-between">
-			<BackButton />
-			<div>
-				<h1 class="text-xl font-bold">{workout.name}</h1>
-				{#if todaySets.length > 0}
-					<p class="text-base-content/50 text-center text-xs">
-						{todaySets.length} sets · {todayReps} reps
-					</p>
-				{/if}
-			</div>
-			<div class="btn btn-square invisible"></div>
-		</div>
+		<!-- Today stats -->
+		{#if todaySets.length > 0}
+			<p class="text-base-content/50 text-xs">
+				{todaySets.length} sets · {todayReps} reps today
+			</p>
+		{/if}
 
 		<!-- Context strip (only when sets exist) -->
 		{#if workout.sets.length > 0}

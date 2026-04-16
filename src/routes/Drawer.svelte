@@ -106,8 +106,7 @@
 
 			goto(`/workout/${newWorkout.id}`);
 			newWorkoutName = '';
-		} catch (error) {
-		}
+		} catch (error) {}
 	}
 </script>
 

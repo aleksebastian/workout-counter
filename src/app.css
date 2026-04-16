@@ -44,6 +44,16 @@ svg {
 	animation-duration: 150ms;
 }
 
+/* Named navbar elements — matched easing to page slide transitions */
+::view-transition-old(nav-left),
+::view-transition-old(nav-center) {
+	animation: 100ms cubic-bezier(0.4, 0, 1, 1) both fade-out;
+}
+::view-transition-new(nav-left),
+::view-transition-new(nav-center) {
+	animation: 200ms cubic-bezier(0, 0, 0.2, 1) 50ms both fade-in;
+}
+
 @media (prefers-reduced-motion) {
 	::view-transition-group(*),
 	::view-transition-old(*),

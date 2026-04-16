@@ -42,8 +42,7 @@
 		try {
 			await updateDoc(userRef, { routines: arrayUnion(newRoutine) });
 			newRoutineName = '';
-		} catch (error) {
-		}
+		} catch (error) {}
 	}
 
 	async function handleRoutineEditClick(routine: Routine) {
@@ -98,8 +97,7 @@
 	{:else}
 		<div class="mx-auto flex w-full max-w-lg flex-col gap-4">
 			<!-- Header -->
-			<div class="flex items-center justify-between">
-				<h1 class="text-xl font-bold">Routines</h1>
+			<div class="flex justify-end">
 				{#if $userData?.routines?.length}
 					<button
 						class="btn btn-ghost btn-sm w-14 font-semibold"

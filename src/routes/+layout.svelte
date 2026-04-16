@@ -89,13 +89,21 @@
 		if (navigation.type === 'popstate' && !window.__backButtonClicked) return;
 		window.__backButtonClicked = false;
 
-		// Skip view transitions for BottomNav clicks (instant navigation)
+		// Tab navigation — suppress root slide, let named navbar elements cross-fade
 		const fromBottomNav =
 			navigation.from &&
 			navigation.to?.route.id &&
 			['/', '/exercises', '/routines', '/programs'].includes(navigation.to.route.id) &&
 			['/', '/exercises', '/routines', '/programs'].includes(navigation.from.route.id || '');
-		if (fromBottomNav) return;
+		if (fromBottomNav) {
+			document.documentElement.dataset.navDirection = 'tab';
+			return new Promise((resolve) => {
+				document.startViewTransition(async () => {
+					resolve();
+					await navigation.complete;
+				});
+			});
+		}
 
 		document.documentElement.dataset.navDirection = 'forward';
 
@@ -281,14 +289,6 @@
 {/if}
 
 <style>
-	:global(.navbar) {
-		view-transition-name: header;
-	}
-
-	:global(.toast) {
-		view-transition-name: toast;
-	}
-
 	:global(.bottom-nav) {
 		view-transition-name: bottom-nav;
 	}
@@ -329,14 +329,20 @@
 		}
 	}
 
+	/* Tab navigation — no root animation; named navbar elements cross-fade via view-transition-name */
+	:global(html[data-nav-direction='tab'])::view-transition-old(root),
+	:global(html[data-nav-direction='tab'])::view-transition-new(root) {
+		animation: none;
+	}
+
 	/* Forward navigation — slide left */
-	:global(html:not([data-nav-direction='back']))::view-transition-old(root) {
+	:global(html:not([data-nav-direction='back']):not([data-nav-direction='tab']))::view-transition-old(root) {
 		animation:
 			90ms cubic-bezier(0.4, 0, 1, 1) both fade-out,
 			300ms cubic-bezier(0.4, 0, 0.2, 1) both slide-to-left;
 	}
 
-	:global(html:not([data-nav-direction='back']))::view-transition-new(root) {
+	:global(html:not([data-nav-direction='back']):not([data-nav-direction='tab']))::view-transition-new(root) {
 		animation:
 			210ms cubic-bezier(0, 0, 0.2, 1) 90ms both fade-in,
 			300ms cubic-bezier(0.4, 0, 0.2, 1) both slide-from-right;

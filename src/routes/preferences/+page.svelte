@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { userData } from '$lib/firebase';
-	import BackButton from '$lib/components/Buttons/BackButton.svelte';
+	import { navState } from '$lib/state.svelte';
 	import { fade } from 'svelte/transition';
+
+	navState.title = 'Preferences';
+	navState.backHref = '/';
 
 	let minRestValue = 0;
 	let maxRestValue = 59;
@@ -100,25 +103,15 @@
 </script>
 
 <div class="mx-auto flex w-full max-w-lg flex-col gap-6">
-	<!-- Header -->
-	<div class="flex items-center justify-between">
-		<div class="flex h-10 w-20 items-center justify-start overflow-hidden">
-			{#if hasPreferences}
-				<BackButton href="/" />
-			{:else}
-				<div></div>
-			{/if}
-		</div>
-		<h1 class="text-xl font-bold">Preferences</h1>
-		<div class="flex h-10 w-20 items-center justify-end overflow-hidden">
-			{#if saveState === 'saved'}
-				<span
-					class="text-success text-sm font-semibold whitespace-nowrap"
-					in:fade={{ duration: 200 }}
-					out:fade={{ duration: 150 }}>✓ Saved</span
-				>
-			{/if}
-		</div>
+	<!-- Saved indicator -->
+	<div class="flex h-6 justify-end">
+		{#if saveState === 'saved'}
+			<span
+				class="text-success text-sm font-semibold whitespace-nowrap"
+				in:fade={{ duration: 200 }}
+				out:fade={{ duration: 150 }}>✓ Saved</span
+			>
+		{/if}
 	</div>
 
 	{#if !hasPreferences}

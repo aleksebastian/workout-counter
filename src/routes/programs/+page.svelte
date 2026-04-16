@@ -69,8 +69,7 @@
 			await updateDoc(userRef, { programs: arrayUnion(newProgram) });
 			goto(`/programs/${newProgram.id}`);
 			newProgramName = '';
-		} catch (error) {
-		}
+		} catch (error) {}
 	}
 
 	function handleProgramEditClick(program: Program) {
@@ -118,8 +117,7 @@
 
 <div class="mx-auto flex w-full max-w-lg flex-col gap-4">
 	<!-- Header -->
-	<div class="flex items-center justify-between">
-		<h1 class="text-xl font-bold">Programs</h1>
+	<div class="flex justify-end">
 		{#if ($userData?.programs?.length ?? 0) > 0}
 			<button
 				class="btn btn-ghost btn-sm w-14 font-semibold"
