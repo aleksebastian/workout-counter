@@ -37,7 +37,12 @@
 	// View transitions handle detail-page navigation, so we skip fading there.
 	let isTabNav = $state(false);
 	beforeNavigate(({ from, to }) => {
-		isTabNav = !!(from?.url && to?.url && TAB_ROUTES.has(from.url.pathname) && TAB_ROUTES.has(to.url.pathname));
+		isTabNav = !!(
+			from?.url &&
+			to?.url &&
+			TAB_ROUTES.has(from.url.pathname) &&
+			TAB_ROUTES.has(to.url.pathname)
+		);
 	});
 
 	// Key for the left slot: changes when the slot type changes (home ↔ tab ↔ detail)
@@ -138,7 +143,7 @@
 			{:else if isTab}
 				<span class="text-xl font-bold">{tabTitle}</span>
 			{:else}
-				<span class="text-base font-bold truncate max-w-[45vw]">{navState.title}</span>
+				<span class="max-w-[45vw] truncate text-base font-bold">{navState.title}</span>
 			{/if}
 		</div>
 	{/key}

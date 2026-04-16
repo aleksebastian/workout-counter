@@ -1,6 +1,11 @@
 <script lang="ts">
 	import { user, userData, db } from '$lib/firebase';
-	import { getProgramItemsForDay, getProgramDays, getRoutineExercises, navState } from '$lib/state.svelte';
+	import {
+		getProgramItemsForDay,
+		getProgramDays,
+		getRoutineExercises,
+		navState
+	} from '$lib/state.svelte';
 	import { v4 as uuidv4 } from 'uuid';
 	import { doc, updateDoc } from 'firebase/firestore';
 	import { page } from '$app/state';
