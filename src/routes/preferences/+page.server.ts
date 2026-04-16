@@ -56,7 +56,6 @@ export const actions = {
 
 			return { success: true, ...preferences };
 		} catch (err) {
-			console.error('Error updating document:', err);
 			throw error(500, 'Failed to update user timer');
 		}
 	}

@@ -122,7 +122,6 @@
 		} catch (error) {
 			// Rollback on error
 			workout!.sets = originalSets;
-			console.error('Failed to record set:', error);
 		}
 	}
 </script>

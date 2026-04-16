@@ -65,18 +65,11 @@
 
 	function onSwipeTouchEnd(setId: string, set: Set) {
 		const dx = swipeX[setId] ?? 0;
-		console.log('Swipe end:', {
-			setId,
-			dx,
-			deleteThreshold: SWIPE_DELETE_THRESHOLD,
-			duplicateThreshold: -SWIPE_DUPLICATE_THRESHOLD
-		});
 		if (dx >= SWIPE_DELETE_THRESHOLD) {
 			swipeX[setId] = 0;
 			handleDeleteSetModalOpen(set);
 		} else if (dx <= -SWIPE_DUPLICATE_THRESHOLD) {
 			swipeX[setId] = 0;
-			console.log('Triggering duplicate');
 			handleDuplicateSet(set);
 		} else {
 			swipeX[setId] = 0;
@@ -119,7 +112,6 @@
 
 	async function handleDuplicateSet(set: Set) {
 		if (!$userData) return;
-		console.log('handleDuplicateSet called', set);
 		HAPTIC.success();
 
 		const newSet = {
@@ -142,10 +134,8 @@
 			await updateDoc(userRef, { workouts });
 			document.dispatchEvent(new CustomEvent('startTimer'));
 			document.dispatchEvent(new CustomEvent('setRecorded'));
-			console.log('Set duplicated successfully');
 		} catch (err) {
 			workout.sets = originalSets;
-			console.error('Failed to duplicate set:', err);
 		}
 	}
 
@@ -170,7 +160,6 @@
 				});
 			} catch (err) {
 				workout.sets = originalSets;
-				console.error('Failed to delete set:', err);
 			}
 		}
 	}

@@ -14,7 +14,6 @@ try {
 } catch (err) {
 	const error = err as Error;
 	if (!/already exists/.test(error.message)) {
-		console.error('Firebase admin error', error.stack);
 	}
 }
 

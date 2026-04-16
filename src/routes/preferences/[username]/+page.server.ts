@@ -32,8 +32,6 @@ export const actions = {
 
 			return { success: true, ...timer };
 		} catch (err) {
-			console.error('Error updating document:', err);
-
 			// Preserve existing HttpError instances (e.g. explicit 404s) so their status isn't masked.
 			if (err && typeof err === 'object' && 'status' in (err as HttpError)) {
 				throw err as HttpError;

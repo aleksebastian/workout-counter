@@ -28,7 +28,6 @@ function userStore() {
 	let unsubscribe: () => void;
 
 	if (!auth || !globalThis.window) {
-		console.warn('Auth is not initialized or not in browser');
 		const { subscribe } = writable<User | null>(null);
 		return {
 			subscribe

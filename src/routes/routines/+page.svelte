@@ -43,7 +43,6 @@
 			await updateDoc(userRef, { routines: arrayUnion(newRoutine) });
 			newRoutineName = '';
 		} catch (error) {
-			console.error('Failed to create routine:', error);
 		}
 	}
 
@@ -63,7 +62,6 @@
 			await updateDoc(userRef, { routines });
 		} catch (error) {
 			routines[routineIndex].name = originalName;
-			console.error('Failed to update routine:', error);
 		}
 	}
 
@@ -77,7 +75,6 @@
 			await updateDoc(userRef, { routines });
 		} catch (error) {
 			routines.splice(routineIndex, 0, deleted);
-			console.error('Failed to delete routine:', error);
 		}
 	}
 

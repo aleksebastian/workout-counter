@@ -111,7 +111,6 @@
 		try {
 			await updateSession({ ...session, schedule: newSchedule });
 		} catch (e) {
-			console.error(e);
 		}
 	}
 
@@ -135,7 +134,6 @@
 			addDayOpen = false;
 			pendingDays = [];
 		} catch (e) {
-			console.error(e);
 		}
 	}
 
@@ -160,7 +158,6 @@
 			}
 			dayToDelete = undefined;
 		} catch (e) {
-			console.error(e);
 		}
 	}
 
@@ -173,7 +170,6 @@
 			await updateSession({ ...session, schedule: newSchedule });
 			editingDayLabel = false;
 		} catch (e) {
-			console.error(e);
 		}
 	}
 
@@ -243,7 +239,6 @@
 			newExerciseError = '';
 			showNewExerciseInput = false;
 		} catch (e) {
-			console.error(e);
 		}
 	}
 

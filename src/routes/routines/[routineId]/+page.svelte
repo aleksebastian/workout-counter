@@ -140,7 +140,6 @@
 			await saveRoutines(newExercises);
 			closeReorderMode();
 		} catch (error) {
-			console.error('Failed to save reorder:', error);
 		}
 	}
 
@@ -261,7 +260,6 @@
 			});
 			showNewExerciseInput = false;
 		} catch (error) {
-			console.error('Failed to create exercise:', error);
 			newExerciseError = 'Failed to save. Try again.';
 		}
 	}

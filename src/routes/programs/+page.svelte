@@ -70,7 +70,6 @@
 			goto(`/programs/${newProgram.id}`);
 			newProgramName = '';
 		} catch (error) {
-			console.error('Failed to create program:', error);
 		}
 	}
 

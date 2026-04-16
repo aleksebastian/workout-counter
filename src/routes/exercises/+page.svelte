@@ -86,7 +86,6 @@
 			await updateDoc(userRef, { workouts });
 		} catch (error) {
 			workouts[workoutIndex].name = originalName;
-			console.error('Failed to update workout:', error);
 		}
 	}
 
@@ -108,7 +107,6 @@
 			}
 		} catch (error) {
 			$userData.workouts.splice(workoutIndex, 0, deletedWorkout);
-			console.error('Failed to delete workout:', error);
 		}
 	}
 
@@ -127,7 +125,6 @@
 			goto(`/workout/${newWorkout.id}`);
 			newWorkoutName = '';
 		} catch (error) {
-			console.error('Failed to create workout:', error);
 		}
 	}
 </script>
