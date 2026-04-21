@@ -79,24 +79,6 @@ export function getProgramItemsForDay(program: Program, day: number): ProgramIte
 	return getProgramSchedule(program).find((sd) => sd.day === day)?.items ?? [];
 }
 
-/**
- * Returns a flat item list — for today if scheduled, else the first day.
- * Kept for backward compat with legacy callers.
- */
-export function getProgramItems(program: Program): ProgramItem[] {
-	if (program.schedule?.length) {
-		const today = new Date().getDay();
-		const sd = program.schedule.find((sd) => sd.day === today) ?? program.schedule[0];
-		return sd?.items ?? [];
-	}
-	if (program.items) return program.items;
-	return (program.exercises ?? []).map((e) => ({
-		type: 'exercise' as const,
-		workoutId: e.workoutId,
-		targetSets: e.targetSets
-	}));
-}
-
 export type Toast = {
 	id?: string;
 	type: 'info' | 'success';
@@ -133,10 +115,10 @@ export const toaster = {
 		const newToast = { ...defaults, ...toast };
 		toasts.unshift(newToast);
 
-		if (toast.timeout) {
+		if (newToast.timeout) {
 			setTimeout(() => {
 				this.dismissToast(id);
-			}, toast.timeout);
+			}, newToast.timeout);
 		}
 	},
 	dismissToast(id: ValorizedToast['id']) {

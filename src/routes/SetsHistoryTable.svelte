@@ -246,7 +246,7 @@
 			</div>
 
 			<!-- Set rows -->
-			{#each organizedSet.sets.reverse() as set}
+			{#each organizedSet.sets.toReversed() as set}
 				{@const time = new Date(set.date).toLocaleTimeString([], {
 					hour: 'numeric',
 					minute: '2-digit'

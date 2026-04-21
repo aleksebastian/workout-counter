@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { fade } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
-	import { onMount } from 'svelte';
 	import type { TransitionConfig } from 'svelte/transition';
 
 	interface Props {
@@ -87,7 +86,7 @@
 	}
 
 	// Focus trap and iOS keyboard handling
-	onMount(() => {
+	$effect(() => {
 		if (!open || !sheetElement) return;
 
 		const focusableElements = sheetElement.querySelectorAll(

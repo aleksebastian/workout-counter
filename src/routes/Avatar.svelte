@@ -3,7 +3,7 @@
 	import type { User } from 'firebase/auth';
 
 	interface Props {
-		hasUser: Boolean;
+		hasUser: boolean;
 		user: User | null;
 		avatarClick: () => void;
 		signOutClick: () => void;

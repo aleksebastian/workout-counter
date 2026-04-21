@@ -45,7 +45,7 @@
 
 	$effect(() => {
 		navState.title = routine?.name ?? '';
-		navState.backHref = '/';
+		navState.backHref = '/routines';
 		return () => {
 			navState.title = '';
 		};

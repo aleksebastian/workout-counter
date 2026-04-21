@@ -28,7 +28,10 @@
 	let confirmingDelete = $state(false);
 
 	function handleSave() {
-		editError = getRoutineNameValidationMsg(name, $userData?.routines);
+		editError = getRoutineNameValidationMsg(
+			name,
+			$userData?.routines?.filter((r) => r.id !== editingRoutine?.id)
+		);
 
 		if (!editError) {
 			onSave?.(name);

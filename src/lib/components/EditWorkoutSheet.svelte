@@ -28,7 +28,10 @@
 	let confirmingDelete = $state(false);
 
 	function handleSave() {
-		editWorkoutError = getWorkoutNameValidationMsg(name, $userData?.workouts);
+		editWorkoutError = getWorkoutNameValidationMsg(
+			name,
+			$userData?.workouts.filter((w) => w.id !== editingWorkout?.id)
+		);
 
 		if (!editWorkoutError) {
 			onSave?.(name);
