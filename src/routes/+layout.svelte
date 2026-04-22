@@ -61,6 +61,31 @@
 		document.addEventListener('startTimer', startTimer);
 		document.addEventListener('stopTimer', stopTimer);
 
+		// ── SW update detection ──────────────────────────────────────────────────
+		let handleControllerChange: () => void;
+		if ('serviceWorker' in navigator) {
+			navigator.serviceWorker.getRegistration().then((reg) => {
+				if (!reg) return;
+				swRegistration = reg;
+
+				if (reg.waiting) {
+					updateAvailable = true;
+				}
+
+				reg.addEventListener('updatefound', () => {
+					const worker = reg.installing;
+					worker?.addEventListener('statechange', () => {
+						if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+							updateAvailable = true;
+						}
+					});
+				});
+			});
+
+			handleControllerChange = () => window.location.reload();
+			navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange);
+		}
+
 		return () => {
 			cleanupTimer();
 			document.removeEventListener('startTimer', startTimer);
@@ -71,6 +96,9 @@
 			window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
 			window.removeEventListener('resize', setAppHeight);
 			userStoreUnsubscribe?.();
+			if ('serviceWorker' in navigator && handleControllerChange!) {
+				navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange);
+			}
 		};
 	});
 
@@ -214,6 +242,10 @@
 		showInstallBanner = false;
 	}
 
+	function applyUpdate() {
+		swRegistration?.waiting?.postMessage({ type: 'SKIP_WAITING' });
+	}
+
 	let restTimerHandle: NodeJS.Timeout | undefined = undefined;
 	let expirationDate: Date | undefined = undefined;
 
@@ -227,6 +259,10 @@
 
 	// ── Offline indicator ───────────────────────────────────────────────────────
 	let isOnline = $state(true);
+
+	// ── SW update prompt ────────────────────────────────────────────────────────
+	let updateAvailable = $state(false);
+	let swRegistration: ServiceWorkerRegistration | null = null;
 
 	// ── Install prompt ──────────────────────────────────────────────────────────
 	type BeforeInstallPromptEvent = Event & {
@@ -272,14 +308,35 @@
 	</div>
 {/if}
 
+{#if updateAvailable}
+	<div
+		class="bg-base-300 fixed right-0 bottom-20 left-0 z-200 flex items-center justify-between px-4 py-3 shadow-lg"
+		style="margin-bottom: env(safe-area-inset-bottom)"
+	>
+		<div>
+			<p class="text-sm font-semibold">Update available</p>
+			<p class="text-base-content/60 text-xs">A new version of SetCount is ready</p>
+		</div>
+		<button class="btn btn-primary btn-sm" onclick={applyUpdate}>Reload</button>
+	</div>
+{/if}
+
 <div
 	class="mx-auto p-4 transition-[padding] duration-200"
-	class:invisible={isAuthLoading}
 	style={hasUser
 		? `padding-bottom: calc(${restTimer.value ? '11rem' : '6rem'} + env(safe-area-inset-bottom, 0px))`
 		: 'padding-bottom: 2rem;'}
 >
-	{@render children?.()}
+	{#if isAuthLoading}
+		<div class="mx-auto flex w-full max-w-lg flex-col gap-4">
+			<div class="skeleton h-8 w-44 rounded-lg"></div>
+			<div class="skeleton h-28 w-full rounded-2xl"></div>
+			<div class="skeleton h-28 w-full rounded-2xl"></div>
+			<div class="skeleton h-28 w-full rounded-2xl"></div>
+		</div>
+	{:else}
+		{@render children?.()}
+	{/if}
 	<Toasts />
 </div>
 

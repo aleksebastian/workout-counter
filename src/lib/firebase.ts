@@ -1,5 +1,12 @@
 import { initializeApp } from 'firebase/app';
-import { doc, getFirestore, onSnapshot } from 'firebase/firestore';
+import {
+	doc,
+	getFirestore,
+	initializeFirestore,
+	persistentLocalCache,
+	persistentMultipleTabManager,
+	onSnapshot
+} from 'firebase/firestore';
 import { getAuth, onAuthStateChanged, type User } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 import { writable, type Readable, derived } from 'svelte/store';
@@ -17,7 +24,19 @@ const firebaseConfig = {
 
 // Initialize Firebase
 export const app = initializeApp(firebaseConfig);
-export const db = getFirestore();
+
+// Use IndexedDB-backed offline persistence in the browser so onSnapshot
+// hydrates immediately from disk on cold starts (before the network responds).
+// Falls back to in-memory only on the server (SSR / no IndexedDB available).
+export const db =
+	typeof window !== 'undefined'
+		? initializeFirestore(app, {
+				localCache: persistentLocalCache({
+					tabManager: persistentMultipleTabManager()
+				})
+			})
+		: getFirestore(app);
+
 export const auth = getAuth();
 export const storage = getStorage();
 

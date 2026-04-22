@@ -7,80 +7,123 @@ import { build, files, version } from '$service-worker';
 
 const sw = self as unknown as ServiceWorkerGlobalScope;
 
-// Create a unique cache name for this deployment
 const CACHE = `cache-${version}`;
 
 const ASSETS = [
-	...build, // the app itself
-	...files // everything in `static`
+	...build, // the app itself (hashed filenames)
+	...files  // everything in `static`
 ];
 
+// Hostnames whose requests the SW must never intercept.
+// The Firebase SDK manages its own offline persistence via IndexedDB —
+// caching these responses in the SW cache corrupts auth tokens and stale data.
+const BYPASS_HOSTNAMES = [
+	'firestore.googleapis.com',
+	'identitytoolkit.googleapis.com',
+	'securetoken.googleapis.com',
+	'firebase.googleapis.com',
+	'firebaseio.com',
+	'googleapis.com',
+	'gstatic.com'
+];
+
+// ─── Lifecycle ────────────────────────────────────────────────────────────────
+
 sw.addEventListener('install', (event) => {
-	// Create a new cache and add all files to it
-	async function addFilesToCache() {
+	async function precache() {
 		const cache = await caches.open(CACHE);
 		await cache.addAll(ASSETS);
 	}
-
-	event.waitUntil(addFilesToCache());
+	event.waitUntil(precache());
 });
 
 sw.addEventListener('activate', (event) => {
-	// Remove previous cached data from disk
 	async function deleteOldCaches() {
 		for (const key of await caches.keys()) {
 			if (key !== CACHE) await caches.delete(key);
 		}
 	}
-
-	event.waitUntil(deleteOldCaches());
+	event.waitUntil(deleteOldCaches().then(() => sw.clients.claim()));
 });
+
+// Allow the layout to command the waiting SW to take over immediately.
+sw.addEventListener('message', (event) => {
+	if (event.data?.type === 'SKIP_WAITING') {
+		sw.skipWaiting();
+	}
+});
+
+// ─── Fetch ────────────────────────────────────────────────────────────────────
 
 sw.addEventListener('fetch', (event) => {
-	// ignore POST requests etc
 	if (event.request.method !== 'GET') return;
 
-	async function respond() {
-		const url = new URL(event.request.url);
-		const cache = await caches.open(CACHE);
+	const url = new URL(event.request.url);
 
-		// `build`/`files` can always be served from the cache
-		if (ASSETS.includes(url.pathname)) {
-			const response = await cache.match(url.pathname);
-
-			if (response) {
-				return response;
-			}
-		}
-
-		// for everything else, try the network first, but
-		// fall back to the cache if we're offline
-		try {
-			const response = await fetch(event.request);
-
-			// if we're offline, fetch can return a value that is not a Response
-			// instead of throwing - and we can't pass this non-Response to respondWith
-			if (!(response instanceof Response)) {
-				throw new Error('invalid response from fetch');
-			}
-
-			if (response.status === 200) {
-				cache.put(event.request, response.clone());
-			}
-
-			return response;
-		} catch (err) {
-			const response = await cache.match(event.request);
-
-			if (response) {
-				return response;
-			}
-
-			// if there's no cache, then just error out
-			// as there is nothing we can do to respond to this request
-			throw err;
-		}
+	// Let Firebase/Google API calls pass through completely — no SW involvement.
+	if (BYPASS_HOSTNAMES.some((host) => url.hostname === host || url.hostname.endsWith(`.${host}`))) {
+		return;
 	}
 
-	event.respondWith(respond());
+	event.respondWith(respond(event.request, url));
 });
+
+async function respond(request: Request, url: URL): Promise<Response> {
+	const cache = await caches.open(CACHE);
+
+	// ── Cache-first for versioned build assets & static files ──────────────────
+	// These are safe to serve forever — filenames include a content hash.
+	if (ASSETS.includes(url.pathname)) {
+		const cached = await cache.match(url.pathname);
+		if (cached) return cached;
+	}
+
+	// ── Stale-while-revalidate for navigation (HTML) ───────────────────────────
+	// Return the cached shell instantly so the app paints immediately, then
+	// update the cache in the background so the *next* visit gets fresh HTML.
+	if (request.mode === 'navigate') {
+		const cached = await cache.match(request);
+
+		const networkPromise = fetch(request).then((response) => {
+			if (response.status === 200) {
+				cache.put(request, response.clone());
+			}
+			return response;
+		}).catch(() => null);
+
+		// Return the cached version immediately if available, otherwise wait.
+		if (cached) {
+			// Fire-and-forget the background refresh.
+			networkPromise.catch(() => {});
+			return cached;
+		}
+
+		const fresh = await networkPromise;
+		if (fresh) return fresh;
+
+		// Absolute fallback: serve the app root from cache (SPA shell).
+		const root = await cache.match('/');
+		if (root) return root;
+
+		return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
+	}
+
+	// ── Network-first with cache fallback for everything else ──────────────────
+	try {
+		const response = await fetch(request);
+
+		if (!(response instanceof Response)) {
+			throw new Error('invalid response from fetch');
+		}
+
+		if (response.status === 200) {
+			cache.put(request, response.clone());
+		}
+
+		return response;
+	} catch {
+		const cached = await cache.match(request);
+		if (cached) return cached;
+		throw new Error(`No network and no cache for: ${url.pathname}`);
+	}
+}

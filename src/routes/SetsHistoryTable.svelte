@@ -4,6 +4,7 @@
 
 <script lang="ts">
 	import { type Set, type Workout } from '$lib/state.svelte';
+	import { toaster } from '$lib/state.svelte';
 	import EditIcon from '$lib/icons/edit.svg?raw';
 	import DeleteIcon from '$lib/icons/delete.svg?raw';
 	import EditSetSheet from '$lib/components/EditSetSheet.svelte';
@@ -136,6 +137,7 @@
 			document.dispatchEvent(new CustomEvent('setRecorded'));
 		} catch (err) {
 			workout.sets = originalSets;
+			toaster.addToast({ type: 'error', message: "Couldn't duplicate set — try again", dismissible: true });
 		}
 	}
 
@@ -160,6 +162,7 @@
 				});
 			} catch (err) {
 				workout.sets = originalSets;
+				toaster.addToast({ type: 'error', message: "Couldn't delete set — try again", dismissible: true });
 			}
 		}
 	}
@@ -172,6 +175,9 @@
 		const workouts = $userData.workouts;
 
 		const editedSet = workout!.sets.find((set) => set.id === editSetId)!;
+		const originalReps = editedSet.reps;
+		const originalWeight = editedSet.weight;
+
 		editedSet.reps = newReps;
 		if (newWeight > 0) {
 			editedSet.weight = newWeight;
@@ -184,9 +190,17 @@
 
 		const userRef = doc(db, 'users', $user!.uid);
 
-		await updateDoc(userRef, {
-			workouts
-		});
+		try {
+			await updateDoc(userRef, { workouts });
+		} catch {
+			editedSet.reps = originalReps;
+			if (originalWeight !== undefined) {
+				editedSet.weight = originalWeight;
+			} else {
+				delete editedSet.weight;
+			}
+			toaster.addToast({ type: 'error', message: "Couldn't save — try again", dismissible: true });
+		}
 	}
 
 	function getRelativeDate(date: string) {

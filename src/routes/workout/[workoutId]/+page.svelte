@@ -7,6 +7,7 @@
 	import { doc, updateDoc } from 'firebase/firestore';
 	import { page } from '$app/state';
 	import { navState } from '$lib/state.svelte';
+	import { toaster } from '$lib/state.svelte';
 	import { HAPTIC } from '$lib/haptic';
 	import confetti from 'canvas-confetti';
 
@@ -130,6 +131,11 @@
 		} catch (error) {
 			// Rollback on error
 			workout!.sets = originalSets;
+			toaster.addToast({
+				type: 'error',
+				message: "Couldn't save set — try again",
+				dismissible: true
+			});
 		}
 	}
 </script>

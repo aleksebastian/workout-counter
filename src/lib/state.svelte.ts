@@ -81,7 +81,7 @@ export function getProgramItemsForDay(program: Program, day: number): ProgramIte
 
 export type Toast = {
 	id?: string;
-	type: 'info' | 'success';
+	type: 'info' | 'success' | 'error' | 'warning';
 	message: string;
 	dismissible?: boolean;
 	timeout?: number;
