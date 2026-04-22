@@ -129,9 +129,22 @@
 </script>
 
 <div class="mx-auto flex max-w-lg flex-col gap-4">
-	<!-- Header -->
-	<div class="flex justify-end">
-		{#if $userData?.workouts?.length}
+	<!-- Header + Sort -->
+	{#if $userData?.workouts?.length}
+		<div class="flex items-center justify-between">
+			<div class="flex gap-1.5" role="group" aria-label="Sort by">
+				{#each [['last-done', 'Last done'], ['a-z', 'A–Z'], ['most-sets', 'Most sets']] as const as [key, label]}
+					<button
+						class="btn btn-xs rounded-full transition-all"
+						class:btn-primary={sortKey === key}
+						class:btn-ghost={sortKey !== key}
+						class:opacity-50={sortKey !== key}
+						onclick={() => (sortKey = key)}
+					>
+						{label}
+					</button>
+				{/each}
+			</div>
 			<button
 				class="btn btn-ghost btn-sm w-14 font-semibold"
 				class:text-primary={isEditingWorkouts}
@@ -139,11 +152,7 @@
 			>
 				{isEditingWorkouts ? 'Done' : 'Edit'}
 			</button>
-		{/if}
-	</div>
-
-	<!-- Search + Sort -->
-	{#if $userData?.workouts?.length}
+		</div>
 		<div class="relative">
 			<input
 				type="search"
@@ -168,20 +177,6 @@
 					>
 				</button>
 			{/if}
-		</div>
-		<!-- Sort pills -->
-		<div class="flex gap-1.5" role="group" aria-label="Sort by">
-			{#each [['last-done', 'Last done'], ['a-z', 'A–Z'], ['most-sets', 'Most sets']] as const as [key, label]}
-				<button
-					class="btn btn-xs rounded-full transition-all"
-					class:btn-primary={sortKey === key}
-					class:btn-ghost={sortKey !== key}
-					class:opacity-50={sortKey !== key}
-					onclick={() => (sortKey = key)}
-				>
-					{label}
-				</button>
-			{/each}
 		</div>
 	{/if}
 
