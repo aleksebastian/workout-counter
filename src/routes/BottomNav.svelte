@@ -36,16 +36,10 @@
 	style="padding-bottom: env(safe-area-inset-bottom, 0); transform: translate3d(0,0,0); -webkit-transform: translate3d(0,0,0);"
 	in:launchSlide|global
 >
-	<div class="flex h-16 items-center justify-around">
+	<div class="flex h-16 items-center">
 		<!-- Home -->
-		<a
-			href="/"
-			aria-label="Home"
-			class="flex flex-col items-center gap-0.5 px-4 py-2 transition-opacity"
-			class:opacity-100={isHome}
-			class:opacity-35={!isHome}
-		>
-			{@html HomeIcon}
+		<a href="/" aria-label="Home" aria-current={isHome ? 'page' : undefined} class="nav-item">
+			<span class="h-6 w-6 [&>svg]:h-6 [&>svg]:w-6">{@html HomeIcon}</span>
 			<span class="text-xs font-medium">Home</span>
 		</a>
 
@@ -53,9 +47,8 @@
 		<a
 			href="/exercises"
 			aria-label="Exercises"
-			class="flex flex-col items-center gap-0.5 px-4 py-2 transition-opacity"
-			class:opacity-100={isExercises}
-			class:opacity-35={!isExercises}
+			aria-current={isExercises ? 'page' : undefined}
+			class="nav-item"
 		>
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
@@ -81,9 +74,8 @@
 		<a
 			href="/routines"
 			aria-label="Routines"
-			class="flex flex-col items-center gap-0.5 px-4 py-2 transition-opacity"
-			class:opacity-100={isRoutines}
-			class:opacity-35={!isRoutines}
+			aria-current={isRoutines ? 'page' : undefined}
+			class="nav-item"
 		>
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
@@ -104,9 +96,8 @@
 		<a
 			href="/programs"
 			aria-label="Programs"
-			class="flex flex-col items-center gap-0.5 px-4 py-2 transition-opacity"
-			class:opacity-100={isSessions}
-			class:opacity-35={!isSessions}
+			aria-current={isSessions ? 'page' : undefined}
+			class="nav-item"
 		>
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
@@ -128,3 +119,20 @@
 		</a>
 	</div>
 </nav>
+
+<style>
+	.nav-item {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.125rem;
+		padding-top: 0.5rem;
+		padding-bottom: 0.5rem;
+		width: 25%;
+		opacity: 0.35;
+	}
+
+	.nav-item[aria-current='page'] {
+		opacity: 1;
+	}
+</style>

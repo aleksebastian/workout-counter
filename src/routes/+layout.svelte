@@ -117,7 +117,8 @@
 		if (navigation.type === 'popstate' && !window.__backButtonClicked) return;
 		window.__backButtonClicked = false;
 
-		// Tab navigation — suppress root slide, let named navbar elements cross-fade
+		// Tab navigation — skip view transition entirely to avoid compositing artifacts
+		// (even animation:none still freezes/captures/composites, causing fixed elements to shift)
 		const fromBottomNav =
 			navigation.from &&
 			navigation.to?.route.id &&
@@ -125,12 +126,7 @@
 			['/', '/exercises', '/routines', '/programs'].includes(navigation.from.route.id || '');
 		if (fromBottomNav) {
 			document.documentElement.dataset.navDirection = 'tab';
-			return new Promise((resolve) => {
-				document.startViewTransition(async () => {
-					resolve();
-					await navigation.complete;
-				});
-			});
+			return;
 		}
 
 		document.documentElement.dataset.navDirection = 'forward';
@@ -389,9 +385,15 @@
 		}
 	}
 
-	/* Tab navigation — no root animation; named navbar elements cross-fade via view-transition-name */
-	:global(html[data-nav-direction='tab'])::view-transition-old(root),
-	:global(html[data-nav-direction='tab'])::view-transition-new(root) {
+	/*
+	 * During forward/back navigation the bottom-nav has view-transition-name:bottom-nav
+	 * so it's excluded from the sliding root. Kill every animation on it so it stays frozen.
+	 */
+	:global(::view-transition-group(bottom-nav)) {
+		animation: none;
+	}
+	:global(::view-transition-old(bottom-nav)),
+	:global(::view-transition-new(bottom-nav)) {
 		animation: none;
 	}
 
