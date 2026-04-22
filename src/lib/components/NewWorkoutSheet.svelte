@@ -59,6 +59,7 @@
 				bind:this={inputEle}
 				aria-label="Exercise Name"
 				type="text"
+				autocomplete="off"
 				placeholder="e.g., Push ups"
 				class="input input-bordered w-full"
 				bind:value={newWorkoutName}

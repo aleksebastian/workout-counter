@@ -114,6 +114,7 @@
 					bind:this={inputEle}
 					aria-label="Program Name"
 					type="text"
+					autocomplete="off"
 					class="input input-bordered w-full"
 					bind:value={name}
 					onkeydown={handleKeyDown}

@@ -118,6 +118,7 @@
 					bind:this={inputEle}
 					aria-label="Workout Name"
 					type="text"
+					autocomplete="off"
 					class="input input-bordered w-full"
 					bind:value={name}
 					onkeydown={handleKeyDown}

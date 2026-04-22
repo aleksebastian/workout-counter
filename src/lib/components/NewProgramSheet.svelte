@@ -61,6 +61,7 @@
 				bind:this={inputEle}
 				aria-label="Program Name"
 				type="text"
+				autocomplete="off"
 				placeholder="e.g., Upper-Lower Split"
 				class="input input-bordered w-full"
 				bind:value={newProgramName}

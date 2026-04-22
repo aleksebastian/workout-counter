@@ -59,6 +59,7 @@
 				bind:this={inputEle}
 				aria-label="Routine Name"
 				type="text"
+				autocomplete="off"
 				placeholder="e.g., Push Pull Legs"
 				class="input input-bordered w-full"
 				bind:value={newRoutineName}

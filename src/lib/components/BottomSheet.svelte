@@ -89,11 +89,17 @@
 	$effect(() => {
 		if (!open || !sheetElement) return;
 
-		const focusableElements = sheetElement.querySelectorAll(
-			'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-		);
-		const firstElement = focusableElements[0] as HTMLElement;
-		firstElement?.focus();
+		// Delay focus until after the slide-up animation completes (350ms).
+		// Without this, iOS opens the keyboard before the sheet is in position,
+		// causing the keyboard to render on top of the bottom sheet.
+		const focusTimer = setTimeout(() => {
+			if (!sheetElement) return;
+			const focusableElements = sheetElement.querySelectorAll(
+				'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+			);
+			const firstElement = focusableElements[0] as HTMLElement;
+			firstElement?.focus();
+		}, 350);
 
 		// iOS keyboard handling: scroll input into view when focused
 		const inputs = sheetElement.querySelectorAll('input, textarea');
@@ -109,6 +115,7 @@
 		});
 
 		return () => {
+			clearTimeout(focusTimer);
 			inputs.forEach((input) => {
 				input.removeEventListener('focus', handleFocus);
 			});
