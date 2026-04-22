@@ -148,7 +148,7 @@
 							onclick={() => {
 								theme = 'light';
 								scheduleAutoSave();
-							}}>☀️ Light</button
+							}}>Light</button
 						>
 						<button
 							type="button"
@@ -157,7 +157,7 @@
 							onclick={() => {
 								theme = 'system';
 								scheduleAutoSave();
-							}}>💻 Auto</button
+							}}>System</button
 						>
 						<button
 							type="button"
@@ -166,7 +166,7 @@
 							onclick={() => {
 								theme = 'dark';
 								scheduleAutoSave();
-							}}>🌙 Dark</button
+							}}>Dark</button
 						>
 					</div>
 				</div>
