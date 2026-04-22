@@ -78,6 +78,45 @@ async function respond(request: Request, url: URL): Promise<Response> {
 		if (cached) return cached;
 	}
 
+	// ── Stale-while-revalidate for SvelteKit data requests ────────────────────
+	// SvelteKit client-side navigation fetches /<route>/__data.json for server
+	// load data. These are NOT navigate-mode requests, so they'd fall through to
+	// network-first. For uncached routes offline this causes a fetch failure and
+	// SvelteKit renders its bare default error page. Fix: treat them like the
+	// navigation handler — stale-while-revalidate, with a cross-route fallback
+	// (valid since the layout server returns identical { userData: undefined }
+	// for all non-login routes).
+	if (url.pathname.endsWith('/__data.json')) {
+		const cached = await cache.match(request);
+
+		const networkPromise = fetch(request).then((response) => {
+			if (response.status === 200) {
+				cache.put(request, response.clone());
+			}
+			return response;
+		}).catch(() => null);
+
+		if (cached) {
+			networkPromise.catch(() => {});
+			return cached;
+		}
+
+		const fresh = await networkPromise;
+		if (fresh) return fresh;
+
+		// Offline and this exact URL was never cached — return any cached
+		// __data.json response as a stand-in (layout data is route-agnostic).
+		const allKeys = await cache.keys();
+		for (const key of allKeys) {
+			if (new URL(key.url).pathname.endsWith('/__data.json')) {
+				const fallback = await cache.match(key);
+				if (fallback) return fallback;
+			}
+		}
+
+		return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
+	}
+
 	// ── Stale-while-revalidate for navigation (HTML) ───────────────────────────
 	// Return the cached shell instantly so the app paints immediately, then
 	// update the cache in the background so the *next* visit gets fresh HTML.

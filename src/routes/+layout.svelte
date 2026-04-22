@@ -280,15 +280,18 @@
 	<meta name="description" content="The best way to keep track of your workouts" />
 </svelte:head>
 
-<Navbar {hasUser} ready={hasUser} signOut={handleSignOut} />
-
 {#if !isOnline}
 	<div
-		class="bg-warning text-warning-content fixed top-0 right-0 left-0 z-200 py-1 text-center text-sm font-medium"
+		class="bg-warning text-warning-content fixed top-0 right-0 left-0 z-200 pb-1 text-center text-sm font-medium"
+		style="padding-top: env(safe-area-inset-top, 0px)"
 	>
 		You're offline — changes will sync when reconnected
 	</div>
 {/if}
+
+<div style={!isOnline ? 'margin-top: 1.75rem' : ''}>
+	<Navbar {hasUser} ready={hasUser} signOut={handleSignOut} />
+</div>
 
 {#if showInstallBanner}
 	<div

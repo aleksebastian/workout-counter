@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { userData } from '$lib/firebase';
+	import { db, user, userData } from '$lib/firebase';
 	import { navState } from '$lib/state.svelte';
 	import { fade } from 'svelte/transition';
+	import { doc, updateDoc } from 'firebase/firestore';
 
 	navState.title = 'Preferences';
 	navState.backHref = '/';
@@ -68,32 +69,34 @@
 	let debounceHandle: ReturnType<typeof setTimeout> | undefined;
 
 	async function savePreferences() {
-		const formData = new FormData();
-		formData.append('theme', theme);
-		formData.append('weightUnit', weightUnit);
-		formData.append('weekStart', String(weekStart));
-		formData.append('restMinutes', String(restMinutes));
-		formData.append('restSeconds', String(restSeconds));
-		formData.append('weeklyGoal', String(weeklyGoal));
-		formData.append('streaksEnabled', String(streaksEnabled));
+		const uid = $user?.uid;
+		if (!uid) return;
+
+		function clamp(n: number, min: number, max: number, fallback: number): number {
+			return isNaN(n) ? fallback : Math.min(max, Math.max(min, n));
+		}
+
+		const preferences = {
+			timer: {
+				minutes: clamp(restMinutes, 0, 59, 1),
+				seconds: clamp(restSeconds, 0, 59, 30)
+			},
+			...(['light', 'dark', 'system'].includes(theme) ? { theme } : {}),
+			...(['lbs', 'kg'].includes(weightUnit) ? { weightUnit } : {}),
+			weekStart: Number(weekStart) === 1 ? 1 : 0,
+			weeklyGoal: Math.min(7, Math.max(1, clamp(weeklyGoal, 1, 7, 3))),
+			streaksEnabled: streaksEnabled !== false
+		};
 
 		saveState = 'saving';
 		try {
-			const resp = await fetch('/preferences?/save', {
-				method: 'POST',
-				body: formData,
-				headers: { 'x-sveltekit-action': 'true' }
-			});
-			if (resp.ok) {
-				if (!hasPreferences) {
-					goto('/');
-					return;
-				}
-				saveState = 'saved';
-				setTimeout(() => (saveState = 'idle'), 1000);
-			} else {
-				saveState = 'idle';
+			await updateDoc(doc(db, 'users', uid), { preferences });
+			if (!hasPreferences) {
+				goto('/');
+				return;
 			}
+			saveState = 'saved';
+			setTimeout(() => (saveState = 'idle'), 1000);
 		} catch {
 			saveState = 'idle';
 		}
