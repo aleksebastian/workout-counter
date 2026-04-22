@@ -137,7 +137,11 @@
 			document.dispatchEvent(new CustomEvent('setRecorded'));
 		} catch (err) {
 			workout.sets = originalSets;
-			toaster.addToast({ type: 'error', message: "Couldn't duplicate set — try again", dismissible: true });
+			toaster.addToast({
+				type: 'error',
+				message: "Couldn't duplicate set — try again",
+				dismissible: true
+			});
 		}
 	}
 
@@ -162,7 +166,11 @@
 				});
 			} catch (err) {
 				workout.sets = originalSets;
-				toaster.addToast({ type: 'error', message: "Couldn't delete set — try again", dismissible: true });
+				toaster.addToast({
+					type: 'error',
+					message: "Couldn't delete set — try again",
+					dismissible: true
+				});
 			}
 		}
 	}
