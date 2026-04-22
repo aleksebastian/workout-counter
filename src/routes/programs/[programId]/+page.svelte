@@ -109,7 +109,11 @@
 
 	// Upserts items for a given day into a schedule array.
 	// Removes the day entry automatically when items is empty.
-	function upsertScheduleDay(current: ProgramDay[], day: number, items: ProgramItem[]): ProgramDay[] {
+	function upsertScheduleDay(
+		current: ProgramDay[],
+		day: number,
+		items: ProgramItem[]
+	): ProgramDay[] {
 		if (items.length === 0) return current.filter((sd) => sd.day !== day);
 		const exists = current.some((sd) => sd.day === day);
 		if (exists) return current.map((sd) => (sd.day === day ? { ...sd, items } : sd));
@@ -119,7 +123,10 @@
 	async function saveDayItems(items: ProgramItem[]) {
 		if (!session || selectedDay === undefined) return;
 		try {
-			await updateSession({ ...session, schedule: upsertScheduleDay(schedule, selectedDay, items) });
+			await updateSession({
+				...session,
+				schedule: upsertScheduleDay(schedule, selectedDay, items)
+			});
 		} catch (e) {}
 	}
 
@@ -610,7 +617,6 @@
 					{/if}
 				</div>
 			{/if}
-
 		{/if}
 	</div>
 {:else}
