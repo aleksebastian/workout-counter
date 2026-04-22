@@ -37,16 +37,12 @@
 
 	let schedule = $derived(session ? getProgramSchedule(session) : ([] as ProgramDay[]));
 	let scheduledDays = $derived(schedule.map((sd) => sd.day));
-	let unscheduledDays = $derived([0, 1, 2, 3, 4, 5, 6].filter((d) => !scheduledDays.includes(d)));
 
-	// Selected day — init to today if scheduled, else first scheduled day
+	// Selected day — always defaults to today
 	let selectedDay = $state<number | undefined>(undefined);
 	$effect(() => {
 		if (selectedDay !== undefined) return;
-		if (!schedule.length) return;
-		const today = new Date().getDay();
-		const todayEntry = schedule.find((sd) => sd.day === today);
-		selectedDay = todayEntry?.day ?? schedule[0].day;
+		selectedDay = new Date().getDay();
 	});
 
 	let todayDow = $derived(new Date().getDay());
@@ -79,8 +75,6 @@
 
 	let isEditing = $state(false);
 	let addPanelSection = $state<'none' | 'routines' | 'exercises'>('none');
-	let addDayOpen = $state(false);
-	let pendingDays = $state<number[]>([]);
 	let showNewExerciseInput = $state(false);
 	let newExerciseName = $state('');
 	let newExerciseError = $state('');
@@ -113,40 +107,23 @@
 		await updateDoc(userRef, { programs });
 	}
 
+	// Upserts items for a given day into a schedule array.
+	// Removes the day entry automatically when items is empty.
+	function upsertScheduleDay(current: ProgramDay[], day: number, items: ProgramItem[]): ProgramDay[] {
+		if (items.length === 0) return current.filter((sd) => sd.day !== day);
+		const exists = current.some((sd) => sd.day === day);
+		if (exists) return current.map((sd) => (sd.day === day ? { ...sd, items } : sd));
+		return [...current, { day, items }].sort((a, b) => a.day - b.day);
+	}
+
 	async function saveDayItems(items: ProgramItem[]) {
 		if (!session || selectedDay === undefined) return;
-		const newSchedule = schedule.map((sd) => (sd.day === selectedDay ? { ...sd, items } : sd));
 		try {
-			await updateSession({ ...session, schedule: newSchedule });
+			await updateSession({ ...session, schedule: upsertScheduleDay(schedule, selectedDay, items) });
 		} catch (e) {}
 	}
 
 	// ── Day management ───────────────────────────────────────────────────────────
-
-	function togglePendingDay(day: number) {
-		if (pendingDays.includes(day)) {
-			pendingDays = pendingDays.filter((d) => d !== day);
-		} else {
-			pendingDays = [...pendingDays, day];
-		}
-	}
-
-	async function handleAddDays() {
-		if (!session || pendingDays.length === 0) return;
-		const newDayEntries = pendingDays.map((day) => ({ day, items: [] }));
-		const newSchedule = [...schedule, ...newDayEntries].sort((a, b) => a.day - b.day);
-		try {
-			await updateSession({ ...session, schedule: newSchedule });
-			selectedDay = pendingDays[0];
-			addDayOpen = false;
-			pendingDays = [];
-		} catch (e) {}
-	}
-
-	function handleCancelAddDays() {
-		addDayOpen = false;
-		pendingDays = [];
-	}
 
 	function handleRemoveDay(day: number) {
 		dayToDelete = day;
@@ -158,10 +135,6 @@
 		const newSchedule = schedule.filter((sd) => sd.day !== dayToDelete);
 		try {
 			await updateSession({ ...session, schedule: newSchedule });
-			if (selectedDay === dayToDelete) {
-				const today = new Date().getDay();
-				selectedDay = newSchedule.find((sd) => sd.day === today)?.day ?? newSchedule[0]?.day;
-			}
 			dayToDelete = undefined;
 		} catch (e) {}
 	}
@@ -230,9 +203,7 @@
 			...dayItems,
 			{ type: 'exercise', workoutId: newWorkout.id, targetSets: 3 }
 		];
-		const newSchedule = schedule.map((sd) =>
-			sd.day === selectedDay ? { ...sd, items: newItems } : sd
-		);
+		const newSchedule = upsertScheduleDay(schedule, selectedDay!, newItems);
 		const programs = ($userData.programs ?? []).map((s) =>
 			s.id === session!.id ? { ...session!, schedule: newSchedule } : s
 		);
@@ -293,7 +264,6 @@
 				onclick={() => {
 					isEditing = !isEditing;
 					addPanelSection = 'none';
-					addDayOpen = false;
 					showNewExerciseInput = false;
 					editingDayLabel = false;
 					searchQuery = '';
@@ -315,80 +285,42 @@
 		{/if}
 
 		<!-- ── Day pills ───────────────────────────────────────────────────────── -->
-		{#if schedule.length > 0 || isEditing}
-			<div class="-mt-2 -mr-2 flex items-center gap-1.5 overflow-x-auto pt-2 pr-2 pb-0.5">
-				{#each schedule as sd}
-					<div class="relative shrink-0">
-						<button
-							class="btn btn-sm relative"
-							class:btn-primary={selectedDay === sd.day}
-							class:btn-ghost={selectedDay !== sd.day}
-							onclick={() => {
-								selectedDay = sd.day;
-								addPanelSection = 'none';
-								editingDayLabel = false;
-							}}
-						>
-							{DAY_NAMES[sd.day]}
-							{#if sd.day === todayDow}
-								<span
-									class={[
-										'ring-base-100 absolute -top-1 -right-1 h-2 w-2 rounded-full ring-1',
-										selectedDay === sd.day ? 'bg-base-content/30 opacity-0' : 'bg-primary'
-									].join(' ')}
-								></span>
-							{/if}
-						</button>
-						{#if isEditing}
-							<button
-								class="bg-error text-error-content absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold shadow"
-								onclick={() => handleRemoveDay(sd.day)}
-								aria-label="Remove {DAY_NAMES[sd.day]}">✕</button
-							>
-						{/if}
-					</div>
-				{/each}
-
-				{#if isEditing && unscheduledDays.length > 0}
+		<div class="-mt-2 -mr-2 flex items-center gap-1.5 overflow-x-auto pt-2 pr-2 pb-0.5">
+			{#each [0, 1, 2, 3, 4, 5, 6] as dayNum}
+				{@const scheduledDay = schedule.find((sd) => sd.day === dayNum)}
+				{@const hasItems = (scheduledDay?.items.length ?? 0) > 0}
+				<div class="relative flex shrink-0 flex-col items-center">
 					<button
-						class="btn btn-ghost btn-sm text-primary shrink-0"
+						class="btn btn-sm"
+						class:btn-primary={selectedDay === dayNum}
+						class:btn-ghost={selectedDay !== dayNum}
+						class:ring-2={dayNum === todayDow && selectedDay !== dayNum}
+						class:ring-primary={dayNum === todayDow && selectedDay !== dayNum}
 						onclick={() => {
-							addDayOpen = !addDayOpen;
-							if (addDayOpen) pendingDays = [];
-						}}>+ Day</button
+							selectedDay = dayNum;
+							addPanelSection = 'none';
+							editingDayLabel = false;
+						}}
 					>
-				{/if}
-			</div>
-
-			<!-- Add day picker -->
-			{#if isEditing && addDayOpen && unscheduledDays.length > 0}
-				<div class="bg-base-200 rounded-box flex flex-col gap-3 px-4 py-3">
-					<p class="text-base-content/50 text-xs font-semibold tracking-widest uppercase">
-						Add day
-					</p>
-					<div class="flex flex-wrap gap-2">
-						{#each unscheduledDays as d}
-							<button
-								class="btn btn-sm"
-								class:btn-primary={pendingDays.includes(d)}
-								class:btn-outline={!pendingDays.includes(d)}
-								onclick={() => togglePendingDay(d)}>{DAY_FULL[d]}</button
-							>
-						{/each}
-					</div>
-					<div class="flex gap-2">
+						{DAY_NAMES[dayNum]}
+					</button>
+					<span
+						class="mt-0.5 h-1.5 w-1.5 rounded-full transition-colors"
+						class:bg-primary={hasItems}
+						class:bg-transparent={!hasItems}
+					></span>
+					{#if isEditing && scheduledDay}
 						<button
-							class="btn btn-primary btn-sm flex-1"
-							disabled={pendingDays.length === 0}
-							onclick={handleAddDays}>Done</button
+							class="bg-error text-error-content absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold shadow"
+							onclick={() => handleRemoveDay(dayNum)}
+							aria-label="Remove {DAY_NAMES[dayNum]}">✕</button
 						>
-						<button class="btn btn-ghost btn-sm" onclick={handleCancelAddDays}>Cancel</button>
-					</div>
+					{/if}
 				</div>
-			{/if}
-		{/if}
+			{/each}
+		</div>
 
-		{#if selectedDay !== undefined && schedule.length > 0}
+		{#if selectedDay !== undefined}
 			{@const selectedEntry = schedule.find((sd) => sd.day === selectedDay)}
 
 			<!-- ── Day label ────────────────────────────────────────────────────── -->
@@ -678,14 +610,7 @@
 					{/if}
 				</div>
 			{/if}
-		{:else if !isEditing}
-			<!-- Empty schedule -->
-			<div class="flex flex-col items-center gap-3 py-12 text-center">
-				<p class="text-base-content/50 text-sm">No days scheduled yet.</p>
-				<button class="btn btn-primary btn-sm" onclick={() => (isEditing = true)}
-					>Build schedule</button
-				>
-			</div>
+
 		{/if}
 	</div>
 {:else}

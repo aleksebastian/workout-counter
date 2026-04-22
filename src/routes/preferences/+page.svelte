@@ -56,7 +56,12 @@
 		{ label: '1:00', m: 1, s: 0 },
 		{ label: '1:30', m: 1, s: 30 },
 		{ label: '2:00', m: 2, s: 0 },
-		{ label: '3:00', m: 3, s: 0 }
+		{ label: '2:30', m: 2, s: 30 },
+		{ label: '3:00', m: 3, s: 0 },
+		{ label: '3:30', m: 3, s: 30 },
+		{ label: '4:00', m: 4, s: 0 },
+		{ label: '4:30', m: 4, s: 30 },
+		{ label: '5:00', m: 5, s: 0 }
 	];
 
 	let saveState = $state<'idle' | 'saving' | 'saved'>('idle');
@@ -209,7 +214,7 @@
 						<span class="text-primary text-2xl font-black tabular-nums">{timerPreview}</span>
 					</div>
 					<!-- Quick presets -->
-					<div class="flex flex-wrap gap-2">
+					<div class="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
 						{#each TIMER_PRESETS as preset}
 							<button
 								type="button"
