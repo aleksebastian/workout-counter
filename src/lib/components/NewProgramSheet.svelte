@@ -67,7 +67,7 @@
 				bind:value={newProgramName}
 				onkeydown={handleKeyDown}
 			/>
-			<p class="text-base-content/40 text-xs">You'll add days and exercises after creating.</p>
+			<p class="text-base-content/40 text-xs">You'll add exercises to the week after creating</p>
 			{#if validationMsg}
 				<p class="text-error text-sm">{validationMsg}</p>
 			{/if}

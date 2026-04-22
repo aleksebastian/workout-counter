@@ -33,6 +33,7 @@
 				xmlns="http://www.w3.org/2000/svg"
 				class="text-primary h-8 w-8"
 				fill="none"
+				style="fill: none"
 				viewBox="0 0 24 24"
 				stroke="currentColor"
 				stroke-width="2"
@@ -58,11 +59,12 @@
 					xmlns="http://www.w3.org/2000/svg"
 					class="text-base-content/60 h-4 w-4"
 					fill="none"
+					style="fill: none"
 					viewBox="0 0 24 24"
 					stroke="currentColor"
-					stroke-width="2"
+					stroke-width="1.5"
 				>
-					<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+					<path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
 				</svg>
 			</div>
 			<div>
@@ -78,11 +80,12 @@
 					xmlns="http://www.w3.org/2000/svg"
 					class="text-base-content/60 h-4 w-4"
 					fill="none"
+					style="fill: none"
 					viewBox="0 0 24 24"
 					stroke="currentColor"
-					stroke-width="2"
+					stroke-width="1.5"
 				>
-					<path stroke-linecap="round" stroke-linejoin="round" d="M3 13.5l4.5 4.5L21 6" />
+					<path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
 				</svg>
 			</div>
 			<div>
@@ -96,14 +99,15 @@
 					xmlns="http://www.w3.org/2000/svg"
 					class="text-base-content/60 h-4 w-4"
 					fill="none"
+					style="fill: none"
 					viewBox="0 0 24 24"
 					stroke="currentColor"
-					stroke-width="2"
+					stroke-width="1.5"
 				>
 					<path
 						stroke-linecap="round"
 						stroke-linejoin="round"
-						d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z"
+						d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"
 					/>
 				</svg>
 			</div>

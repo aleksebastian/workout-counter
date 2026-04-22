@@ -139,7 +139,7 @@
 
 	async function confirmRemoveDay() {
 		if (!session || dayToDelete === undefined) return;
-		const newSchedule = schedule.filter((sd) => sd.day !== dayToDelete);
+		const newSchedule = schedule.map((sd) => (sd.day === dayToDelete ? { ...sd, items: [] } : sd));
 		try {
 			await updateSession({ ...session, schedule: newSchedule });
 			dayToDelete = undefined;
@@ -316,7 +316,7 @@
 						class:bg-primary={hasItems}
 						class:bg-transparent={!hasItems}
 					></span>
-					{#if isEditing && scheduledDay}
+					{#if isEditing && scheduledDay && hasItems}
 						<button
 							class="bg-error text-error-content absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold shadow"
 							onclick={() => handleRemoveDay(dayNum)}
@@ -634,12 +634,12 @@
 <!-- Delete day confirmation -->
 <ConfirmationDialog
 	bind:dialog={deleteDayDialog}
-	header="Delete {dayToDelete !== undefined ? DAY_FULL[dayToDelete] : 'day'}?"
-	content="This will remove the day and all its exercises from your program schedule."
-	actionLabel="Delete"
+	header="Clear {dayToDelete !== undefined ? DAY_FULL[dayToDelete] : 'day'}?"
+	content="This will remove all exercises from this day"
+	actionLabel="Clear day"
 	destructive={true}
 	onclose={(e) => {
-		if ((e.target as HTMLDialogElement).returnValue === 'confirm') {
+		if ((e.target as HTMLDialogElement).returnValue === 'default') {
 			confirmRemoveDay();
 		}
 	}}

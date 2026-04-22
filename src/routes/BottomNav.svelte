@@ -4,6 +4,7 @@
 	import { cubicOut } from 'svelte/easing';
 	import type { TransitionConfig } from 'svelte/transition';
 	import { browser } from '$app/environment';
+	import HomeIcon from '$lib/icons/home.svg?raw';
 
 	// Use sessionStorage to persist animation state across navigation
 	// This ensures the animation only plays once per session, even after login redirects
@@ -44,20 +45,7 @@
 			class:opacity-100={isHome}
 			class:opacity-35={!isHome}
 		>
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="h-6 w-6"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-				stroke-width="2"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-				/>
-			</svg>
+			{@html HomeIcon}
 			<span class="text-xs font-medium">Home</span>
 		</a>
 
@@ -72,15 +60,18 @@
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6"
-				fill="none"
 				viewBox="0 0 24 24"
-				stroke="currentColor"
-				stroke-width="2"
+				fill="currentColor"
 			>
 				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+					fill-rule="evenodd"
+					d="M7.502 6h7.128A3.375 3.375 0 0 1 18 9.375v9.375a3 3 0 0 0 3-3V6.108c0-1.505-1.125-2.811-2.664-2.94a48.972 48.972 0 0 0-.673-.05A3 3 0 0 0 15 1.5h-1.5a3 3 0 0 0-2.663 1.618c-.225.015-.45.032-.673.05C8.662 3.295 7.554 4.542 7.502 6ZM13.5 3A1.5 1.5 0 0 0 12 4.5h4.5A1.5 1.5 0 0 0 15 3h-1.5Z"
+					clip-rule="evenodd"
+				/>
+				<path
+					fill-rule="evenodd"
+					d="M3 9.375C3 8.339 3.84 7.5 4.875 7.5h9.75c1.036 0 1.875.84 1.875 1.875v11.25c0 1.035-.84 1.875-1.875 1.875h-9.75A1.875 1.875 0 0 1 3 20.625V9.375Zm9.586 4.594a.75.75 0 0 0-1.172-.938l-2.476 3.096-.908-.907a.75.75 0 0 0-1.06 1.06l1.5 1.5a.75.75 0 0 0 1.116-.062l3-3.75Z"
+					clip-rule="evenodd"
 				/>
 			</svg>
 			<span class="text-xs font-medium">Exercises</span>
@@ -97,15 +88,13 @@
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6"
-				fill="none"
 				viewBox="0 0 24 24"
-				stroke="currentColor"
-				stroke-width="2"
+				fill="currentColor"
 			>
 				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"
+					fill-rule="evenodd"
+					d="M2.625 6.75a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0Zm4.875 0A.75.75 0 0 1 8.25 6h12a.75.75 0 0 1 0 1.5h-12a.75.75 0 0 1-.75-.75ZM2.625 12a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0ZM7.5 12a.75.75 0 0 1 .75-.75h12a.75.75 0 0 1 0 1.5h-12A.75.75 0 0 1 7.5 12Zm-4.875 5.25a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0Zm4.875 0a.75.75 0 0 1 .75-.75h12a.75.75 0 0 1 0 1.5h-12a.75.75 0 0 1-.75-.75Z"
+					clip-rule="evenodd"
 				/>
 			</svg>
 			<span class="text-xs font-medium">Routines</span>
@@ -122,15 +111,17 @@
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6"
-				fill="none"
 				viewBox="0 0 24 24"
-				stroke="currentColor"
-				stroke-width="2"
+				fill="currentColor"
 			>
 				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					d="M6.429 9.75 2.25 12l4.179 2.25m0-4.5 5.571 3 5.571-3m-11.142 0L2.25 7.5 12 2.25l9.75 5.25-4.179 2.25m0 0L21.75 12l-4.179 2.25m0 0 4.179 2.25L12 21.75 2.25 16.5l4.179-2.25m11.142 0-5.571 3-5.571-3"
+					d="M11.644 1.59a.75.75 0 0 1 .712 0l9.75 5.25a.75.75 0 0 1 0 1.32l-9.75 5.25a.75.75 0 0 1-.712 0l-9.75-5.25a.75.75 0 0 1 0-1.32l9.75-5.25Z"
+				/>
+				<path
+					d="m3.265 10.602 7.668 4.129a2.25 2.25 0 0 0 2.134 0l7.668-4.13 1.37.739a.75.75 0 0 1 0 1.32l-9.75 5.25a.75.75 0 0 1-.71 0l-9.75-5.25a.75.75 0 0 1 0-1.32l1.37-.738Z"
+				/>
+				<path
+					d="m10.933 19.231-7.668-4.13-1.37.739a.75.75 0 0 0 0 1.32l9.75 5.25c.221.12.489.12.71 0l9.75-5.25a.75.75 0 0 0 0-1.32l-1.37-.738-7.668 4.13a2.25 2.25 0 0 1-2.134-.001Z"
 				/>
 			</svg>
 			<span class="text-xs font-medium">Programs</span>

@@ -133,7 +133,7 @@
 	{#if $userData?.workouts?.length}
 		<div class="flex items-center justify-between">
 			<div class="flex gap-1.5" role="group" aria-label="Sort by">
-				{#each [['last-done', 'Last done'], ['a-z', 'A–Z'], ['most-sets', 'Most sets']] as const as [key, label]}
+				{#each [['last-done', 'Most Recent'], ['a-z', 'A–Z'], ['most-sets', 'Most Sets']] as const as [key, label]}
 					<button
 						class="btn btn-xs rounded-full transition-all"
 						class:btn-primary={sortKey === key}

@@ -753,7 +753,9 @@
 			</div>
 
 			<!-- Header -->
-			<div class="border-base-300 flex items-center justify-between border-b px-4 py-3">
+			<div
+				class="border-base-300 relative z-10 flex items-center justify-between border-b px-4 py-3"
+			>
 				<button
 					class="btn btn-circle btn-ghost btn-sm"
 					onclick={closeReorderMode}
