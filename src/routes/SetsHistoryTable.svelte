@@ -33,17 +33,34 @@
 	// ── Swipe state (left = duplicate, right = delete) ─────────────────────────
 	let swipeX: Record<string, number> = $state({});
 	let swipeTouchStartX: Record<string, number> = {};
+	let swipeTouchStartY: Record<string, number> = {};
+	let swipeDirectionLocked: Record<string, 'horizontal' | 'vertical' | null> = {};
 	let lastHapticTime = 0; // Throttle haptic feedback
 	const SWIPE_DELETE_THRESHOLD = 80;
 	const SWIPE_DUPLICATE_THRESHOLD = 80;
 	const SWIPE_REVEAL_THRESHOLD = 40;
+	const DIRECTION_LOCK_THRESHOLD = 5; // px of movement before locking direction
 
 	function onSwipeTouchStart(setId: string, e: TouchEvent) {
 		swipeTouchStartX[setId] = e.touches[0].clientX;
+		swipeTouchStartY[setId] = e.touches[0].clientY;
+		swipeDirectionLocked[setId] = null;
 	}
 
 	function onSwipeTouchMove(setId: string, e: TouchEvent) {
 		const dx = swipeTouchStartX[setId] - e.touches[0].clientX;
+		const dy = swipeTouchStartY[setId] - e.touches[0].clientY;
+
+		// Lock gesture direction once movement exceeds threshold
+		if (swipeDirectionLocked[setId] === null) {
+			if (Math.abs(dx) > DIRECTION_LOCK_THRESHOLD || Math.abs(dy) > DIRECTION_LOCK_THRESHOLD) {
+				swipeDirectionLocked[setId] = Math.abs(dx) >= Math.abs(dy) ? 'horizontal' : 'vertical';
+			}
+		}
+
+		// Ignore if scrolling vertically
+		if (swipeDirectionLocked[setId] !== 'horizontal') return;
+
 		// Right swipe (negative dx) = duplicate, Left swipe (positive dx) = delete
 		if (dx > 0) {
 			swipeX[setId] = Math.min(dx, SWIPE_DELETE_THRESHOLD + 20);
@@ -65,6 +82,7 @@
 	}
 
 	function onSwipeTouchEnd(setId: string, set: Set) {
+		swipeDirectionLocked[setId] = null;
 		const dx = swipeX[setId] ?? 0;
 		if (dx >= SWIPE_DELETE_THRESHOLD) {
 			swipeX[setId] = 0;
@@ -277,7 +295,7 @@
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<div
 					class="relative mb-1 rounded-lg"
-					style="touch-action: pan-x;"
+					style="touch-action: pan-y;"
 					ontouchstart={(e) => onSwipeTouchStart(set.id, e)}
 					ontouchmove={(e) => onSwipeTouchMove(set.id, e)}
 					ontouchend={() => onSwipeTouchEnd(set.id, set)}

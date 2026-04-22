@@ -30,6 +30,7 @@
 	let startY = 0;
 	let currentY = 0;
 	let isDragging = false;
+	let keyboardOffset = $state(0);
 
 	const sizeClasses = {
 		small: 'max-h-[40svh]',
@@ -122,6 +123,27 @@
 		};
 	});
 
+	// Visual viewport tracking: lift sheet above the software keyboard
+	$effect(() => {
+		if (!open || typeof window === 'undefined' || !window.visualViewport) return;
+
+		const vv = window.visualViewport;
+
+		function updateOffset() {
+			keyboardOffset = Math.max(0, window.innerHeight - (vv.height + vv.offsetTop));
+		}
+
+		vv.addEventListener('resize', updateOffset);
+		vv.addEventListener('scroll', updateOffset);
+		updateOffset();
+
+		return () => {
+			vv.removeEventListener('resize', updateOffset);
+			vv.removeEventListener('scroll', updateOffset);
+			keyboardOffset = 0;
+		};
+	});
+
 	// iOS-safe scroll lock: position:fixed prevents touch-scroll on background
 	let savedScrollY = 0;
 
@@ -147,7 +169,7 @@
 {#if open}
 	<div
 		class="fixed inset-0 z-1000 flex items-end"
-		style="overflow-y: auto; -webkit-overflow-scrolling: touch;"
+		style="overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: {keyboardOffset}px;"
 		in:fade={{ duration: 200 }}
 		out:fade={{ duration: 250 }}
 		onkeydown={handleKeydown}
