@@ -47,11 +47,7 @@
 
 		{#if open}
 			<!-- Backdrop to close on outside click -->
-			<div
-				class="fixed inset-0 z-40"
-				onclick={close}
-				aria-hidden="true"
-			></div>
+			<div class="fixed inset-0 z-40" onclick={close} aria-hidden="true"></div>
 
 			<!-- Dropdown panel -->
 			<div
