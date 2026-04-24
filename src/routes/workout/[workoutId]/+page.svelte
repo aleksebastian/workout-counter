@@ -204,23 +204,22 @@
 				<span class="text-base font-bold">{latestSessionHeader.reps} reps</span>
 			</div>
 			<div class="bg-base-200 rounded-2xl p-4">
-				<p class="text-base-content/40 mb-3 text-[10px] font-semibold uppercase tracking-widest">
+				<p class="text-base-content/40 mb-3 text-[10px] font-semibold tracking-widest uppercase">
 					{sessionCardLabel}
 				</p>
 				<div class="grid grid-cols-2 gap-x-6 gap-y-3">
 					{#each sessionComparisonStats as stat}
 						<div class="flex flex-col">
-							<span class="text-base-content/40 text-[10px] font-semibold uppercase tracking-wider"
+							<span class="text-base-content/40 text-[10px] font-semibold tracking-wider uppercase"
 								>{stat.label}</span
 							>
-							<span class="text-xl font-bold tabular-nums leading-tight">{stat.value}</span>
+							<span class="text-xl leading-tight font-bold tabular-nums">{stat.value}</span>
 							<span
 								class="text-xs font-semibold {stat.delta.pos === true
 									? 'text-success'
 									: stat.delta.pos === false
 										? 'text-error'
-										: 'text-base-content/30'}"
-								>{stat.delta.str}</span
+										: 'text-base-content/30'}">{stat.delta.str}</span
 							>
 						</div>
 					{/each}

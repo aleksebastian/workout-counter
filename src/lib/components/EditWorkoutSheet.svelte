@@ -132,7 +132,9 @@
 			</div>
 
 			<div class="flex flex-col gap-1.5">
-				<label class="text-base-content/60 text-sm font-medium" for="edit-exercise-notes">Notes</label>
+				<label class="text-base-content/60 text-sm font-medium" for="edit-exercise-notes"
+					>Notes</label
+				>
 				<textarea
 					id="edit-exercise-notes"
 					class="textarea textarea-bordered w-full resize-none"

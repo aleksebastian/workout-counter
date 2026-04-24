@@ -309,58 +309,58 @@
 
 			<!-- Set rows -->
 			<div class="divide-base-content/8 divide-y">
-			{#each organizedSet.sets.toReversed() as set}
-				{@const time = new Date(set.date).toLocaleTimeString([], {
-					hour: 'numeric',
-					minute: '2-digit'
-				})}
-				{@const offsetX = swipeX[set.id] ?? 0}
-				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div
-					class="relative"
-					style="touch-action: pan-y;"
-					ontouchstart={(e) => onSwipeTouchStart(set.id, e)}
-					ontouchmove={(e) => onSwipeTouchMove(set.id, e)}
-					ontouchend={() => onSwipeTouchEnd(set.id, set)}
-				>
-					<!-- Duplicate action panel — fixed on the left, revealed on swipe right -->
+				{#each organizedSet.sets.toReversed() as set}
+					{@const time = new Date(set.date).toLocaleTimeString([], {
+						hour: 'numeric',
+						minute: '2-digit'
+					})}
+					{@const offsetX = swipeX[set.id] ?? 0}
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
 					<div
-						class="bg-success absolute inset-y-0 left-0 flex w-20 items-center justify-center rounded-l-lg"
-						aria-hidden="true"
+						class="relative"
+						style="touch-action: pan-y;"
+						ontouchstart={(e) => onSwipeTouchStart(set.id, e)}
+						ontouchmove={(e) => onSwipeTouchMove(set.id, e)}
+						ontouchend={() => onSwipeTouchEnd(set.id, set)}
 					>
-						<span class="text-success-content text-sm font-semibold">Record</span>
-					</div>
-
-					<!-- Delete action panel — fixed on the right, revealed as content slides away -->
-					<div
-						class="bg-error absolute inset-y-0 right-0 flex w-20 items-center justify-center rounded-r-lg"
-						aria-hidden="true"
-					>
-						<span class="text-error-content text-sm font-semibold">Delete</span>
-					</div>
-
-					<!-- overflow-hidden clips the sliding row -->
-					<div class="overflow-hidden">
-						<button
-							type="button"
-							class={[
-								'bg-base-100 active:bg-base-200 grid w-full items-center gap-2 py-3 pl-1 text-left transition-colors',
-								hasWeight ? 'grid-cols-[1fr_1fr_1fr]' : 'grid-cols-[1fr_1fr]'
-							].join(' ')}
-							style="transform: translateX({-offsetX}px); transition: {offsetX === 0
-								? 'transform 0.2s ease'
-								: 'none'};"
-							onclick={() => handleEditSetOpen(set)}
+						<!-- Duplicate action panel — fixed on the left, revealed on swipe right -->
+						<div
+							class="bg-success absolute inset-y-0 left-0 flex w-20 items-center justify-center rounded-l-lg"
+							aria-hidden="true"
 						>
-							<span class="text-sm">{set.reps}</span>
-							{#if hasWeight}
-								<span class="text-sm">{set.weight ? `${set.weight} ${weightUnit}` : '—'}</span>
-							{/if}
-							<span class="text-base-content/50 text-sm">{time}</span>
-						</button>
+							<span class="text-success-content text-sm font-semibold">Record</span>
+						</div>
+
+						<!-- Delete action panel — fixed on the right, revealed as content slides away -->
+						<div
+							class="bg-error absolute inset-y-0 right-0 flex w-20 items-center justify-center rounded-r-lg"
+							aria-hidden="true"
+						>
+							<span class="text-error-content text-sm font-semibold">Delete</span>
+						</div>
+
+						<!-- overflow-hidden clips the sliding row -->
+						<div class="overflow-hidden">
+							<button
+								type="button"
+								class={[
+									'bg-base-100 active:bg-base-200 grid w-full items-center gap-2 py-3 pl-1 text-left transition-colors',
+									hasWeight ? 'grid-cols-[1fr_1fr_1fr]' : 'grid-cols-[1fr_1fr]'
+								].join(' ')}
+								style="transform: translateX({-offsetX}px); transition: {offsetX === 0
+									? 'transform 0.2s ease'
+									: 'none'};"
+								onclick={() => handleEditSetOpen(set)}
+							>
+								<span class="text-sm">{set.reps}</span>
+								{#if hasWeight}
+									<span class="text-sm">{set.weight ? `${set.weight} ${weightUnit}` : '—'}</span>
+								{/if}
+								<span class="text-base-content/50 text-sm">{time}</span>
+							</button>
+						</div>
 					</div>
-				</div>
-			{/each}
+				{/each}
 			</div>
 		</div>
 	{/each}
