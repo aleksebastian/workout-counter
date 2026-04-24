@@ -401,7 +401,20 @@
 						<p class="text-sm font-semibold">{totalSets}</p>
 					</div>
 				{/if}
+				{#if routine.timer}
+					<div class="bg-base-200 flex-none rounded-xl px-4 py-2.5 text-center">
+						<p class="text-base-content/50 text-xs">Rest timer</p>
+						<p class="text-primary text-sm font-semibold tabular-nums">
+							{routine.timer.minutes}:{routine.timer.seconds < 10 ? '0' : ''}{routine.timer.seconds}
+						</p>
+					</div>
+				{/if}
 			</div>
+		{/if}
+
+		<!-- Notes -->
+		{#if routine.notes && !isEditing}
+			<p class="text-base-content/50 text-sm">{routine.notes}</p>
 		{/if}
 
 		<!-- Workout list -->

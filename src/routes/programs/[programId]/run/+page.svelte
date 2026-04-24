@@ -30,6 +30,7 @@
 		targetSets?: number; // undefined = free-form
 		groupLabel?: string; // routine name this entry belongs to
 		groupProgress?: { current: number; total: number };
+		routineId?: string; // for per-routine timer lookup
 	};
 
 	let session = $derived($userData?.programs?.find((s) => s.id === page.params.programId));
@@ -72,7 +73,8 @@
 						workoutId: ex.workoutId,
 						targetSets: ex.targetSets,
 						groupLabel: routine.name,
-						groupProgress: { current: idx + 1, total: exs.length }
+						groupProgress: { current: idx + 1, total: exs.length },
+						routineId: routine.id
 					});
 				});
 			}
@@ -231,7 +233,12 @@
 
 		const userRef = doc(db, 'users', $user!.uid);
 		HAPTIC.medium();
-		document.dispatchEvent(new CustomEvent('startTimer'));
+		const routineTimer = currentEntry.routineId
+			? $userData?.routines?.find((r) => r.id === currentEntry!.routineId)?.timer
+			: undefined;
+		document.dispatchEvent(
+			new CustomEvent('startTimer', { detail: routineTimer ? { duration: routineTimer } : {} })
+		);
 		document.dispatchEvent(new CustomEvent('setRecorded'));
 
 		try {

@@ -5,10 +5,7 @@
 <script lang="ts">
 	import { type Set, type Workout } from '$lib/state.svelte';
 	import { toaster } from '$lib/state.svelte';
-	import EditIcon from '$lib/icons/edit.svg?raw';
-	import DeleteIcon from '$lib/icons/delete.svg?raw';
 	import EditSetSheet from '$lib/components/EditSetSheet.svelte';
-	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
 	import { db, userData, user } from '$lib/firebase';
 	import { doc, updateDoc } from 'firebase/firestore';
 	import { format, formatRelative } from 'date-fns';
@@ -23,12 +20,10 @@
 
 	let weightUnit = $derived($userData?.preferences?.weightUnit ?? 'lbs');
 
-	let deleteSetDialog: HTMLDialogElement = $state()!;
 	let showEditSetSheet = $state(false);
 	let organizedSets: OrganizedSet[] = $derived(organizeSetsByDate(workout.sets));
 
 	let editSetId: string | undefined = undefined;
-	let pendingDeleteSet: Set | undefined = $state(undefined);
 
 	// ── Swipe state (left = duplicate, right = delete) ─────────────────────────
 	let swipeX: Record<string, number> = $state({});
@@ -86,7 +81,7 @@
 		const dx = swipeX[setId] ?? 0;
 		if (dx >= SWIPE_DELETE_THRESHOLD) {
 			swipeX[setId] = 0;
-			handleDeleteSetModalOpen(set);
+			handleDeleteSet(set.id);
 		} else if (dx <= -SWIPE_DUPLICATE_THRESHOLD) {
 			swipeX[setId] = 0;
 			handleDuplicateSet(set);
@@ -116,17 +111,13 @@
 		return setsByDate.reverse();
 	}
 
-	async function handleEditSetModalOpen(set: Set) {
+	function handleEditSetOpen(set: Set) {
 		editSetId = set.id;
 		reps = set.reps;
 		weight = set.weight ?? 0;
+		setDate = set.date;
+		setNotes = set.notes ?? '';
 		showEditSetSheet = true;
-	}
-
-	function handleDeleteSetModalOpen(set: Set) {
-		editSetId = set.id;
-		pendingDeleteSet = set;
-		deleteSetDialog?.showModal();
 	}
 
 	async function handleDuplicateSet(set: Set) {
@@ -163,39 +154,39 @@
 		}
 	}
 
-	async function handleDeleteSetResult() {
+	async function handleDeleteSet(setId: string) {
 		if (!$userData) return;
-
-		if (deleteSetDialog?.returnValue === 'default') {
-			HAPTIC.heavy();
-			const originalSets = [...workout.sets];
-			let workouts = $userData.workouts.map((currWorkout) => {
-				if (currWorkout.id === workout!.id) {
-					currWorkout.sets = currWorkout.sets.filter((set) => set.id !== editSetId);
-				}
-				return currWorkout;
-			});
-
-			const userRef = doc(db, 'users', $user!.uid);
-
-			try {
-				await updateDoc(userRef, {
-					workouts
-				});
-			} catch (err) {
-				workout.sets = originalSets;
-				toaster.addToast({
-					type: 'error',
-					message: "Couldn't delete set — try again",
-					dismissible: true
-				});
+		HAPTIC.heavy();
+		const originalSets = [...workout.sets];
+		const workouts = $userData.workouts.map((currWorkout) => {
+			if (currWorkout.id === workout!.id) {
+				currWorkout.sets = currWorkout.sets.filter((set) => set.id !== setId);
 			}
+			return currWorkout;
+		});
+		const userRef = doc(db, 'users', $user!.uid);
+		try {
+			await updateDoc(userRef, { workouts });
+		} catch (err) {
+			workout.sets = originalSets;
+			toaster.addToast({
+				type: 'error',
+				message: "Couldn't delete set — try again",
+				dismissible: true
+			});
 		}
 	}
 
 	let reps = $state(0);
 	let weight = $state(0);
-	async function handleEditSetSave(newReps: number, newWeight: number) {
+	let setDate = $state('');
+	let setNotes = $state('');
+	async function handleEditSetSave(
+		newReps: number,
+		newWeight: number,
+		newDate: string,
+		newNotes: string
+	) {
 		if (!$userData) return;
 
 		const workouts = $userData.workouts;
@@ -203,12 +194,20 @@
 		const editedSet = workout!.sets.find((set) => set.id === editSetId)!;
 		const originalReps = editedSet.reps;
 		const originalWeight = editedSet.weight;
+		const originalDate = editedSet.date;
+		const originalNotes = editedSet.notes;
 
 		editedSet.reps = newReps;
 		if (newWeight > 0) {
 			editedSet.weight = newWeight;
 		} else {
 			delete editedSet.weight;
+		}
+		editedSet.date = newDate;
+		if (newNotes.trim()) {
+			editedSet.notes = newNotes.trim();
+		} else {
+			delete editedSet.notes;
 		}
 		const index = $userData.workouts.findIndex((currWorkout) => currWorkout.id === workout!.id);
 
@@ -224,6 +223,12 @@
 				editedSet.weight = originalWeight;
 			} else {
 				delete editedSet.weight;
+			}
+			editedSet.date = originalDate;
+			if (originalNotes !== undefined) {
+				editedSet.notes = originalNotes;
+			} else {
+				delete editedSet.notes;
 			}
 			toaster.addToast({ type: 'error', message: "Couldn't save — try again", dismissible: true });
 		}
@@ -276,7 +281,7 @@
 			<!-- Column headers -->
 			<div
 				class={[
-					'text-base-content/40 mb-1 grid pr-10 pl-1 text-xs font-semibold tracking-wide uppercase',
+					'text-base-content/40 mb-1 grid pl-1 text-xs font-semibold tracking-wide uppercase',
 					hasWeight ? 'grid-cols-[1fr_1fr_1fr]' : 'grid-cols-[1fr_1fr]'
 				].join(' ')}
 			>
@@ -316,50 +321,25 @@
 						<span class="text-error-content text-sm font-semibold">Delete</span>
 					</div>
 
-					<!-- overflow-hidden clips the sliding row but NOT the dropdown -->
+					<!-- overflow-hidden clips the sliding row -->
 					<div class="overflow-hidden rounded-lg">
-						<div
+						<button
+							type="button"
 							class={[
-								'bg-base-100 grid items-center gap-2 py-3 pr-10 pl-1',
+								'bg-base-100 active:bg-base-200 grid w-full items-center gap-2 py-3 pl-1 text-left transition-colors',
 								hasWeight ? 'grid-cols-[1fr_1fr_1fr]' : 'grid-cols-[1fr_1fr]'
 							].join(' ')}
 							style="transform: translateX({-offsetX}px); transition: {offsetX === 0
 								? 'transform 0.2s ease'
 								: 'none'};"
+							onclick={() => handleEditSetOpen(set)}
 						>
 							<span class="text-sm">{set.reps}</span>
 							{#if hasWeight}
 								<span class="text-sm">{set.weight ? `${set.weight} ${weightUnit}` : '—'}</span>
 							{/if}
 							<span class="text-base-content/50 text-sm">{time}</span>
-						</div>
-					</div>
-
-					<!-- Dropdown sits OUTSIDE overflow-hidden so the menu isn't clipped.
-					     Same translateX keeps it visually in sync with the sliding row. -->
-					<div
-						class="dropdown dropdown-end absolute top-0 right-1 z-[201] flex h-full items-center focus-within:z-[202]"
-						style="transform: translateX({-offsetX}px); transition: {offsetX === 0
-							? 'transform 0.2s ease'
-							: 'none'}; {Math.abs(offsetX) > 0 ? 'pointer-events: none;' : ''}"
-					>
-						<button tabindex="0" class="btn btn-ghost btn-xs btn-circle">•••</button>
-						<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-						<ul
-							tabindex="0"
-							class="menu dropdown-content bg-base-200 rounded-box z-[100] w-28 p-1 shadow-lg"
-						>
-							<li>
-								<button onclick={() => handleEditSetModalOpen(set)}>
-									{@html EditIcon} Edit
-								</button>
-							</li>
-							<li>
-								<button onclick={() => handleDeleteSetModalOpen(set)}>
-									{@html DeleteIcon} Delete
-								</button>
-							</li>
-						</ul>
+						</button>
 					</div>
 				</div>
 			{/each}
@@ -369,24 +349,12 @@
 		{/if}
 	{/each}
 {/if}
-<EditSetSheet bind:open={showEditSetSheet} bind:reps bind:weight onSave={handleEditSetSave} />
-
-<ConfirmationDialog
-	bind:dialog={deleteSetDialog}
-	onclose={handleDeleteSetResult}
-	actionLabel="Delete set"
-	header="Delete set?"
-	destructive
->
-	{#if pendingDeleteSet}
-		<p class="text-base-content/55 mt-1 text-sm">
-			{pendingDeleteSet.reps} rep{pendingDeleteSet.reps !== 1 ? 's' : ''}{pendingDeleteSet.weight
-				? ` · ${pendingDeleteSet.weight} ${weightUnit}`
-				: ''} · {new Date(pendingDeleteSet.date).toLocaleTimeString([], {
-				hour: 'numeric',
-				minute: '2-digit'
-			})}
-		</p>
-		<p class="text-base-content/35 mt-0.5 text-xs">This can't be undone.</p>
-	{/if}
-</ConfirmationDialog>
+<EditSetSheet
+	bind:open={showEditSetSheet}
+	bind:reps
+	bind:weight
+	bind:date={setDate}
+	bind:notes={setNotes}
+	onSave={handleEditSetSave}
+	onDelete={() => editSetId && handleDeleteSet(editSetId)}
+/>

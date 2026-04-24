@@ -92,11 +92,39 @@
 		});
 	}
 
+	// ── Notes ────────────────────────────────────────────────────────────────────
+	let notesValue = $state('');
+	let notesDebounce: ReturnType<typeof setTimeout> | undefined;
+
+	$effect(() => {
+		notesValue = workout?.notes ?? '';
+	});
+
+	async function handleNotesInput() {
+		clearTimeout(notesDebounce);
+		notesDebounce = setTimeout(async () => {
+			if (!$userData || !workout) return;
+			const workouts = $userData.workouts.map((w) =>
+				w.id === workout!.id ? { ...w, notes: notesValue.trim() || undefined } : w
+			);
+			try {
+				await updateDoc(doc(db, 'users', $user!.uid), { workouts });
+			} catch {
+				// non-critical, ignore
+			}
+		}, 700);
+	}
+
 	function handleOpenSheet() {
 		showRecordSetSheet = true;
 	}
 
-	async function handleRecordSet(newReps: number, newWeight: number) {
+	async function handleRecordSet(
+		newReps: number,
+		newWeight: number,
+		newNotes: string,
+		newDate: string
+	) {
 		if (!$userData) return;
 
 		const isPR = checkPR(newReps, newWeight);
@@ -104,8 +132,9 @@
 		const newSet = {
 			id: uuidv4(),
 			reps: newReps,
-			date: new Date().toISOString(),
-			...(newWeight > 0 ? { weight: newWeight } : {})
+			date: newDate ?? new Date().toISOString(),
+			...(newWeight > 0 ? { weight: newWeight } : {}),
+			...(newNotes.trim() ? { notes: newNotes.trim() } : {})
 		};
 
 		// Save original state for rollback
@@ -174,6 +203,16 @@
 				{/if}
 			</div>
 		{/if}
+
+		<!-- Notes -->
+		<textarea
+			class="textarea placeholder:text-base-content/30 w-full resize-none border-none bg-transparent px-0 text-sm outline-none focus:outline-none"
+			rows="2"
+			placeholder="Add notes…"
+			bind:value={notesValue}
+			oninput={handleNotesInput}
+			aria-label="Exercise notes"
+		></textarea>
 
 		<!-- History -->
 		<SetsHistoryTable {workout} />

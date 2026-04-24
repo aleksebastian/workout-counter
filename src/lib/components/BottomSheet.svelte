@@ -2,6 +2,7 @@
 	import { fade } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import type { TransitionConfig } from 'svelte/transition';
+	import type { Snippet } from 'svelte';
 
 	interface Props {
 		open?: boolean;
@@ -9,9 +10,17 @@
 		title?: string;
 		onClose?: () => void;
 		children?: any;
+		headerAction?: Snippet;
 	}
 
-	let { open = $bindable(false), size = 'medium', title, onClose, children }: Props = $props();
+	let {
+		open = $bindable(false),
+		size = 'medium',
+		title,
+		onClose,
+		children,
+		headerAction
+	}: Props = $props();
 
 	// Custom slide transition that uses element's actual height to prevent overshoot
 	function slideUp(
@@ -107,7 +116,7 @@
 		const handleFocus = (e: Event) => {
 			const target = e.target as HTMLElement;
 			setTimeout(() => {
-				target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+				target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 			}, 300); // delay for keyboard animation
 		};
 
@@ -208,7 +217,10 @@
 			<!-- Header -->
 			{#if title}
 				<div class="border-base-300 shrink-0 border-b px-6 pt-2 pb-4">
-					<h2 id="sheet-title" class="text-lg font-bold">{title}</h2>
+					<div class="flex items-center gap-4">
+						<h2 id="sheet-title" class="min-w-0 flex-1 truncate text-lg font-bold">{title}</h2>
+						<div class="shrink-0">{@render headerAction?.()}</div>
+					</div>
 				</div>
 			{/if}
 			<!-- Content -->

@@ -5,12 +5,14 @@ export type Set = {
 	date: string;
 	reps: number;
 	weight?: number;
+	notes?: string;
 };
 
 export type Workout = {
 	id: string;
 	name: string;
 	sets: Set[];
+	notes?: string;
 };
 
 export type RoutineExercise = {
@@ -24,6 +26,8 @@ export type Routine = {
 	id: string;
 	name: string;
 	exercises: RoutineExercise[];
+	timer?: { minutes: number; seconds: number };
+	notes?: string;
 };
 
 export function getRoutineExercises(routine: Routine): RoutineExercise[] {

@@ -50,17 +50,26 @@
 		showEditRoutineSheet = true;
 	}
 
-	async function handleEditRoutineSave(name: string) {
+	async function handleEditRoutineSave(
+		name: string,
+		timer?: { minutes: number; seconds: number },
+		notes?: string
+	) {
 		if (!$userData) return;
 		const routines = $userData.routines ?? [];
 		const routineIndex = routines.findIndex((r) => r.id === editingRoutine?.id);
 		const userRef = doc(db, 'users', $user!.uid);
-		const originalName = routines[routineIndex].name;
-		routines[routineIndex].name = name;
+		const original = { ...routines[routineIndex] };
+		routines[routineIndex] = {
+			...routines[routineIndex],
+			name,
+			...(timer ? { timer } : { timer: undefined }),
+			...(notes ? { notes } : { notes: undefined })
+		};
 		try {
 			await updateDoc(userRef, { routines });
 		} catch (error) {
-			routines[routineIndex].name = originalName;
+			routines[routineIndex] = original;
 		}
 	}
 

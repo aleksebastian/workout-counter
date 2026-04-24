@@ -9,7 +9,7 @@
 		open?: boolean;
 		editingRoutine?: Routine;
 		name?: string;
-		onSave?: (name: string) => void;
+		onSave?: (name: string, timer?: { minutes: number; seconds: number }, notes?: string) => void;
 		onDelete?: () => void;
 		onCancel?: () => void;
 	}
@@ -27,6 +27,24 @@
 	let editError: string | undefined = $state();
 	let confirmingDelete = $state(false);
 
+	let timerMinutes = $state(1);
+	let timerSeconds = $state(30);
+	let notes = $state('');
+	let useCustomTimer = $state(false);
+
+	const TIMER_PRESETS = [
+		{ label: '0:30', m: 0, s: 30 },
+		{ label: '1:00', m: 1, s: 0 },
+		{ label: '1:30', m: 1, s: 30 },
+		{ label: '2:00', m: 2, s: 0 },
+		{ label: '2:30', m: 2, s: 30 },
+		{ label: '3:00', m: 3, s: 0 },
+		{ label: '3:30', m: 3, s: 30 },
+		{ label: '5:00', m: 5, s: 0 }
+	];
+
+	let timerPreview = $derived(`${timerMinutes}:${timerSeconds < 10 ? '0' : ''}${timerSeconds}`);
+
 	function handleSave() {
 		editError = getRoutineNameValidationMsg(
 			name,
@@ -34,7 +52,8 @@
 		);
 
 		if (!editError) {
-			onSave?.(name);
+			const timer = useCustomTimer ? { minutes: timerMinutes, seconds: timerSeconds } : undefined;
+			onSave?.(name, timer, notes.trim() || undefined);
 			open = false;
 			confirmingDelete = false;
 		}
@@ -73,6 +92,16 @@
 	$effect(() => {
 		if (editingRoutine) {
 			name = editingRoutine.name;
+			notes = editingRoutine.notes ?? '';
+			if (editingRoutine.timer) {
+				useCustomTimer = true;
+				timerMinutes = editingRoutine.timer.minutes;
+				timerSeconds = editingRoutine.timer.seconds;
+			} else {
+				useCustomTimer = false;
+				timerMinutes = $userData?.preferences?.timer?.minutes ?? 1;
+				timerSeconds = $userData?.preferences?.timer?.seconds ?? 30;
+			}
 		}
 	});
 
@@ -84,7 +113,7 @@
 	});
 </script>
 
-<BottomSheet bind:open size="small" title="Edit Routine" onClose={handleCancel}>
+<BottomSheet bind:open size="medium" title="Edit Routine" onClose={handleCancel}>
 	<div class="flex flex-col gap-4">
 		{#if confirmingDelete}
 			<div class="flex flex-col items-center gap-3 py-2 text-center">
@@ -104,6 +133,7 @@
 				<button class="btn btn-error flex-1" onclick={handleDelete}>Delete</button>
 			</div>
 		{:else}
+			<!-- Name -->
 			<div class="flex flex-col gap-1.5">
 				<label class="text-base-content/60 text-sm font-medium" for="edit-routine-name">Name</label>
 				<input
@@ -118,6 +148,88 @@
 				/>
 				{#if editError}
 					<p class="text-error px-0.5 text-xs">{editError}</p>
+				{/if}
+			</div>
+
+			<!-- Notes -->
+			<div class="flex flex-col gap-1.5">
+				<label class="text-base-content/60 text-sm font-medium" for="edit-routine-notes"
+					>Notes</label
+				>
+				<textarea
+					id="edit-routine-notes"
+					class="textarea textarea-bordered w-full resize-none text-sm"
+					rows="2"
+					placeholder="Optional notes for this routine…"
+					bind:value={notes}
+				></textarea>
+			</div>
+
+			<!-- Rest Timer -->
+			<div class="flex flex-col gap-3">
+				<div class="flex items-center justify-between">
+					<div>
+						<p class="text-base-content/60 text-sm font-medium">Rest Timer</p>
+						<p class="text-base-content/40 text-xs">
+							{useCustomTimer ? 'Custom for this routine' : 'Uses global preference'}
+						</p>
+					</div>
+					<div class="flex items-center gap-2">
+						{#if useCustomTimer}
+							<span class="text-primary text-xl font-black tabular-nums">{timerPreview}</span>
+						{/if}
+						<input
+							type="checkbox"
+							class="toggle toggle-primary toggle-sm"
+							bind:checked={useCustomTimer}
+						/>
+					</div>
+				</div>
+
+				{#if useCustomTimer}
+					<div class="flex flex-col gap-2">
+						<!-- Presets -->
+						<div class="scrollbar-none -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5">
+							{#each TIMER_PRESETS as preset}
+								<button
+									type="button"
+									class="btn btn-xs flex-none transition-colors"
+									class:btn-primary={timerMinutes === preset.m && timerSeconds === preset.s}
+									class:btn-ghost={timerMinutes !== preset.m || timerSeconds !== preset.s}
+									onclick={() => {
+										timerMinutes = preset.m;
+										timerSeconds = preset.s;
+									}}>{preset.label}</button
+								>
+							{/each}
+						</div>
+						<!-- Fine-tune -->
+						<div class="flex items-center gap-3">
+							<div class="flex flex-1 items-center gap-2">
+								<input
+									type="number"
+									class="input input-bordered input-sm w-full text-center"
+									bind:value={timerMinutes}
+									min="0"
+									max="59"
+									onfocus={(e) => (e.currentTarget as HTMLInputElement).select()}
+								/>
+								<span class="text-base-content/50 text-xs">min</span>
+							</div>
+							<span class="text-base-content/30 font-bold">:</span>
+							<div class="flex flex-1 items-center gap-2">
+								<input
+									type="number"
+									class="input input-bordered input-sm w-full text-center"
+									bind:value={timerSeconds}
+									min={timerMinutes === 0 ? 1 : 0}
+									max="59"
+									onfocus={(e) => (e.currentTarget as HTMLInputElement).select()}
+								/>
+								<span class="text-base-content/50 text-xs">sec</span>
+							</div>
+						</div>
+					</div>
 				{/if}
 			</div>
 

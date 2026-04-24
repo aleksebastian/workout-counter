@@ -179,14 +179,22 @@
 		}
 	}
 
-	async function startTimer() {
+	async function startTimer(e?: Event) {
+		const override = (e as CustomEvent<{ duration?: { minutes: number; seconds: number } }>)?.detail
+			?.duration;
+		if (override) {
+			restTime = { ...override };
+		} else {
+			restTime = { ...defaultRestTime };
+		}
+		activeTimerTotal = { ...restTime };
+
 		expirationDate = add(new Date(), { minutes: restTime.minutes, seconds: restTime.seconds });
 		localStorage.setItem(localStorageKey, expirationDate.toISOString());
 
 		if (restTimerHandle) {
-			restTime = { ...defaultRestTime };
 			stopTimer();
-			startTimer();
+			startTimer(e);
 			return;
 		}
 
@@ -244,12 +252,13 @@
 
 	let restTimerHandle: NodeJS.Timeout | undefined = undefined;
 	let expirationDate: Date | undefined = undefined;
+	let activeTimerTotal = $state({ minutes: 1, seconds: 30 });
 
 	let timerProgress = $derived.by(() => {
 		if (!restTimer.value) return 0;
 		const [mStr, sStr] = restTimer.value.split(':');
 		const remaining = parseInt(mStr) * 60 + parseInt(sStr);
-		const total = defaultRestTime.minutes * 60 + defaultRestTime.seconds;
+		const total = activeTimerTotal.minutes * 60 + activeTimerTotal.seconds;
 		return total > 0 ? Math.min(100, Math.max(0, (remaining / total) * 100)) : 0;
 	});
 
@@ -291,7 +300,7 @@
 
 {#if showInstallBanner}
 	<div
-		class="bg-base-300 fixed right-0 bottom-20 left-0 z-200 flex items-center justify-between px-4 py-3 shadow-lg"
+		class="bg-base-300 fixed right-0 bottom-20 left-0 z-600 flex items-center justify-between px-4 py-3 shadow-lg"
 		style="margin-bottom: env(safe-area-inset-bottom)"
 	>
 		<div>
@@ -309,11 +318,11 @@
 
 {#if updateAvailable}
 	<div
-		class="bg-base-300 fixed right-0 bottom-20 left-0 z-200 flex items-center justify-between px-4 py-3 shadow-lg"
-		style="margin-bottom: env(safe-area-inset-bottom)"
+		class="bg-base-300 fixed right-0 left-0 z-600 flex items-center justify-between px-4 py-3 shadow-lg"
+		style="bottom: calc(4.05rem + env(safe-area-inset-bottom, 0px))"
 	>
 		<div>
-			<p class="text-sm font-semibold">Update available</p>
+			<p class="text-sm font-semibold">Update Available</p>
 			<p class="text-base-content/60 text-xs">A new version of SetCount is ready</p>
 		</div>
 		<button class="btn btn-primary btn-sm" onclick={applyUpdate}>Reload</button>
