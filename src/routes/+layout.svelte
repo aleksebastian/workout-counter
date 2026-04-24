@@ -4,6 +4,8 @@
 	import BottomNav from './BottomNav.svelte';
 	import { handleSignOut } from '$lib/logic/auth';
 	import { onMount } from 'svelte';
+	import { fly } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
 	import { add } from 'date-fns';
 	import { user, userData } from '$lib/firebase';
 	import Toasts from '$lib/components/Toasts.svelte';
@@ -318,8 +320,9 @@
 
 {#if updateAvailable}
 	<div
-		class="bg-base-300 fixed right-0 left-0 z-600 flex items-center justify-between px-4 py-3 shadow-lg"
-		style="bottom: calc(4.05rem + env(safe-area-inset-bottom, 0px))"
+		class="bg-base-200 fixed right-4 left-4 z-[600] flex items-center justify-between rounded-2xl px-4 py-3 shadow-xl"
+		style="bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px))"
+		transition:fly={{ y: 80, duration: 350, easing: cubicOut }}
 	>
 		<div>
 			<p class="text-sm font-semibold">Update Available</p>
