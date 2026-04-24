@@ -14,6 +14,18 @@
 	let { hasUser, user, avatarClick, signOutClick }: Props = $props();
 
 	let open = $state(false);
+	let containerEl = $state<HTMLDivElement>();
+
+	$effect(() => {
+		if (!open) return;
+		function handleDocClick(e: MouseEvent) {
+			if (containerEl && !containerEl.contains(e.target as Node)) {
+				open = false;
+			}
+		}
+		document.addEventListener('click', handleDocClick, true);
+		return () => document.removeEventListener('click', handleDocClick, true);
+	});
 
 	function toggle() {
 		open = !open;
@@ -31,7 +43,7 @@
 </script>
 
 {#if hasUser}
-	<div class="relative">
+	<div class="relative" bind:this={containerEl}>
 		<button
 			class="btn btn-circle bg-neutral text-neutral-content"
 			onclick={toggle}
@@ -46,9 +58,6 @@
 		</button>
 
 		{#if open}
-			<!-- Backdrop to close on outside click -->
-			<div class="fixed inset-0 z-40" onclick={close} aria-hidden="true"></div>
-
 			<!-- Dropdown panel -->
 			<div
 				class="bg-base-100 border-base-200 absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-2xl border shadow-2xl"
