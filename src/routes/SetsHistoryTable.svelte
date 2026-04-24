@@ -269,7 +269,7 @@
 		<p class="font-semibold">No sets yet</p>
 		<p class="text-base-content/50 max-w-xs text-sm">Tap the + button to record your first set.</p>
 	</div>
-{:else if organizedSets}
+{:else}
 	{#each organizedSets as organizedSet, index}
 		{@const hasWeight = organizedSet.sets.some((s) => s.weight)}
 		<div>

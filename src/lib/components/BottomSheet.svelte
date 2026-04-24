@@ -219,7 +219,7 @@
 				<div class="border-base-300 shrink-0 border-b px-6 pt-2 pb-4">
 					<div class="flex items-center gap-4">
 						<h2 id="sheet-title" class="min-w-0 flex-1 truncate text-lg font-bold">{title}</h2>
-						<div class="shrink-0">{@render headerAction?.()}</div>
+						{#if headerAction}<div class="shrink-0">{@render headerAction()}</div>{/if}
 					</div>
 				</div>
 			{/if}

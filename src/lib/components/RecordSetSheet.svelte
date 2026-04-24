@@ -41,11 +41,26 @@
 	let repsPanel = $state<HTMLDivElement>();
 	let notesPanel = $state<HTMLDivElement>();
 
-	// Animate container height by measuring the active panel each time the view switches
+	// Animate container height by measuring the active panel each time the view switches.
+	// On first render both panels are absolute so the container has no intrinsic height.
+	// We set the initial height without a transition, then enable it after the browser paints
+	// so subsequent panel switches animate smoothly without a 0→height flash on open.
 	$effect(() => {
 		const activePanel = showNotesView ? notesPanel : repsPanel;
 		if (!outerEl || !activePanel) return;
-		outerEl.style.height = activePanel.scrollHeight + 'px';
+		const newHeight = activePanel.scrollHeight + 'px';
+		if (!outerEl.style.height) {
+			// First paint: skip transition to avoid animating from 0
+			outerEl.style.transition = 'none';
+			outerEl.style.height = newHeight;
+			requestAnimationFrame(() =>
+				requestAnimationFrame(() => {
+					if (outerEl) outerEl.style.transition = 'height 200ms ease-out';
+				})
+			);
+		} else {
+			outerEl.style.height = newHeight;
+		}
 	});
 
 	$effect(() => {
@@ -147,11 +162,7 @@
 	{/snippet}
 
 	<!-- Outer container clips the sliding panels; height driven by JS for smooth animation -->
-	<div
-		bind:this={outerEl}
-		class="relative overflow-hidden"
-		style="transition: height 200ms ease-out;"
-	>
+	<div bind:this={outerEl} class="relative overflow-hidden">
 		<!-- ── Reps / Weight panel ──────────────────────────────────────── -->
 		<div
 			bind:this={repsPanel}
