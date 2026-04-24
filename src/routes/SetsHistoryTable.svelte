@@ -6,6 +6,7 @@
 	import { type Set, type Workout } from '$lib/state.svelte';
 	import { toaster } from '$lib/state.svelte';
 	import EditSetSheet from '$lib/components/EditSetSheet.svelte';
+	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
 	import { db, userData, user } from '$lib/firebase';
 	import { doc, updateDoc } from 'firebase/firestore';
 	import { format, formatRelative } from 'date-fns';
@@ -14,9 +15,10 @@
 
 	interface Props {
 		workout: Workout;
+		hideFirstHeader?: boolean;
 	}
 
-	let { workout }: Props = $props();
+	let { workout, hideFirstHeader = false }: Props = $props();
 
 	let weightUnit = $derived($userData?.preferences?.weightUnit ?? 'lbs');
 
@@ -24,6 +26,18 @@
 	let organizedSets: OrganizedSet[] = $derived(organizeSetsByDate(workout.sets));
 
 	let editSetId: string | undefined = undefined;
+
+	// ── Swipe-to-delete confirmation ───────────────────────────────────────────
+	let pendingDeleteSetId = $state<string | undefined>(undefined);
+	let deleteDialog: HTMLDialogElement = $state()!;
+
+	function handleDeleteDialogClose(event: Event) {
+		const dialog = event.target as HTMLDialogElement;
+		if (dialog.returnValue === 'default' && pendingDeleteSetId) {
+			handleDeleteSet(pendingDeleteSetId);
+		}
+		pendingDeleteSetId = undefined;
+	}
 
 	// ── Swipe state (left = duplicate, right = delete) ─────────────────────────
 	let swipeX: Record<string, number> = $state({});
@@ -81,7 +95,8 @@
 		const dx = swipeX[setId] ?? 0;
 		if (dx >= SWIPE_DELETE_THRESHOLD) {
 			swipeX[setId] = 0;
-			handleDeleteSet(set.id);
+			pendingDeleteSetId = set.id;
+			deleteDialog?.showModal();
 		} else if (dx <= -SWIPE_DUPLICATE_THRESHOLD) {
 			swipeX[setId] = 0;
 			handleDuplicateSet(set);
@@ -272,11 +287,13 @@
 {:else}
 	{#each organizedSets as organizedSet, index}
 		{@const hasWeight = organizedSet.sets.some((s) => s.weight)}
-		<div>
-			<div class="mb-2 flex justify-between">
-				<h3>{getRelativeDate(organizedSet.date)}</h3>
-				<p><strong>{organizedSet.totalReps} reps</strong></p>
-			</div>
+		<div class={index > 0 ? 'mt-6' : ''}>
+			{#if !(index === 0 && hideFirstHeader)}
+				<div class="mb-2 flex justify-between">
+					<h3>{getRelativeDate(organizedSet.date)}</h3>
+					<p><strong>{organizedSet.totalReps} reps</strong></p>
+				</div>
+			{/if}
 
 			<!-- Column headers -->
 			<div
@@ -291,6 +308,7 @@
 			</div>
 
 			<!-- Set rows -->
+			<div class="divide-base-content/8 divide-y">
 			{#each organizedSet.sets.toReversed() as set}
 				{@const time = new Date(set.date).toLocaleTimeString([], {
 					hour: 'numeric',
@@ -299,7 +317,7 @@
 				{@const offsetX = swipeX[set.id] ?? 0}
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<div
-					class="relative mb-1 rounded-lg"
+					class="relative"
 					style="touch-action: pan-y;"
 					ontouchstart={(e) => onSwipeTouchStart(set.id, e)}
 					ontouchmove={(e) => onSwipeTouchMove(set.id, e)}
@@ -322,7 +340,7 @@
 					</div>
 
 					<!-- overflow-hidden clips the sliding row -->
-					<div class="overflow-hidden rounded-lg">
+					<div class="overflow-hidden">
 						<button
 							type="button"
 							class={[
@@ -343,10 +361,8 @@
 					</div>
 				</div>
 			{/each}
+			</div>
 		</div>
-		{#if index < organizedSets.length - 1}
-			<div class="divider"></div>
-		{/if}
 	{/each}
 {/if}
 <EditSetSheet
@@ -357,4 +373,12 @@
 	bind:notes={setNotes}
 	onSave={handleEditSetSave}
 	onDelete={() => editSetId && handleDeleteSet(editSetId)}
+/>
+<ConfirmationDialog
+	bind:dialog={deleteDialog}
+	onclose={handleDeleteDialogClose}
+	header="Delete this set?"
+	content="This can't be undone."
+	actionLabel="Delete"
+	destructive
 />

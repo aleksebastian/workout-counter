@@ -21,6 +21,7 @@
 
 	let newWorkoutName = $state('');
 	let editedWorkoutName = $state('');
+	let editedWorkoutNotes = $state('');
 	let search = $state('');
 	let sortKey = $state<SortKey>('last-done');
 
@@ -69,7 +70,7 @@
 		showEditWorkoutSheet = true;
 	}
 
-	async function handleEditWorkoutSave(name: string) {
+	async function handleEditWorkoutSave(name: string, notes: string) {
 		if (!$userData) return;
 
 		const userRef = doc(db, 'users', $user!.uid);
@@ -80,12 +81,23 @@
 
 		if (!name.trim()) return;
 		const originalName = workouts[workoutIndex].name;
+		const originalNotes = workouts[workoutIndex].notes;
 		workouts[workoutIndex].name = name;
+		if (notes.trim()) {
+			workouts[workoutIndex].notes = notes.trim();
+		} else {
+			delete workouts[workoutIndex].notes;
+		}
 
 		try {
 			await updateDoc(userRef, { workouts });
 		} catch (error) {
 			workouts[workoutIndex].name = originalName;
+			if (originalNotes !== undefined) {
+				workouts[workoutIndex].notes = originalNotes;
+			} else {
+				delete workouts[workoutIndex].notes;
+			}
 		}
 	}
 
@@ -209,6 +221,9 @@
 								style:opacity={isEditingWorkouts ? '0' : '1'}
 							>
 								<div class="overflow-hidden">
+									{#if workout.notes}
+										<p class="text-base-content/50 truncate text-xs">{workout.notes}</p>
+									{/if}
 									<span
 										class={[
 											'text-xs',
@@ -277,6 +292,7 @@
 <EditWorkoutSheet
 	bind:open={showEditWorkoutSheet}
 	bind:name={editedWorkoutName}
+	bind:notes={editedWorkoutNotes}
 	{editingWorkout}
 	onSave={handleEditWorkoutSave}
 	onDelete={handleEditWorkoutDelete}

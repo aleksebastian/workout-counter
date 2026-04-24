@@ -9,7 +9,8 @@
 		open?: boolean;
 		editingWorkout?: Workout;
 		name?: string;
-		onSave?: (name: string) => void;
+		notes?: string;
+		onSave?: (name: string, notes: string) => void;
 		onDelete?: () => void;
 		onCancel?: () => void;
 	}
@@ -18,6 +19,7 @@
 		open = $bindable(false),
 		editingWorkout,
 		name = $bindable(''),
+		notes = $bindable(''),
 		onSave,
 		onDelete,
 		onCancel
@@ -34,7 +36,7 @@
 		);
 
 		if (!editWorkoutError) {
-			onSave?.(name);
+			onSave?.(name, notes);
 			open = false;
 			confirmingDelete = false;
 		}
@@ -73,6 +75,7 @@
 	$effect(() => {
 		if (editingWorkout) {
 			name = editingWorkout.name;
+			notes = editingWorkout.notes ?? '';
 		}
 	});
 
@@ -84,7 +87,7 @@
 	});
 </script>
 
-<BottomSheet bind:open size="small" title="Edit Exercise" onClose={handleCancel}>
+<BottomSheet bind:open size="medium" title="Edit Exercise" onClose={handleCancel}>
 	<div class="flex flex-col gap-4">
 		{#if confirmingDelete}
 			<div class="flex flex-col items-center gap-3 py-2 text-center">
@@ -126,6 +129,17 @@
 				{#if editWorkoutError}
 					<p class="text-error px-0.5 text-xs">{editWorkoutError}</p>
 				{/if}
+			</div>
+
+			<div class="flex flex-col gap-1.5">
+				<label class="text-base-content/60 text-sm font-medium" for="edit-exercise-notes">Notes</label>
+				<textarea
+					id="edit-exercise-notes"
+					class="textarea textarea-bordered w-full resize-none"
+					rows="3"
+					placeholder="e.g. focus cues, grip notes, mobility tips…"
+					bind:value={notes}
+				></textarea>
 			</div>
 
 			<div class="flex gap-2">
