@@ -52,6 +52,7 @@ export type ProgramDay = {
 export type Program = {
 	id: string;
 	name: string;
+	notes?: string;
 	schedule?: ProgramDay[]; // new: per-day items; source of truth when present
 	// Backward-compat fields:
 	days?: number[];

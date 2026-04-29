@@ -9,7 +9,8 @@
 		open?: boolean;
 		editingProgram?: Program;
 		name?: string;
-		onSave?: (name: string) => void;
+		notes?: string;
+		onSave?: (name: string, notes: string) => void;
 		onDelete?: () => void;
 		onCancel?: () => void;
 	}
@@ -18,6 +19,7 @@
 		open = $bindable(false),
 		editingProgram,
 		name = $bindable(''),
+		notes = $bindable(''),
 		onSave,
 		onDelete,
 		onCancel
@@ -37,7 +39,7 @@
 		editError = validate();
 
 		if (!editError) {
-			onSave?.(name);
+			onSave?.(name, notes);
 			open = false;
 			confirmingDelete = false;
 		}
@@ -72,10 +74,11 @@
 		}
 	}
 
-	// Set name when editingProgram changes
+	// Set name/notes when editingProgram changes
 	$effect(() => {
 		if (editingProgram) {
 			name = editingProgram.name;
+			notes = editingProgram.notes ?? '';
 		}
 	});
 
@@ -87,7 +90,7 @@
 	});
 </script>
 
-<BottomSheet bind:open size="small" title="Edit Program" onClose={handleCancel}>
+<BottomSheet bind:open size="medium" title="Edit Program" onClose={handleCancel}>
 	<div class="flex flex-col gap-4">
 		{#if confirmingDelete}
 			<div class="flex flex-col items-center gap-3 py-2 text-center">
@@ -115,13 +118,24 @@
 					aria-label="Program Name"
 					type="text"
 					autocomplete="off"
-					class="input input-bordered w-full"
+					class="input input-bordered w-full text-base"
 					bind:value={name}
 					onkeydown={handleKeyDown}
 				/>
 				{#if editError}
 					<p class="text-error px-0.5 text-xs">{editError}</p>
 				{/if}
+			</div>
+			<div class="flex flex-col gap-1.5">
+				<label class="text-base-content/60 text-sm font-medium" for="edit-program-notes">Notes</label>
+				<textarea
+					id="edit-program-notes"
+					aria-label="Program Notes"
+					rows="3"
+					class="textarea textarea-bordered w-full resize-none text-base"
+					placeholder="Optional notes about this program…"
+					bind:value={notes}
+				></textarea>
 			</div>
 
 			<div class="flex gap-2">

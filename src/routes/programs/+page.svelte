@@ -41,11 +41,6 @@
 		return getProgramDays(program).length;
 	}
 
-	function getDayLabel(program: Program): string {
-		return getProgramDays(program)
-			.map((d) => DAY_NAMES[d])
-			.join(' · ');
-	}
 
 	function getDayExerciseCount(program: Program, day: number): number {
 		const sd = getProgramSchedule(program).find((s) => s.day === day);
@@ -77,13 +72,13 @@
 		showEditProgramSheet = true;
 	}
 
-	async function handleEditProgramSave(name: string) {
+	async function handleEditProgramSave(name: string, notes: string) {
 		if (!$userData) return;
 		const programs = $userData.programs ?? [];
 		const idx = programs.findIndex((s) => s.id === editingProgram?.id);
 		const userRef = doc(db, 'users', $user!.uid);
 		const original = { ...programs[idx] };
-		programs[idx] = { ...programs[idx], name };
+		programs[idx] = { ...programs[idx], name, ...(notes ? { notes } : { notes: undefined }) };
 		try {
 			await updateDoc(userRef, { programs });
 		} catch {
@@ -152,40 +147,51 @@
 					<div class="ml-2 flex items-start justify-between gap-2">
 						<div class="flex flex-1 flex-col gap-0.5 overflow-hidden">
 							<span class="truncate text-base font-bold">{activeProgram.name}</span>
-							{#if dayCount > 0}
-								<div class="mt-1 flex items-center gap-1.5">
-									{#each DAY_SHORT as _label, i}
-										{@const scheduled = getProgramDays(activeProgram).includes(i)}
-										{@const isToday = i === todayDow}
+						{#if activeProgram.notes}
+							<p class="text-base-content/50 mt-0.5 line-clamp-2 text-xs">{activeProgram.notes}</p>
+						{/if}
+						{#if dayCount > 0}
+							<div class="mt-1.5 flex items-end gap-2">
+								{#each DAY_SHORT as label, i}
+									{@const scheduled = getProgramDays(activeProgram).includes(i)}
+									{@const isToday = i === todayDow}
+									<div class="flex flex-col items-center gap-0.5">
+										<span
+											class={[
+												'text-[10px] font-bold leading-none transition-colors',
+												isToday
+													? 'text-primary'
+													: scheduled
+														? 'text-base-content/50'
+														: 'text-base-content/20'
+											].join(' ')}
+										>{label}</span
+										>
 										<div
 											class={[
 												'rounded-full transition-all',
 												scheduled && isToday
-													? 'bg-primary'
+													? 'bg-primary h-1.5 w-1.5'
 													: scheduled
-														? 'bg-primary/30'
-														: 'bg-base-300',
-												isToday ? 'h-2.5 w-2.5' : 'h-2 w-2'
+														? 'bg-primary/40 h-1 w-1'
+														: 'bg-transparent h-1 w-1'
 											].join(' ')}
 										></div>
-									{/each}
-									<span class="text-base-content/40 ml-1 text-xs"
-										>{dayCount} day{dayCount !== 1 ? 's' : ''}</span
-									>
-								</div>
-							{:else}
-								<p class="text-base-content/40 text-xs">No days scheduled yet</p>
-							{/if}
-						</div>
+									</div>
+								{/each}
+							</div>
+						{:else}
+							<p class="text-base-content/40 text-xs">No days scheduled yet</p>
+						{/if}
 
 						<!-- Start / Edit overlay -->
 						<div class="relative shrink-0">
-							<!-- Start button: fades out when editing or no today entry -->
+							<!-- Start button: fades out when editing, no today entry, or no exercises -->
 							<button
 								type="button"
 								class="btn btn-primary btn-sm transition-opacity duration-200"
-								style:opacity={!isEditingPrograms && todayEntry ? '1' : '0'}
-								style:pointer-events={!isEditingPrograms && todayEntry ? 'auto' : 'none'}
+								style:opacity={!isEditingPrograms && todayEntry && todayExCount > 0 ? '1' : '0'}
+								style:pointer-events={!isEditingPrograms && todayEntry && todayExCount > 0 ? 'auto' : 'none'}
 								onclick={() => goto(`/programs/${activeProgram!.id}/run?day=${todayDow}`)}
 								>Start</button
 							>
@@ -207,7 +213,8 @@
 						style:opacity={isEditingPrograms ? '0' : '1'}
 					>
 						<div class="overflow-hidden">
-							{#if todayEntry}
+							{#if todayEntry && todayExCount > 0}
+								<!-- Scheduled day with exercises -->
 								<a
 									href={`/programs/${activeProgram.id}`}
 									class="border-primary/20 bg-primary/10 hover:bg-primary/15 mt-1 ml-2 flex items-center justify-between rounded-xl border px-3 py-2.5 transition-colors"
@@ -234,14 +241,36 @@
 										<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
 									</svg>
 								</a>
+							{:else if todayEntry && todayExCount === 0}
+								<!-- Scheduled day but no exercises added yet -->
+								<a
+									href={`/programs/${activeProgram.id}`}
+									class="border-base-content/10 mt-1 ml-2 flex items-center justify-between rounded-xl border border-dashed px-3 py-2.5 transition-colors"
+								>
+									<div>
+										<p class="text-base-content/40 text-xs font-semibold tracking-wide uppercase">
+											Today · {DAY_NAMES[todayDow]}
+										</p>
+										<p class="text-base-content/35 text-xs">No exercises added yet · Tap to set up</p>
+									</div>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="text-base-content/20 h-4 w-4 shrink-0"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+										stroke-width="2.5"
+									>
+										<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+									</svg>
+								</a>
 							{:else}
+								<!-- Rest day -->
 								<a
 									href={`/programs/${activeProgram.id}`}
 									class="mt-1 ml-2 flex items-center justify-between"
 								>
-									<p class="text-base-content/40 text-xs">
-										Not scheduled today · Tap to view schedule
-									</p>
+									<p class="text-base-content/35 text-xs">Rest day · Tap to view schedule</p>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
 										class="text-base-content/20 h-4 w-4 shrink-0"
@@ -258,6 +287,7 @@
 					</div>
 				</div>
 			</div>
+		</div>
 		{/if}
 
 		<!-- ── Other Programs ─────────────────────────────────────── -->
@@ -270,7 +300,6 @@
 				{/if}
 				{#each otherPrograms as session}
 					{@const dayCount = getDayCount(session)}
-					{@const dayLabel = getDayLabel(session)}
 					<a
 						href={isEditingPrograms ? undefined : `/programs/${session.id}`}
 						onclick={isEditingPrograms
@@ -283,15 +312,48 @@
 					>
 						<div class="flex min-w-0 flex-1 flex-col gap-0.5 overflow-hidden">
 							<span class="truncate font-semibold">{session.name}</span>
+							{#if session.notes && !isEditingPrograms}
+								<p class="text-base-content/45 line-clamp-1 text-xs">{session.notes}</p>
+							{/if}
 							<div
 								class="grid transition-all duration-200 ease-out"
 								style:grid-template-rows={isEditingPrograms ? '0fr' : '1fr'}
 								style:opacity={isEditingPrograms ? '0' : '1'}
 							>
 								<div class="overflow-hidden">
-									<p class="text-base-content/40 text-xs">
-										{dayCount > 0 ? dayLabel : 'No days scheduled'}
-									</p>
+								{#if dayCount > 0}
+									<div class="mt-1 flex items-end gap-1.5">
+										{#each DAY_SHORT as label, i}
+											{@const scheduled = getProgramDays(session).includes(i)}
+											{@const isToday = i === todayDow}
+											<div class="flex flex-col items-center gap-0.5">
+												<span
+													class={[
+														'text-[9px] font-bold leading-none',
+														scheduled
+															? isToday
+																? 'text-primary'
+																: 'text-base-content/40'
+															: 'text-base-content/15'
+													].join(' ')}
+												>{label}</span
+												>
+												<div
+													class={[
+														'h-1 w-1 rounded-full',
+														scheduled && isToday
+															? 'bg-primary'
+															: scheduled
+																? 'bg-base-content/30'
+																: 'bg-transparent'
+													].join(' ')}
+												></div>
+											</div>
+										{/each}
+									</div>
+								{:else}
+									<p class="text-base-content/30 text-xs">No days scheduled</p>
+								{/if}
 								</div>
 							</div>
 						</div>
