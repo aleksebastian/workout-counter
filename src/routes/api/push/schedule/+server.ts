@@ -1,7 +1,7 @@
 import { error, json } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import { Client } from '@upstash/qstash';
-import { QSTASH_TOKEN } from '$env/static/private';
+import { QSTASH_TOKEN, QSTASH_URL } from '$env/static/private';
 import type { RequestHandler } from './$types';
 import { sendPushToUser } from '../_push';
 
@@ -24,7 +24,7 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 	}
 
 	// In production: schedule via QStash
-	const client = new Client({ token: QSTASH_TOKEN });
+	const client = new Client({ baseUrl: QSTASH_URL, token: QSTASH_TOKEN });
 	const origin = url.origin;
 
 	const result = await client.publishJSON({
