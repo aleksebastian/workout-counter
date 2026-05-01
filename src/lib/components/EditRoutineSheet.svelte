@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import BottomSheet from '$lib/components/BottomSheet.svelte';
 	import { type Routine } from '$lib/state.svelte';
 	import { userData } from '$lib/firebase';
@@ -99,8 +100,9 @@
 				timerSeconds = editingRoutine.timer.seconds;
 			} else {
 				useCustomTimer = false;
-				timerMinutes = $userData?.preferences?.timer?.minutes ?? 1;
-				timerSeconds = $userData?.preferences?.timer?.seconds ?? 30;
+				const pref = untrack(() => $userData?.preferences?.timer);
+				timerMinutes = pref?.minutes ?? 1;
+				timerSeconds = pref?.seconds ?? 30;
 			}
 		}
 	});

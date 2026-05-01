@@ -140,86 +140,76 @@
 					Active Program
 				</p>
 				<div
-					class="border-primary/30 bg-primary/8 rounded-box relative flex flex-col gap-3 overflow-hidden border px-4 py-4"
+					class="border-primary/30 bg-primary/8 rounded-box relative overflow-hidden border px-4 py-4"
 				>
 					<div class="bg-primary rounded-l-box absolute top-0 left-0 h-full w-1"></div>
-					<div class="ml-2 flex items-start justify-between gap-2">
-						<div class="flex flex-1 flex-col gap-0.5 overflow-hidden">
-							<span class="truncate text-base font-bold">{activeProgram.name}</span>
-							{#if activeProgram.notes}
-								<p class="text-base-content/50 mt-0.5 line-clamp-2 text-xs">
-									{activeProgram.notes}
-								</p>
-							{/if}
-							{#if dayCount > 0}
-								<div class="mt-1.5 flex items-end gap-2">
-									{#each DAY_SHORT as label, i}
-										{@const scheduled = getProgramDays(activeProgram).includes(i)}
-										{@const isToday = i === todayDow}
-										<div class="flex flex-col items-center gap-0.5">
-											<span
-												class={[
-													'text-[10px] leading-none font-bold transition-colors',
-													isToday
-														? 'text-primary'
-														: scheduled
-															? 'text-base-content/50'
-															: 'text-base-content/20'
-												].join(' ')}>{label}</span
-											>
-											<div
-												class={[
-													'rounded-full transition-all',
-													scheduled && isToday
-														? 'bg-primary h-1.5 w-1.5'
-														: scheduled
-															? 'bg-primary/40 h-1 w-1'
-															: 'h-1 w-1 bg-transparent'
-												].join(' ')}
-											></div>
-										</div>
-									{/each}
-								</div>
-							{:else}
-								<p class="text-base-content/40 text-xs">No days scheduled yet</p>
-							{/if}
+					<div class="ml-2 flex flex-col gap-3">
 
-							<!-- Start / Edit overlay -->
-							<div class="relative shrink-0">
-								<!-- Start button: fades out when editing, no today entry, or no exercises -->
-								<button
-									type="button"
-									class="btn btn-primary btn-sm transition-opacity duration-200"
-									style:opacity={!isEditingPrograms && todayEntry && todayExCount > 0 ? '1' : '0'}
-									style:pointer-events={!isEditingPrograms && todayEntry && todayExCount > 0
-										? 'auto'
-										: 'none'}
-									onclick={() => goto(`/programs/${activeProgram!.id}/run?day=${todayDow}`)}
-									>Start</button
-								>
-								<!-- Edit pencil: fades in when editing -->
-								<button
-									class="btn btn-ghost btn-sm absolute inset-0 flex items-center justify-center transition-opacity duration-200 [&>svg]:h-4 [&>svg]:w-4"
-									style:opacity={isEditingPrograms ? '1' : '0'}
-									style:pointer-events={isEditingPrograms ? 'auto' : 'none'}
-									onclick={() => handleProgramEditClick(activeProgram!)}
-									aria-label="Edit program">{@html EditIcon}</button
-								>
+						<!-- Name row + edit button -->
+						<div class="flex items-start justify-between gap-2">
+							<div class="min-w-0 flex-1">
+								<p class="text-base font-bold leading-snug">{activeProgram.name}</p>
+								{#if activeProgram.notes}
+									<p class="text-base-content/50 mt-0.5 line-clamp-2 text-xs">
+										{activeProgram.notes}
+									</p>
+								{/if}
 							</div>
+							<button
+								class="btn btn-ghost btn-sm shrink-0 transition-opacity duration-200 [&>svg]:h-4 [&>svg]:w-4"
+								style:opacity={isEditingPrograms ? '1' : '0'}
+								style:pointer-events={isEditingPrograms ? 'auto' : 'none'}
+								onclick={() => handleProgramEditClick(activeProgram!)}
+								aria-label="Edit program">{@html EditIcon}</button
+							>
 						</div>
 
-						<!-- Today entry — collapses when editing -->
+						<!-- Day dots -->
+						{#if dayCount > 0}
+							<div class="flex items-end gap-2">
+								{#each DAY_SHORT as label, i}
+									{@const scheduled = getProgramDays(activeProgram).includes(i)}
+									{@const isToday = i === todayDow}
+									<div class="flex flex-col items-center gap-0.5">
+										<span
+											class={[
+												'text-[10px] leading-none font-bold transition-colors',
+												isToday
+													? 'text-primary'
+													: scheduled
+														? 'text-base-content/50'
+														: 'text-base-content/20'
+											].join(' ')}>{label}</span
+										>
+										<div
+											class={[
+												'rounded-full transition-all',
+												scheduled && isToday
+													? 'bg-primary h-1.5 w-1.5'
+													: scheduled
+														? 'bg-primary/40 h-1 w-1'
+														: 'h-1 w-1 bg-transparent'
+											].join(' ')}
+										></div>
+									</div>
+								{/each}
+							</div>
+						{:else}
+							<p class="text-base-content/40 text-xs">No days scheduled yet</p>
+						{/if}
+
+						<!-- Today's entry + Start button — hidden while editing -->
 						<div
 							class="grid transition-all duration-200 ease-out"
 							style:grid-template-rows={isEditingPrograms ? '0fr' : '1fr'}
 							style:opacity={isEditingPrograms ? '0' : '1'}
 						>
-							<div class="overflow-hidden">
+							<div class="flex flex-col gap-2 overflow-hidden">
 								{#if todayEntry && todayExCount > 0}
 									<!-- Scheduled day with exercises -->
 									<a
 										href={`/programs/${activeProgram.id}`}
-										class="border-primary/20 bg-primary/10 hover:bg-primary/15 mt-1 ml-2 flex items-center justify-between rounded-xl border px-3 py-2.5 transition-colors"
+										class="border-primary/20 bg-primary/10 hover:bg-primary/15 flex items-center justify-between rounded-xl border px-3 py-2.5 transition-colors"
 									>
 										<div>
 											<p class="text-primary text-xs font-semibold tracking-wide uppercase">
@@ -243,11 +233,17 @@
 											<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
 										</svg>
 									</a>
+									<button
+										type="button"
+										class="btn btn-primary btn-sm w-full"
+										onclick={() => goto(`/programs/${activeProgram!.id}/run?day=${todayDow}`)}
+										>Start today's workout</button
+									>
 								{:else if todayEntry && todayExCount === 0}
 									<!-- Scheduled day but no exercises added yet -->
 									<a
 										href={`/programs/${activeProgram.id}`}
-										class="border-base-content/10 mt-1 ml-2 flex items-center justify-between rounded-xl border border-dashed px-3 py-2.5 transition-colors"
+										class="border-base-content/10 flex items-center justify-between rounded-xl border border-dashed px-3 py-2.5 transition-colors"
 									>
 										<div>
 											<p class="text-base-content/40 text-xs font-semibold tracking-wide uppercase">
@@ -272,7 +268,7 @@
 									<!-- Rest day -->
 									<a
 										href={`/programs/${activeProgram.id}`}
-										class="mt-1 ml-2 flex items-center justify-between"
+										class="flex items-center justify-between"
 									>
 										<p class="text-base-content/35 text-xs">Rest day · Tap to view schedule</p>
 										<svg
