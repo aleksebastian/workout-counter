@@ -12,6 +12,7 @@
 	import RestTimerBar from '$lib/components/RestTimerBar.svelte';
 	import { restTimer } from '$lib/state.svelte';
 	import { HAPTIC } from '$lib/haptic';
+	import { subscribeToPush } from '$lib/push';
 
 	let { children } = $props();
 
@@ -88,6 +89,10 @@
 			navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange);
 		}
 
+		// ── Init notification state ──────────────────────────────────────────────
+		notificationPromptShown = localStorage.getItem('sc-notif-prompted') === 'true';
+		subscribeToPush();
+
 		return () => {
 			cleanupTimer();
 			document.removeEventListener('startTimer', startTimer);
@@ -109,6 +114,7 @@
 			clearInterval(restTimerHandle);
 			restTimerHandle = undefined;
 		}
+		cancelPush();
 	}
 
 	onNavigate((navigation) => {
@@ -200,6 +206,20 @@
 			return;
 		}
 
+		// ── Schedule push notification ────────────────────────────────────────────
+		if ('Notification' in window && Notification.permission === 'granted') {
+			schedulePush(expirationDate!.getTime());
+		}
+		if (
+			'Notification' in window &&
+			Notification.permission === 'default' &&
+			!notificationPromptShown
+		) {
+			showNotifPrompt = true;
+			notificationPromptShown = true;
+			localStorage.setItem('sc-notif-prompted', 'true');
+		}
+
 		// Set the initial display value immediately (don't wait for first interval tick)
 		{
 			const diff = expirationDate!.getTime() - Date.now();
@@ -252,6 +272,45 @@
 		swRegistration?.waiting?.postMessage({ type: 'SKIP_WAITING' });
 	}
 
+	async function requestNotificationPermission() {
+		showNotifPrompt = false;
+		if (!('Notification' in window)) return;
+		const result = await Notification.requestPermission();
+		if (result === 'granted') {
+			await subscribeToPush();
+			if (expirationDate && expirationDate > new Date()) {
+				schedulePush(expirationDate.getTime());
+			}
+		}
+	}
+
+	async function schedulePush(expiresAt: number) {
+		try {
+			const res = await fetch('/api/push/schedule', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ expiresAt })
+			});
+			if (res.ok) {
+				const data = await res.json();
+				qstashMessageId = data.messageId;
+			}
+		} catch {
+			// Push scheduling failed — not critical
+		}
+	}
+
+	function cancelPush() {
+		const id = qstashMessageId;
+		if (!id) return;
+		qstashMessageId = null;
+		fetch('/api/push/cancel', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ messageId: id })
+		}).catch(() => {});
+	}
+
 	let restTimerHandle: NodeJS.Timeout | undefined = undefined;
 	let expirationDate: Date | undefined = undefined;
 	let activeTimerTotal = $state({ minutes: 1, seconds: 30 });
@@ -280,6 +339,11 @@
 	let showInstallBanner = $state(false);
 	let recordedSetCount = 0;
 	let isAuthLoading = $state(true);
+
+	// ── Push notifications ───────────────────────────────────────────────────────
+	let qstashMessageId: string | null = null;
+	let notificationPromptShown = false;
+	let showNotifPrompt = $state(false);
 </script>
 
 <svelte:head>
@@ -329,6 +393,24 @@
 			<p class="text-base-content/60 text-xs">A new version of SetCount is ready</p>
 		</div>
 		<button class="btn btn-primary btn-sm" onclick={applyUpdate}>Reload</button>
+	</div>
+{/if}
+
+{#if showNotifPrompt}
+	<div
+		class="bg-base-200 fixed right-4 left-4 z-[600] flex items-center justify-between rounded-2xl px-4 py-3 shadow-xl"
+		style="bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px))"
+		transition:fly={{ y: 80, duration: 350, easing: cubicOut }}
+	>
+		<div>
+			<p class="text-sm font-semibold">Get notified when rest ends</p>
+			<p class="text-base-content/60 text-xs">Even when you leave the app</p>
+		</div>
+		<div class="flex gap-2">
+			<button class="btn btn-ghost btn-sm" onclick={() => (showNotifPrompt = false)}>Not now</button
+			>
+			<button class="btn btn-primary btn-sm" onclick={requestNotificationPermission}>Enable</button>
+		</div>
 	</div>
 {/if}
 

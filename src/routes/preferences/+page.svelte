@@ -4,6 +4,8 @@
 	import { navState } from '$lib/state.svelte';
 	import { fade } from 'svelte/transition';
 	import { doc, updateDoc } from 'firebase/firestore';
+	import { onMount } from 'svelte';
+	import { subscribeToPush } from '$lib/push';
 
 	navState.title = 'Preferences';
 	navState.backHref = '/';
@@ -107,6 +109,24 @@
 		if (!hasPreferences) return;
 		clearTimeout(debounceHandle);
 		debounceHandle = setTimeout(savePreferences, 600);
+	}
+
+	// ── Notifications ────────────────────────────────────────────────────────
+	let notifSupported = $state(false);
+	let notifPermission = $state<NotificationPermission>('default');
+
+	onMount(() => {
+		notifSupported = 'Notification' in window;
+		if (notifSupported) notifPermission = Notification.permission;
+	});
+
+	async function enableNotifications() {
+		if (!notifSupported) return;
+		const result = await Notification.requestPermission();
+		notifPermission = result;
+		if (result === 'granted') {
+			await subscribeToPush();
+		}
 	}
 </script>
 
@@ -334,6 +354,33 @@
 					</div>
 				</div>
 			</section>
+
+			<!-- Notifications -->
+			{#if notifSupported}
+				<section class="flex flex-col gap-3">
+					<p class="text-base-content/40 text-xs font-semibold tracking-widest uppercase">
+						Notifications
+					</p>
+					<div class="bg-base-200 flex items-center justify-between gap-4 rounded-2xl px-4 py-4">
+						<div>
+							<p class="font-medium">Rest Timer Alerts</p>
+							<p class="text-base-content/50 text-xs">
+								Notify you when rest ends, even if you leave the app
+							</p>
+						</div>
+						{#if notifPermission === 'granted'}
+							<span class="badge badge-success badge-lg">On</span>
+						{:else if notifPermission === 'denied'}
+							<div class="text-right">
+								<span class="badge badge-ghost badge-lg">Blocked</span>
+								<p class="text-base-content/40 mt-1 text-xs">Allow in Settings</p>
+							</div>
+						{:else}
+							<button class="btn btn-primary btn-sm" onclick={enableNotifications}>Enable</button>
+						{/if}
+					</div>
+				</section>
+			{/if}
 
 			{#if !hasPreferences}
 				<button

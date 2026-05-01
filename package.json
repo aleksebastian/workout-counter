@@ -27,6 +27,7 @@
 		"@types/canvas-confetti": "^1.9.0",
 		"@types/dom-view-transitions": "^1.0.6",
 		"@types/eslint": "^9.6.1",
+		"@types/web-push": "^3.6.4",
 		"@typescript-eslint/eslint-plugin": "^8.59.0",
 		"@typescript-eslint/parser": "^8.59.0",
 		"autoprefixer": "^10.5.0",
@@ -50,10 +51,12 @@
 	},
 	"type": "module",
 	"dependencies": {
+		"@upstash/qstash": "^2.10.1",
 		"canvas-confetti": "^1.9.4",
 		"date-fns": "^4.1.0",
 		"firebase": "^12.12.1",
 		"firebase-admin": "^13.8.0",
-		"uuid": "^14.0.0"
+		"uuid": "^14.0.0",
+		"web-push": "^3.6.7"
 	}
 }

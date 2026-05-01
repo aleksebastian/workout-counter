@@ -53,6 +53,36 @@ sw.addEventListener('message', (event) => {
 	}
 });
 
+// ─── Push Notifications ───────────────────────────────────────────────────────
+
+sw.addEventListener('push', (event) => {
+	if (!event.data) return;
+
+	const { title, body } = event.data.json() as { title: string; body: string };
+
+	event.waitUntil(
+		sw.registration.showNotification(title, {
+			body,
+			icon: '/icon-192x192.png',
+			tag: 'rest-timer'
+		})
+	);
+});
+
+sw.addEventListener('notificationclick', (event) => {
+	event.notification.close();
+
+	event.waitUntil(
+		sw.clients
+			.matchAll({ type: 'window', includeUncontrolled: true })
+			.then((clientList) => {
+				const existing = clientList.find((c) => c.url.startsWith(sw.location.origin));
+				if (existing) return existing.focus();
+				return sw.clients.openWindow('/');
+			})
+	);
+});
+
 // ─── Fetch ────────────────────────────────────────────────────────────────────
 
 sw.addEventListener('fetch', (event) => {
