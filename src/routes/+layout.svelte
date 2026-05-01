@@ -291,12 +291,17 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ expiresAt })
 			});
+			console.log('[push] /api/push/schedule status:', res.status);
 			if (res.ok) {
 				const data = await res.json();
 				qstashMessageId = data.messageId;
+				console.log('[push] QStash messageId:', data.messageId);
+			} else {
+				const text = await res.text();
+				console.error('[push] /api/push/schedule error:', res.status, text);
 			}
-		} catch {
-			// Push scheduling failed — not critical
+		} catch (err) {
+			console.error('[push] schedulePush failed:', err);
 		}
 	}
 
