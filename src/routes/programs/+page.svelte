@@ -144,11 +144,10 @@
 				>
 					<div class="bg-primary rounded-l-box absolute top-0 left-0 h-full w-1"></div>
 					<div class="ml-2 flex flex-col gap-3">
-
 						<!-- Name row + edit button -->
 						<div class="flex items-start justify-between gap-2">
 							<div class="min-w-0 flex-1">
-								<p class="text-base font-bold leading-snug">{activeProgram.name}</p>
+								<p class="text-base leading-snug font-bold">{activeProgram.name}</p>
 								{#if activeProgram.notes}
 									<p class="text-base-content/50 mt-0.5 line-clamp-2 text-xs">
 										{activeProgram.notes}
