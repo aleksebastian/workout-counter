@@ -138,7 +138,11 @@
 			goto(`/workout/${newWorkout.id}`);
 			newWorkoutName = '';
 		} catch (error) {
-			toaster.addToast({ type: 'error', message: "Couldn't create exercise — try again", dismissible: true });
+			toaster.addToast({
+				type: 'error',
+				message: "Couldn't create exercise — try again",
+				dismissible: true
+			});
 		}
 	}
 </script>
