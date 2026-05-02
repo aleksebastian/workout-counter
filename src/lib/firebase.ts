@@ -1,9 +1,16 @@
 import { initializeApp } from 'firebase/app';
-import { doc, getFirestore, onSnapshot } from 'firebase/firestore';
+import {
+	doc,
+	getFirestore,
+	initializeFirestore,
+	persistentLocalCache,
+	persistentMultipleTabManager,
+	onSnapshot
+} from 'firebase/firestore';
 import { getAuth, onAuthStateChanged, type User } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 import { writable, type Readable, derived } from 'svelte/store';
-import type { Workout } from './state.svelte';
+import type { Workout, Routine, Program } from './state.svelte';
 
 const firebaseConfig = {
 	apiKey: 'AIzaSyB2Wxz_yyr7spT7MrwhxpGPK9XXbo8SDmU',
@@ -17,7 +24,20 @@ const firebaseConfig = {
 
 // Initialize Firebase
 export const app = initializeApp(firebaseConfig);
-export const db = getFirestore();
+
+// Use IndexedDB-backed offline persistence in the browser so onSnapshot
+// hydrates immediately from disk on cold starts (before the network responds).
+// Falls back to in-memory only on the server (SSR / no IndexedDB available).
+export const db =
+	typeof window !== 'undefined'
+		? initializeFirestore(app, {
+				localCache: persistentLocalCache({
+					tabManager: persistentMultipleTabManager()
+				}),
+				ignoreUndefinedProperties: true
+			})
+		: getFirestore(app);
+
 export const auth = getAuth();
 export const storage = getStorage();
 
@@ -28,7 +48,6 @@ function userStore() {
 	let unsubscribe: () => void;
 
 	if (!auth || !globalThis.window) {
-		console.warn('Auth is not initialized or not in browser');
 		const { subscribe } = writable<User | null>(null);
 		return {
 			subscribe
@@ -77,12 +96,18 @@ export function docStore<T>(path: string) {
 
 export interface UserData {
 	username: string;
-	bio: string;
 	photoURL: string;
 	workouts: Workout[];
+	routines?: Routine[];
+	programs?: Program[];
+	activeProgramId?: string;
 	preferences?: {
 		timer: { minutes: number; seconds: number };
 		theme?: 'light' | 'dark' | 'system';
+		weightUnit?: 'lbs' | 'kg';
+		weekStart?: 0 | 1;
+		weeklyGoal?: number;
+		streaksEnabled?: boolean;
 	};
 }
 

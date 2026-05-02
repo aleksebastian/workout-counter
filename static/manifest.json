@@ -1,10 +1,13 @@
 {
 	"name": "SetCount",
 	"short_name": "SetCount",
+	"id": "/",
 	"display": "standalone",
 	"orientation": "portrait",
 	"scope": "/",
 	"start_url": "/",
+	"background_color": "#282a36",
+	"theme_color": "#282a36",
 	"description": "A simple workout counter to track your fitness progress.",
 	"icons": [
 		{
@@ -15,7 +18,8 @@
 		{
 			"src": "icon-512x512.png",
 			"sizes": "512x512",
-			"type": "image/png"
+			"type": "image/png",
+			"purpose": "any maskable"
 		}
 	]
 }

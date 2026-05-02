@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" style="fill: none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+
+  <g transform="rotate(-45 12 12)">
+    <!-- Grip / handle bar -->
+    <line x1="8" y1="12" x2="16" y2="12"/>
+
+    <!-- Left collar (band between grip and weight plate) -->
+    <rect x="6" y="10.25" width="2" height="3.5" rx="0.5" fill="none" style="fill: none"/>
+
+    <!-- Left weight plate -->
+    <rect x="2.5" y="8" width="3.5" height="8" rx="1" fill="none" style="fill: none"/>
+
+    <!-- Right collar -->
+    <rect x="16" y="10.25" width="2" height="3.5" rx="0.5" fill="none" style="fill: none"/>
+
+    <!-- Right weight plate -->
+    <rect x="18" y="8" width="3.5" height="8" rx="1" fill="none" style="fill: none"/>
+  </g>
+
+  <!-- Plus sign (top-left) -->
+  <g stroke-width="2">
+    <line x1="2.75" y1="4.5" x2="6.75" y2="4.5"/>
+    <line x1="4.75" y1="2.5" x2="4.75" y2="6.5"/>
+  </g>
+
+  <!-- Minus sign (bottom-right) -->
+  <g stroke-width="2">
+    <line x1="17.25" y1="19.5" x2="21.25" y2="19.5"/>
+  </g>
+</svg>
