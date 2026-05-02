@@ -14,18 +14,6 @@ export const load = (async ({ locals, url }) => {
 		return;
 	}
 
-	// Optimized: Only fetch userData for redirects, not on every navigation
-	// Client-side Firebase stores provide real-time userData without blocking navigation
-	const skipDataFetch = !url.pathname.includes('/login') && 
-		!url.pathname.includes('/preferences') &&
-		url.pathname !== '/login/username';
-
-	if (skipDataFetch) {
-		// Return immediately without Firestore query - userData available client-side
-		return { userData: undefined };
-	}
-
-	// Only fetch when needed for redirect logic
 	const userDoc = await adminDB.collection('users').doc(uid).get();
 	const userData = userDoc.data();
 
@@ -39,6 +27,13 @@ export const load = (async ({ locals, url }) => {
 
 	if (userData && url.pathname.includes('/login')) {
 		throw redirect(302, '/');
+	}
+
+	// Authenticated routes: return undefined so client-side Firebase store
+	// is the source of truth (avoids blocking navigation with a Firestore read).
+	const isAppRoute = !url.pathname.includes('/login') && !url.pathname.includes('/preferences');
+	if (isAppRoute) {
+		return { userData: undefined };
 	}
 
 	return {

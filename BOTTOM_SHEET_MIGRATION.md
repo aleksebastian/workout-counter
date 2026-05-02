@@ -13,7 +13,7 @@ Replaced modal dialogs with native mobile-style bottom sheets (drawers that slid
 - **Backdrop tap**: Click/tap outside to close
 - **Touch gestures**: Native feel with smooth animations
 - **Backdrop blur**: iOS-style dimmed background
-- **Keyboard support**: ESC to close, focus trap
+- **Keyboard support**: ESC to close, auto-focus first element
 - **Accessibility**: ARIA roles, tabindex management
 - **No X button**: Follows native mobile patterns (iOS/Android)
 

@@ -65,6 +65,8 @@
 
 		// Only allow downward drag
 		if (diff > 0 && sheetElement) {
+			// Disable transition while dragging so the sheet tracks the finger directly
+			sheetElement.style.transition = 'none';
 			sheetElement.style.transform = `translateY(${diff}px)`;
 		}
 	}
@@ -80,8 +82,9 @@
 			close();
 		}
 
-		// Reset transform
+		// Restore transition for snap-back, then clear transform
 		if (sheetElement) {
+			sheetElement.style.transition = '';
 			sheetElement.style.transform = '';
 		}
 
@@ -232,7 +235,7 @@
 {/if}
 
 <style>
-	/* Smooth transition for touch drag */
+	/* Snap-back transition applied via inline style in handleTouchEnd */
 	.relative {
 		transition: transform 0.2s ease-out;
 	}

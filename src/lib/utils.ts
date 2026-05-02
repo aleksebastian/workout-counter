@@ -18,26 +18,26 @@ export function getWorkoutNameValidationMsg(name: string, workouts: Workout[] | 
 	if (!workouts) return;
 	let result = undefined;
 
-	if (workouts.some((workout) => workout.name.toLowerCase() === name.toLowerCase())) {
-		result = 'Workout already exists';
-	} else if (!name.length) {
+	if (!name.trim().length) {
 		result = 'Workout name missing';
+	} else if (workouts.some((workout) => workout.name.toLowerCase() === name.trim().toLowerCase())) {
+		result = 'Workout already exists';
 	}
 
 	return result;
 }
 
 export function getRoutineNameValidationMsg(name: string, routines: Routine[] | undefined) {
-	if (!name.length) return 'Routine name missing';
-	if (routines?.some((r) => r.name.toLowerCase() === name.toLowerCase())) {
+	if (!name.trim().length) return 'Routine name missing';
+	if (routines?.some((r) => r.name.toLowerCase() === name.trim().toLowerCase())) {
 		return 'Routine already exists';
 	}
 	return undefined;
 }
 
 export function getProgramNameValidationMsg(name: string, programs: Program[] | undefined) {
-	if (!name.length) return 'Program name missing';
-	if (programs?.some((s) => s.name.toLowerCase() === name.toLowerCase())) {
+	if (!name.trim().length) return 'Program name missing';
+	if (programs?.some((s) => s.name.toLowerCase() === name.trim().toLowerCase())) {
 		return 'Program already exists';
 	}
 	return undefined;

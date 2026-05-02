@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { v4 as uuidv4 } from 'uuid';
 	import { type Workout } from '$lib/state.svelte';
+	import { toaster } from '$lib/state.svelte';
 	import EditIcon from '$lib/icons/edit.svg?raw';
 	import AddIcon from '$lib/icons/add.svg?raw';
 	import EditWorkoutSheet from '$lib/components/EditWorkoutSheet.svelte';
@@ -136,7 +137,9 @@
 			await updateDoc(userRef, { workouts: arrayUnion(newWorkout) });
 			goto(`/workout/${newWorkout.id}`);
 			newWorkoutName = '';
-		} catch (error) {}
+		} catch (error) {
+			toaster.addToast({ type: 'error', message: "Couldn't create exercise — try again", dismissible: true });
+		}
 	}
 </script>
 
