@@ -28,7 +28,7 @@
 		if (!$userData) return;
 		if ($userData.preferences) return;
 		const path = typeof window !== 'undefined' ? window.location.pathname : '';
-		if (path.includes('/preferences') || path.includes('/login')) return;
+		if (path.startsWith('/preferences') || path.startsWith('/login')) return;
 		goto('/preferences');
 	});
 

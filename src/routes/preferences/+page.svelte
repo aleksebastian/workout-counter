@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { db, user, userData } from '$lib/firebase';
-	import { navState } from '$lib/state.svelte';
+	import { navState, toaster } from '$lib/state.svelte';
 	import { fade } from 'svelte/transition';
 	import { doc, updateDoc } from 'firebase/firestore';
 	import { onMount } from 'svelte';
@@ -119,6 +119,11 @@
 			setTimeout(() => (saveState = 'idle'), 1000);
 		} catch {
 			saveState = 'idle';
+			toaster.addToast({
+				type: 'error',
+				message: "Couldn't save preferences — try again",
+				dismissible: true
+			});
 		}
 	}
 
