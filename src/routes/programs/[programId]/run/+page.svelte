@@ -4,7 +4,8 @@
 		getProgramItemsForDay,
 		getProgramDays,
 		getRoutineExercises,
-		navState
+		navState,
+		toaster
 	} from '$lib/state.svelte';
 	import { v4 as uuidv4 } from 'uuid';
 	import { doc, updateDoc } from 'firebase/firestore';
@@ -249,6 +250,11 @@
 			}
 		} catch {
 			currentWorkout.sets = originalSets;
+			toaster.addToast({
+				type: 'error',
+				message: "Couldn't save set — try again",
+				dismissible: true
+			});
 		}
 	}
 

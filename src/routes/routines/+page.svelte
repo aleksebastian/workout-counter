@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { user, userData, db } from '$lib/firebase';
-	import { type Routine, type Workout, getRoutineExercises } from '$lib/state.svelte';
+	import { type Routine, type Workout, getRoutineExercises, toaster } from '$lib/state.svelte';
 	import { v4 as uuidv4 } from 'uuid';
 	import { arrayUnion, doc, updateDoc } from 'firebase/firestore';
 	import { formatDistanceToNow } from 'date-fns';
@@ -42,7 +42,13 @@
 		try {
 			await updateDoc(userRef, { routines: arrayUnion(newRoutine) });
 			newRoutineName = '';
-		} catch (error) {}
+		} catch (error) {
+			toaster.addToast({
+				type: 'error',
+				message: "Couldn't create routine — try again",
+				dismissible: true
+			});
+		}
 	}
 
 	async function handleRoutineEditClick(routine: Routine) {
@@ -70,6 +76,11 @@
 			await updateDoc(userRef, { routines });
 		} catch (error) {
 			routines[routineIndex] = original;
+			toaster.addToast({
+				type: 'error',
+				message: "Couldn't save routine — try again",
+				dismissible: true
+			});
 		}
 	}
 
@@ -83,6 +94,11 @@
 			await updateDoc(userRef, { routines });
 		} catch (error) {
 			routines.splice(routineIndex, 0, deleted);
+			toaster.addToast({
+				type: 'error',
+				message: "Couldn't delete routine — try again",
+				dismissible: true
+			});
 		}
 	}
 

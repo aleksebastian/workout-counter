@@ -18,7 +18,7 @@
 	import CheckIcon from '$lib/icons/check.svg?raw';
 	import EditIcon from '$lib/icons/edit.svg?raw';
 	import type { Workout, RoutineExercise } from '$lib/state.svelte';
-	import { getRoutineExercises, navState } from '$lib/state.svelte';
+	import { getRoutineExercises, navState, toaster } from '$lib/state.svelte';
 	import { getWorkoutNameValidationMsg } from '$lib/utils';
 
 	let routine = $derived($userData?.routines?.find((r) => r.id === page.params.routineId));
@@ -146,7 +146,13 @@
 		try {
 			await saveRoutines(newExercises);
 			closeReorderMode();
-		} catch (error) {}
+		} catch (error) {
+			toaster.addToast({
+				type: 'error',
+				message: "Couldn't save order — try again",
+				dismissible: true
+			});
+		}
 	}
 
 	// Touch-based drag and drop for reordering
@@ -286,6 +292,11 @@
 			await saveRoutines(updated);
 		} catch {
 			routine!.exercises = original;
+			toaster.addToast({
+				type: 'error',
+				message: "Couldn't remove exercise — try again",
+				dismissible: true
+			});
 		}
 	}
 
@@ -299,6 +310,11 @@
 		} catch {
 			// revert by removing last
 			routine!.exercises = updated.slice(0, -1);
+			toaster.addToast({
+				type: 'error',
+				message: "Couldn't add exercise — try again",
+				dismissible: true
+			});
 		}
 	}
 
@@ -316,6 +332,12 @@
 			await saveRoutines(exercises);
 		} catch {
 			/* leave optimistic state */
+			toaster.addToast({
+				id: 'routine-save-failed',
+				type: 'error',
+				message: "Couldn't save changes — try again",
+				dismissible: true
+			});
 		}
 	}
 
@@ -343,6 +365,12 @@
 			await saveRoutines(exercises);
 		} catch {
 			/* leave optimistic state */
+			toaster.addToast({
+				id: 'routine-save-failed',
+				type: 'error',
+				message: "Couldn't save changes — try again",
+				dismissible: true
+			});
 		}
 	}
 </script>

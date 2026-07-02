@@ -4,7 +4,8 @@
 		type Program,
 		getProgramSchedule,
 		getProgramDays,
-		getRoutineExercises
+		getRoutineExercises,
+		toaster
 	} from '$lib/state.svelte';
 	import { v4 as uuidv4 } from 'uuid';
 	import { arrayUnion, doc, updateDoc } from 'firebase/firestore';
@@ -63,7 +64,13 @@
 			await updateDoc(userRef, { programs: arrayUnion(newProgram) });
 			goto(`/programs/${newProgram.id}`);
 			newProgramName = '';
-		} catch (error) {}
+		} catch (error) {
+			toaster.addToast({
+				type: 'error',
+				message: "Couldn't create program — try again",
+				dismissible: true
+			});
+		}
 	}
 
 	function handleProgramEditClick(program: Program) {
@@ -82,6 +89,11 @@
 			await updateDoc(userRef, { programs });
 		} catch {
 			programs[idx] = original;
+			toaster.addToast({
+				type: 'error',
+				message: "Couldn't save program — try again",
+				dismissible: true
+			});
 		}
 		isEditingPrograms = false;
 	}
@@ -98,6 +110,11 @@
 			await updateDoc(userRef, extra);
 		} catch {
 			programs.splice(idx, 0, deleted);
+			toaster.addToast({
+				type: 'error',
+				message: "Couldn't delete program — try again",
+				dismissible: true
+			});
 		}
 		isEditingPrograms = false;
 	}

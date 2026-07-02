@@ -99,6 +99,11 @@
 			} else {
 				delete workouts[workoutIndex].notes;
 			}
+			toaster.addToast({
+				type: 'error',
+				message: "Couldn't save exercise — try again",
+				dismissible: true
+			});
 		}
 	}
 
@@ -120,6 +125,11 @@
 			}
 		} catch (error) {
 			$userData.workouts.splice(workoutIndex, 0, deletedWorkout);
+			toaster.addToast({
+				type: 'error',
+				message: "Couldn't delete exercise — try again",
+				dismissible: true
+			});
 		}
 	}
 
