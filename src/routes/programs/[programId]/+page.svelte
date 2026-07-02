@@ -36,7 +36,6 @@
 	});
 
 	let schedule = $derived(session ? getProgramSchedule(session) : ([] as ProgramDay[]));
-	let scheduledDays = $derived(schedule.map((sd) => sd.day));
 
 	// Selected day — always defaults to today
 	let selectedDay = $state<number | undefined>(undefined);
