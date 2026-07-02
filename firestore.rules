@@ -1,0 +1,38 @@
+rules_version = '2';
+service cloud.firestore {
+	match /databases/{database}/documents {
+
+		match /users/{userId} {
+			allow get: if request.auth != null && request.auth.uid == userId;
+			allow list: if false;
+			allow create: if isValidUser(userId);
+			allow update: if request.auth != null
+										&& request.auth.uid == userId
+										&& request.resource.data.username == resource.data.username;
+			allow delete: if false;
+		}
+
+		match /usernames/{username} {
+			allow get: if request.auth != null; // availability check runs post-sign-in
+			allow list: if false;
+			allow create: if isValidUsername(username);
+			allow update, delete: if false;
+		}
+
+		function isValidUsername(username) {
+			let isOwner = request.auth != null && request.auth.uid == request.resource.data.uid;
+			// lowercase alphanumerics with . or _ inside, no leading/trailing punctuation, 3–15 chars
+			let isValidFormat = username.matches('[a-z0-9][a-z0-9._]{1,13}[a-z0-9]');
+			let isValidUserDoc = getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.username == username;
+			return isOwner && isValidFormat && isValidUserDoc;
+		}
+
+		function isValidUser(userId) {
+			let isOwner = request.auth != null && request.auth.uid == userId;
+			let username = request.resource.data.username;
+			// must own the username doc that exists after this batch — prevents claiming someone else's username
+			let ownsUsername = getAfter(/databases/$(database)/documents/usernames/$(username)).data.uid == request.auth.uid;
+			return isOwner && ownsUsername;
+		}
+	}
+}
