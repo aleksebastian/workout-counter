@@ -90,10 +90,28 @@
 			streaksEnabled: streaksEnabled !== false
 		};
 
+		const isOnboarding = !hasPreferences;
 		saveState = 'saving';
 		try {
 			await updateDoc(doc(db, 'users', uid), { preferences });
-			if (!hasPreferences) {
+			if (isOnboarding) {
+				// Wait for the Firestore onSnapshot to deliver the optimistic write
+				// back into the $userData store before navigating. This prevents the
+				// layout's client-side redirect from seeing $userData without
+				// preferences on the home page and bouncing the user back here.
+				// With persistentLocalCache, onSnapshot fires almost instantly —
+				// the 2s timeout is purely a safety net for degraded connectivity.
+				await Promise.race([
+					new Promise<void>((resolve) => {
+						const unsubscribe = userData.subscribe((data) => {
+							if (data?.preferences) {
+								unsubscribe();
+								resolve();
+							}
+						});
+					}),
+					new Promise<void>((resolve) => setTimeout(resolve, 2000))
+				]);
 				goto('/');
 				return;
 			}
@@ -151,7 +169,7 @@
 		</div>
 	{/if}
 
-	{#if $userData}
+	{#if $user}
 		<div class="flex flex-col gap-6">
 			<!-- Appearance -->
 			<section class="flex flex-col gap-3">

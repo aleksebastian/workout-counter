@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onNavigate } from '$app/navigation';
+	import { onNavigate, goto } from '$app/navigation';
 	import Navbar from './Navbar.svelte';
 	import BottomNav from './BottomNav.svelte';
 	import { handleSignOut } from '$lib/logic/auth';
@@ -20,6 +20,17 @@
 	let restTime = { minutes: 1, seconds: 30 };
 	// Fixed: Use client-side $userData store as source of truth since server load is now deferred
 	let hasUser = $derived($userData ? Object.hasOwn($userData, 'username') : false);
+
+	// Client-side onboarding redirect: send to preferences whenever userData exists but has no preferences.
+	// Done client-side (not server-side) to avoid a race condition where Firebase's offline persistence
+	// resolves write promises after the local cache write — before the Firestore server has the data.
+	$effect(() => {
+		if (!$userData) return;
+		if ($userData.preferences) return;
+		const path = typeof window !== 'undefined' ? window.location.pathname : '';
+		if (path.includes('/preferences') || path.includes('/login')) return;
+		goto('/preferences');
+	});
 
 	const localStorageKey = 'workout-counter-rest-timer';
 

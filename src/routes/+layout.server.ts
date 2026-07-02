@@ -17,12 +17,8 @@ export const load = (async ({ locals, url }) => {
 	const userDoc = await adminDB.collection('users').doc(uid).get();
 	const userData = userDoc.data();
 
-	if (!userData && !url.pathname.includes('/login/username')) {
+	if (!userData && !url.pathname.includes('/login/username') && !url.pathname.includes('/preferences')) {
 		throw redirect(302, '/login/username');
-	}
-
-	if (userData && !userData?.preferences && !url.pathname.includes('/preferences')) {
-		throw redirect(302, '/preferences');
 	}
 
 	if (userData && url.pathname.includes('/login')) {

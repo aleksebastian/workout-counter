@@ -52,7 +52,7 @@
 
 			await batch.commit();
 
-			goto('/');
+			goto('/preferences');
 		} catch {
 			toaster.addToast({
 				type: 'error',
