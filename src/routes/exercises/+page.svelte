@@ -9,8 +9,8 @@
 	import EditWorkoutSheet from '$lib/components/EditWorkoutSheet.svelte';
 	import NewWorkoutSheet from '$lib/components/NewWorkoutSheet.svelte';
 	import FAB from '$lib/components/Buttons/FAB.svelte';
-	import { arrayUnion, doc, updateDoc } from 'firebase/firestore';
-	import { db, user, userData } from '$lib/firebase';
+	import { deleteDoc, deleteField, doc, setDoc, updateDoc } from 'firebase/firestore';
+	import { db, user, workouts } from '$lib/firebase';
 	import { formatDistanceToNow } from 'date-fns';
 
 	type SortKey = 'last-done' | 'a-z' | 'most-sets';
@@ -59,12 +59,14 @@
 	let filteredWorkouts = $derived(
 		sortWorkouts(
 			search.trim()
-				? ($userData?.workouts ?? []).filter((w) =>
-						w.name.toLowerCase().includes(search.toLowerCase())
-					)
-				: ($userData?.workouts ?? [])
+				? ($workouts ?? []).filter((w) => w.name.toLowerCase().includes(search.toLowerCase()))
+				: ($workouts ?? [])
 		)
 	);
+
+	function workoutRef(workoutId: string) {
+		return doc(db, 'users', $user!.uid, 'workouts', workoutId);
+	}
 
 	async function handleWorkoutEditClick(workout: Workout) {
 		editingWorkout = workout;
@@ -72,33 +74,14 @@
 	}
 
 	async function handleEditWorkoutSave(name: string, notes: string) {
-		if (!$userData) return;
-
-		const userRef = doc(db, 'users', $user!.uid);
-		const workoutIndex = $userData.workouts.findIndex(
-			(currWorkout) => currWorkout.id === editingWorkout?.id
-		);
-		const workouts = $userData.workouts;
-
-		if (!name.trim()) return;
-		const originalName = workouts[workoutIndex].name;
-		const originalNotes = workouts[workoutIndex].notes;
-		workouts[workoutIndex].name = name;
-		if (notes.trim()) {
-			workouts[workoutIndex].notes = notes.trim();
-		} else {
-			delete workouts[workoutIndex].notes;
-		}
+		if (!editingWorkout || !name.trim()) return;
 
 		try {
-			await updateDoc(userRef, { workouts });
+			await updateDoc(workoutRef(editingWorkout.id), {
+				name,
+				notes: notes.trim() ? notes.trim() : deleteField()
+			});
 		} catch (error) {
-			workouts[workoutIndex].name = originalName;
-			if (originalNotes !== undefined) {
-				workouts[workoutIndex].notes = originalNotes;
-			} else {
-				delete workouts[workoutIndex].notes;
-			}
 			toaster.addToast({
 				type: 'error',
 				message: "Couldn't save exercise — try again",
@@ -108,23 +91,16 @@
 	}
 
 	async function handleEditWorkoutDelete() {
-		if (!$userData) return;
-
-		const userRef = doc(db, 'users', $user!.uid);
-		const workoutIndex = $userData.workouts.findIndex(
-			(currWorkout) => currWorkout.id === editingWorkout?.id
-		);
-		const deletedWorkout = $userData.workouts[workoutIndex];
-		$userData.workouts.splice(workoutIndex, 1);
+		if (!editingWorkout) return;
+		const deletedId = editingWorkout.id;
 
 		try {
-			await updateDoc(userRef, { workouts: $userData.workouts });
+			await deleteDoc(workoutRef(deletedId));
 
-			if (page.params.workoutId === editingWorkout?.id) {
+			if (page.params.workoutId === deletedId) {
 				goto('/');
 			}
 		} catch (error) {
-			$userData.workouts.splice(workoutIndex, 0, deletedWorkout);
 			toaster.addToast({
 				type: 'error',
 				message: "Couldn't delete exercise — try again",
@@ -138,13 +114,12 @@
 	}
 
 	async function handleNewWorkoutSave(name: string) {
-		if (!$userData) return;
+		if (!$user) return;
 
-		const userRef = doc(db, 'users', $user!.uid);
-		const newWorkout = { id: uuidv4(), name: name, sets: [] };
+		const newWorkout: Workout = { id: uuidv4(), name, sets: [], createdAt: Date.now() };
 
 		try {
-			await updateDoc(userRef, { workouts: arrayUnion(newWorkout) });
+			await setDoc(workoutRef(newWorkout.id), newWorkout);
 			goto(`/workout/${newWorkout.id}`);
 			newWorkoutName = '';
 		} catch (error) {
@@ -159,7 +134,7 @@
 
 <div class="mx-auto flex max-w-lg flex-col gap-4">
 	<!-- Header + Sort -->
-	{#if $userData?.workouts?.length}
+	{#if $workouts?.length}
 		<div class="flex items-center justify-between">
 			<div class="flex gap-1.5" role="group" aria-label="Sort by">
 				{#each [['last-done', 'Most Recent'], ['a-z', 'A–Z'], ['most-sets', 'Most Sets']] as const as [key, label]}
@@ -210,7 +185,7 @@
 	{/if}
 
 	<!-- Exercise list -->
-	{#if $userData === undefined}
+	{#if $workouts === null}
 		<div class="flex flex-col gap-3">
 			{#each { length: 5 } as _}
 				<div class="skeleton h-14 w-full rounded-xl"></div>

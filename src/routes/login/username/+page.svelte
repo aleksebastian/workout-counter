@@ -46,8 +46,7 @@
 			batch.set(doc(db, 'usernames', normalizedUsername), { uid: $user?.uid });
 			batch.set(doc(db, 'users', $user!.uid), {
 				username: normalizedUsername,
-				photoURL: $user?.photoURL ?? null,
-				workouts: []
+				photoURL: $user?.photoURL ?? null
 			});
 
 			await batch.commit();
