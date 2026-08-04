@@ -83,7 +83,7 @@
 	}
 
 	async function handleEditProgramSave(name: string, notes: string) {
-		if (!editingProgram) return;
+		if (!editingProgram || !$user) return;
 		try {
 			await updateDoc(programRef(editingProgram.id), {
 				name,

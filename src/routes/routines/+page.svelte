@@ -64,7 +64,7 @@
 		timer?: { minutes: number; seconds: number },
 		notes?: string
 	) {
-		if (!editingRoutine) return;
+		if (!editingRoutine || !$user) return;
 		try {
 			await updateDoc(routineRef(editingRoutine.id), {
 				name,
@@ -81,7 +81,7 @@
 	}
 
 	async function handleEditRoutineDelete() {
-		if (!editingRoutine) return;
+		if (!editingRoutine || !$user) return;
 		try {
 			await deleteDoc(routineRef(editingRoutine.id));
 		} catch (error) {

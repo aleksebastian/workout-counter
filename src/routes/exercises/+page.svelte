@@ -74,7 +74,7 @@
 	}
 
 	async function handleEditWorkoutSave(name: string, notes: string) {
-		if (!editingWorkout || !name.trim()) return;
+		if (!editingWorkout || !name.trim() || !$user) return;
 
 		try {
 			await updateDoc(workoutRef(editingWorkout.id), {
@@ -91,7 +91,7 @@
 	}
 
 	async function handleEditWorkoutDelete() {
-		if (!editingWorkout) return;
+		if (!editingWorkout || !$user) return;
 		const deletedId = editingWorkout.id;
 
 		try {
