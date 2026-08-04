@@ -103,7 +103,13 @@
 				// the 2s timeout is purely a safety net for degraded connectivity.
 				await Promise.race([
 					new Promise<void>((resolve) => {
-						const unsubscribe = userData.subscribe((data) => {
+						// Declared separately from the assignment below: userData.subscribe
+						// invokes its callback synchronously, and if the cache already has
+						// preferences (likely, since the write above just resolved), the
+						// callback fires before `unsubscribe = ...` finishes — referencing
+						// unsubscribe as part of its own initializer would throw.
+						let unsubscribe: () => void;
+						unsubscribe = userData.subscribe((data) => {
 							if (data?.preferences) {
 								unsubscribe();
 								resolve();
