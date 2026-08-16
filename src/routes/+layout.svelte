@@ -26,10 +26,21 @@
 	// resolves write promises after the local cache write — before the Firestore server has the data.
 	$effect(() => {
 		if (!$userData) return;
-		if ($userData.preferences) return;
 		const path = typeof window !== 'undefined' ? window.location.pathname : '';
-		if (path.startsWith('/preferences') || path.startsWith('/login')) return;
-		goto('/preferences');
+
+		if (!$userData.username && !path.startsWith('/login/username') && !path.startsWith('/login')) {
+			goto('/login/username');
+			return;
+		}
+
+		if ($userData.username && !$userData.preferences && !path.startsWith('/preferences')) {
+			goto('/preferences');
+			return;
+		}
+
+		if ($userData.preferences && path.startsWith('/login')) {
+			goto('/');
+		}
 	});
 
 	const localStorageKey = 'workout-counter-rest-timer';

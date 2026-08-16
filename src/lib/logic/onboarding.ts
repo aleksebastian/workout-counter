@@ -30,3 +30,10 @@ export function getRequiredOnboardingRoute(pathname: string, userData: MinimalUs
 	if (pathname.startsWith('/login')) return '/';
 	return null;
 }
+
+export function getPostLoginDestination(userData: MinimalUserData | null | undefined) {
+	if (!userData) return '/login/username';
+	if (!userData.username) return '/login/username';
+	if (!userData.preferences) return '/preferences';
+	return '/';
+}
