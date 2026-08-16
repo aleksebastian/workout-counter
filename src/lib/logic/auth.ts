@@ -1,6 +1,8 @@
 import { goto } from '$app/navigation';
-import { auth } from '$lib/firebase';
+import { auth, db } from '$lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
+import { getPostLoginDestination } from '$lib/logic/onboarding';
 
 /**
  * Creates a promise that rejects after a timeout
@@ -17,7 +19,6 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string)
 export async function handleSignIn() {
 	const provider = new GoogleAuthProvider();
 
-	// Add 15-second timeout to prevent hanging on closed/abandoned popups
 	const credential = await withTimeout(
 		signInWithPopup(auth, provider),
 		15000,
@@ -33,7 +34,10 @@ export async function handleSignIn() {
 		},
 		body: JSON.stringify({ idToken })
 	});
-	goto('/');
+
+	const userDoc = await getDoc(doc(db, 'users', credential.user.uid));
+	const destination = getPostLoginDestination(userDoc.exists() ? userDoc.data() : null);
+	goto(destination);
 }
 
 export async function handleSignOut() {

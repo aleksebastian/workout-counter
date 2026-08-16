@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { user, userData, db } from '$lib/firebase';
-	import { type Routine, type Workout, getRoutineExercises } from '$lib/state.svelte';
+	import { user, workouts, routines, db } from '$lib/firebase';
+	import { type Routine, type Workout, getRoutineExercises, toaster } from '$lib/state.svelte';
 	import { v4 as uuidv4 } from 'uuid';
-	import { arrayUnion, doc, updateDoc } from 'firebase/firestore';
+	import { deleteDoc, deleteField, doc, setDoc, updateDoc } from 'firebase/firestore';
 	import { formatDistanceToNow } from 'date-fns';
 	import EditIcon from '$lib/icons/edit.svg?raw';
 	import AddIcon from '$lib/icons/add.svg?raw';
@@ -19,16 +19,20 @@
 	let isEditingRoutines = $state(false);
 
 	function getRoutineStats(routine: Routine) {
-		const workouts = getRoutineExercises(routine)
-			.map((ex) => $userData?.workouts.find((w) => w.id === ex.workoutId))
+		const routineWorkouts = getRoutineExercises(routine)
+			.map((ex) => $workouts?.find((w) => w.id === ex.workoutId))
 			.filter(Boolean) as Workout[];
 		const today = new Date().toDateString();
-		const doneToday = workouts.filter((w) =>
+		const doneToday = routineWorkouts.filter((w) =>
 			w.sets.some((s) => new Date(s.date).toDateString() === today)
 		).length;
-		const allTimes = workouts.flatMap((w) => w.sets.map((s) => new Date(s.date).getTime()));
+		const allTimes = routineWorkouts.flatMap((w) => w.sets.map((s) => new Date(s.date).getTime()));
 		const lastSession = allTimes.length ? new Date(Math.max(...allTimes)) : null;
 		return { doneToday, lastSession };
+	}
+
+	function routineRef(routineId: string) {
+		return doc(db, 'users', $user!.uid, 'routines', routineId);
 	}
 
 	async function handleAddRoutineClick() {
@@ -36,13 +40,18 @@
 	}
 
 	async function handleNewRoutineSave(name: string) {
-		if (!$userData) return;
-		const userRef = doc(db, 'users', $user!.uid);
-		const newRoutine: Routine = { id: uuidv4(), name, exercises: [] };
+		if (!$user) return;
+		const newRoutine: Routine = { id: uuidv4(), name, exercises: [], createdAt: Date.now() };
 		try {
-			await updateDoc(userRef, { routines: arrayUnion(newRoutine) });
+			await setDoc(routineRef(newRoutine.id), newRoutine);
 			newRoutineName = '';
-		} catch (error) {}
+		} catch (error) {
+			toaster.addToast({
+				type: 'error',
+				message: "Couldn't create routine — try again",
+				dismissible: true
+			});
+		}
 	}
 
 	async function handleRoutineEditClick(routine: Routine) {
@@ -55,34 +64,32 @@
 		timer?: { minutes: number; seconds: number },
 		notes?: string
 	) {
-		if (!$userData) return;
-		const routines = $userData.routines ?? [];
-		const routineIndex = routines.findIndex((r) => r.id === editingRoutine?.id);
-		const userRef = doc(db, 'users', $user!.uid);
-		const original = { ...routines[routineIndex] };
-		routines[routineIndex] = {
-			...routines[routineIndex],
-			name,
-			...(timer ? { timer } : { timer: undefined }),
-			...(notes ? { notes } : { notes: undefined })
-		};
+		if (!editingRoutine || !$user) return;
 		try {
-			await updateDoc(userRef, { routines });
+			await updateDoc(routineRef(editingRoutine.id), {
+				name,
+				timer: timer ?? deleteField(),
+				notes: notes ?? deleteField()
+			});
 		} catch (error) {
-			routines[routineIndex] = original;
+			toaster.addToast({
+				type: 'error',
+				message: "Couldn't save routine — try again",
+				dismissible: true
+			});
 		}
 	}
 
 	async function handleEditRoutineDelete() {
-		if (!$userData) return;
-		const routines = $userData.routines ?? [];
-		const routineIndex = routines.findIndex((r) => r.id === editingRoutine?.id);
-		const userRef = doc(db, 'users', $user!.uid);
-		const deleted = routines.splice(routineIndex, 1)[0];
+		if (!editingRoutine || !$user) return;
 		try {
-			await updateDoc(userRef, { routines });
+			await deleteDoc(routineRef(editingRoutine.id));
 		} catch (error) {
-			routines.splice(routineIndex, 0, deleted);
+			toaster.addToast({
+				type: 'error',
+				message: "Couldn't delete routine — try again",
+				dismissible: true
+			});
 		}
 	}
 
@@ -92,7 +99,7 @@
 </script>
 
 <PullToRefresh onRefresh={handleRefresh}>
-	{#if $userData === undefined}
+	{#if $routines === null}
 		<!-- Skeleton -->
 		<div class="mx-auto flex w-full max-w-lg flex-col gap-4">
 			<div class="flex items-center justify-between">
@@ -107,7 +114,7 @@
 		<div class="mx-auto flex w-full max-w-lg flex-col gap-4">
 			<!-- Header -->
 			<div class="flex justify-end">
-				{#if $userData?.routines?.length}
+				{#if $routines?.length}
 					<button
 						class="btn btn-ghost btn-sm w-14 font-semibold"
 						class:text-primary={isEditingRoutines}
@@ -119,9 +126,9 @@
 			</div>
 
 			<!-- Routine list -->
-			{#if $userData?.routines?.length}
+			{#if $routines?.length}
 				<div class="flex flex-col gap-2 pb-16">
-					{#each $userData.routines! as routine}
+					{#each $routines! as routine}
 						{@const stats = getRoutineStats(routine)}
 						{@const routineExCount = getRoutineExercises(routine).length}
 						<a

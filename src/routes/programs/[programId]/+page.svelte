@@ -1,16 +1,17 @@
 <script lang="ts">
-	import { user, userData, db } from '$lib/firebase';
+	import { user, userData, workouts, routines, programs, db } from '$lib/firebase';
 	import {
 		type Program,
 		type ProgramItem,
 		type ProgramDay,
+		type Workout,
 		getProgramSchedule,
 		getProgramItemsForDay,
 		getRoutineExercises,
 		navState
 	} from '$lib/state.svelte';
 	import { v4 as uuidv4 } from 'uuid';
-	import { doc, updateDoc } from 'firebase/firestore';
+	import { doc, updateDoc, writeBatch } from 'firebase/firestore';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
@@ -24,7 +25,7 @@
 	const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 	const DAY_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-	let session = $derived($userData?.programs?.find((s) => s.id === page.params.programId));
+	let session = $derived($programs?.find((s) => s.id === page.params.programId));
 	let isActive = $derived($userData?.activeProgramId === session?.id);
 
 	$effect(() => {
@@ -36,7 +37,6 @@
 	});
 
 	let schedule = $derived(session ? getProgramSchedule(session) : ([] as ProgramDay[]));
-	let scheduledDays = $derived(schedule.map((sd) => sd.day));
 
 	// Selected day — always defaults to today
 	let selectedDay = $state<number | undefined>(undefined);
@@ -57,7 +57,7 @@
 	let dayWorkoutIds = $derived(
 		dayItems.flatMap((item) => {
 			if (item.type === 'exercise') return [item.workoutId];
-			const routine = $userData?.routines?.find((r) => r.id === item.routineId);
+			const routine = $routines?.find((r) => r.id === item.routineId);
 			return routine ? getRoutineExercises(routine).map((ex) => ex.workoutId) : [];
 		})
 	);
@@ -67,10 +67,10 @@
 			.map((i) => i.routineId)
 	);
 	let workoutsNotInDay = $derived(
-		($userData?.workouts ?? []).filter((w) => !dayWorkoutIds.includes(w.id))
+		($workouts ?? []).filter((w) => !dayWorkoutIds.includes(w.id))
 	);
 	let routinesNotInDay = $derived(
-		($userData?.routines ?? []).filter((r) => !dayRoutineIds.includes(r.id))
+		($routines ?? []).filter((r) => !dayRoutineIds.includes(r.id))
 	);
 
 	let isEditing = $state(false);
@@ -87,13 +87,13 @@
 
 	function getSetsToday(workoutId: string): number {
 		return (
-			$userData?.workouts
-				.find((w) => w.id === workoutId)
+			$workouts
+				?.find((w) => w.id === workoutId)
 				?.sets.filter((s) => new Date(s.date).toDateString() === todayStr).length ?? 0
 		);
 	}
 	function getLastSet(workoutId: string) {
-		const w = $userData?.workouts.find((w) => w.id === workoutId);
+		const w = $workouts?.find((w) => w.id === workoutId);
 		if (!w?.sets.length) return null;
 		return w.sets.at(-1)!;
 	}
@@ -101,10 +101,10 @@
 	// ── Persistence ─────────────────────────────────────────────────────────────
 
 	async function updateSession(updated: Program) {
-		if (!$userData) return;
-		const programs = ($userData.programs ?? []).map((s) => (s.id === updated.id ? updated : s));
-		const userRef = doc(db, 'users', $user!.uid);
-		await updateDoc(userRef, { programs });
+		if (!$user) return;
+		await updateDoc(doc(db, 'users', $user.uid, 'programs', updated.id), {
+			schedule: updated.schedule ?? []
+		});
 	}
 
 	// Upserts items for a given day into a schedule array.
@@ -194,33 +194,36 @@
 		await saveDayItems(items);
 	}
 	async function handleCreateAndAddExercise() {
-		if (!$userData || !session || selectedDay === undefined) return;
+		if (!$user || !session || selectedDay === undefined) return;
 		const name = newExerciseName.trim();
 		if (!name) {
 			newExerciseError = 'Name required';
 			return;
 		}
-		if ($userData.workouts.some((w) => w.name.toLowerCase() === name.toLowerCase())) {
+		if (($workouts ?? []).some((w) => w.name.toLowerCase() === name.toLowerCase())) {
 			newExerciseError = 'Exercise already exists';
 			return;
 		}
-		const newWorkout = { id: uuidv4(), name, sets: [] };
-		const workouts = [...$userData.workouts, newWorkout];
+		const newWorkout: Workout = { id: uuidv4(), name, sets: [], createdAt: Date.now() };
 		const newItems: ProgramItem[] = [
 			...dayItems,
 			{ type: 'exercise', workoutId: newWorkout.id, targetSets: 3 }
 		];
 		const newSchedule = upsertScheduleDay(schedule, selectedDay!, newItems);
-		const programs = ($userData.programs ?? []).map((s) =>
-			s.id === session!.id ? { ...session!, schedule: newSchedule } : s
-		);
-		const userRef = doc(db, 'users', $user!.uid);
 		try {
-			await updateDoc(userRef, { workouts, programs });
+			// Batched so the exercise and the schedule entry referencing it land together.
+			const batch = writeBatch(db);
+			batch.set(doc(db, 'users', $user.uid, 'workouts', newWorkout.id), newWorkout);
+			batch.update(doc(db, 'users', $user.uid, 'programs', session.id), {
+				schedule: newSchedule
+			});
+			await batch.commit();
 			newExerciseName = '';
 			newExerciseError = '';
 			showNewExerciseInput = false;
-		} catch (e) {}
+		} catch (e) {
+			newExerciseError = 'Failed to save. Try again.';
+		}
 	}
 
 	// ── Active session ───────────────────────────────────────────────────────────
@@ -234,7 +237,7 @@
 	let totalFlatItems = $derived.by(() =>
 		dayItems.reduce((sum, item) => {
 			if (item.type === 'exercise') return sum + 1;
-			const routine = $userData?.routines?.find((r) => r.id === item.routineId);
+			const routine = $routines?.find((r) => r.id === item.routineId);
 			return sum + (routine ? getRoutineExercises(routine).length : 0);
 		}, 0)
 	);
@@ -242,7 +245,7 @@
 		dayItems.reduce((sum, item) => {
 			if (item.type === 'exercise')
 				return sum + (getSetsToday(item.workoutId) >= item.targetSets ? 1 : 0);
-			const routine = $userData?.routines?.find((r) => r.id === item.routineId);
+			const routine = $routines?.find((r) => r.id === item.routineId);
 			if (!routine) return sum;
 			return (
 				sum +
@@ -401,7 +404,7 @@
 					{#each dayItems as item, i}
 						{@const isRoutineItem = item.type === 'routine'}
 						{@const routine = isRoutineItem
-							? ($userData?.routines?.find((r) => r.id === item.routineId) ?? null)
+							? ($routines?.find((r) => r.id === item.routineId) ?? null)
 							: null}
 						{@const routineExercises = routine ? getRoutineExercises(routine) : []}
 
@@ -435,7 +438,7 @@
 									{#if routineExercises.length > 0}
 										<div class="mt-1 flex flex-col gap-0.5">
 											{#each routineExercises as ex}
-												{@const workout = $userData?.workouts.find((w) => w.id === ex.workoutId)}
+												{@const workout = $workouts?.find((w) => w.id === ex.workoutId)}
 												{@const sets = getSetsToday(ex.workoutId)}
 												<div class="flex items-center gap-2">
 													<span class="text-base-content/60 min-w-0 flex-1 truncate text-xs"
@@ -460,7 +463,7 @@
 										</div>
 									{/if}
 								{:else}
-									{@const workout = $userData?.workouts.find((w) => w.id === item.workoutId)}
+									{@const workout = $workouts?.find((w) => w.id === item.workoutId)}
 									{@const sets = getSetsToday(item.workoutId)}
 									{@const lastSet = getLastSet(item.workoutId)}
 									<span class="truncate text-sm font-semibold">{workout?.name ?? '—'}</span>

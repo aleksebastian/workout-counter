@@ -1,6 +1,9 @@
 import { initializeApp } from 'firebase/app';
 import {
 	doc,
+	collection,
+	query,
+	orderBy,
 	getFirestore,
 	initializeFirestore,
 	persistentLocalCache,
@@ -94,12 +97,50 @@ export function docStore<T>(path: string) {
 	};
 }
 
+/**
+ * @param  {string} path collection path
+ * @returns a store with realtime updates on collection data, ordered by `createdAt`
+ */
+export function collectionStore<T>(path: string) {
+	let unsubscribe: () => void;
+
+	const ref = query(collection(db, path), orderBy('createdAt'));
+
+	const { subscribe } = writable<T[] | null>(null, (set) => {
+		unsubscribe = onSnapshot(ref, (snapshot) => {
+			set(snapshot.docs.map((d) => d.data() as T));
+		});
+
+		return () => unsubscribe();
+	});
+
+	return { subscribe };
+}
+
+/** Builds a store over a subcollection of the signed-in user's document. */
+function userCollection<T>(name: string): Readable<T[] | null> {
+	return derived(user, ($user, set) => {
+		if ($user) {
+			return collectionStore<T>(`users/${$user.uid}/${name}`).subscribe(set);
+		}
+		set(null);
+		return () => {};
+	});
+}
+
+/**
+ * Exercises, routines and programs each live in their own subcollection under
+ * the user document. Keeping them out of the user doc means concurrent writes
+ * to different entities can never clobber each other, and recording a set is a
+ * single atomic `arrayUnion` on one exercise document.
+ */
+export const workouts = userCollection<Workout>('workouts');
+export const routines = userCollection<Routine>('routines');
+export const programs = userCollection<Program>('programs');
+
 export interface UserData {
 	username: string;
 	photoURL: string;
-	workouts: Workout[];
-	routines?: Routine[];
-	programs?: Program[];
 	activeProgramId?: string;
 	preferences?: {
 		timer: { minutes: number; seconds: number };

@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { db, user, userData } from '$lib/firebase';
-	import { navState } from '$lib/state.svelte';
+	import { navState, toaster } from '$lib/state.svelte';
 	import { fade } from 'svelte/transition';
-	import { doc, updateDoc } from 'firebase/firestore';
+	import { doc, setDoc } from 'firebase/firestore';
 	import { onMount } from 'svelte';
 	import { subscribeToPush } from '$lib/push';
 
@@ -90,10 +90,34 @@
 			streaksEnabled: streaksEnabled !== false
 		};
 
+		const isOnboarding = !hasPreferences;
 		saveState = 'saving';
 		try {
-			await updateDoc(doc(db, 'users', uid), { preferences });
-			if (!hasPreferences) {
+			await setDoc(doc(db, 'users', uid), { preferences }, { merge: true });
+			if (isOnboarding) {
+				// Wait for the Firestore onSnapshot to deliver the optimistic write
+				// back into the $userData store before navigating. This prevents the
+				// layout's client-side redirect from seeing $userData without
+				// preferences on the home page and bouncing the user back here.
+				// With persistentLocalCache, onSnapshot fires almost instantly —
+				// the 2s timeout is purely a safety net for degraded connectivity.
+				await Promise.race([
+					new Promise<void>((resolve) => {
+						// Declared separately from the assignment below: userData.subscribe
+						// invokes its callback synchronously, and if the cache already has
+						// preferences (likely, since the write above just resolved), the
+						// callback fires before `unsubscribe = ...` finishes — referencing
+						// unsubscribe as part of its own initializer would throw.
+						let unsubscribe: () => void;
+						unsubscribe = userData.subscribe((data) => {
+							if (data?.preferences) {
+								unsubscribe();
+								resolve();
+							}
+						});
+					}),
+					new Promise<void>((resolve) => setTimeout(resolve, 2000))
+				]);
 				goto('/');
 				return;
 			}
@@ -101,6 +125,11 @@
 			setTimeout(() => (saveState = 'idle'), 1000);
 		} catch {
 			saveState = 'idle';
+			toaster.addToast({
+				type: 'error',
+				message: "Couldn't save preferences — try again",
+				dismissible: true
+			});
 		}
 	}
 
@@ -151,7 +180,7 @@
 		</div>
 	{/if}
 
-	{#if $userData}
+	{#if $user}
 		<div class="flex flex-col gap-6">
 			<!-- Appearance -->
 			<section class="flex flex-col gap-3">
@@ -237,7 +266,7 @@
 						<span class="text-primary text-2xl font-black tabular-nums">{timerPreview}</span>
 					</div>
 					<!-- Quick presets -->
-					<div class="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
+					<div class="-mx-4 flex scrollbar-none gap-2 overflow-x-auto px-4 pb-1">
 						{#each TIMER_PRESETS as preset}
 							<button
 								type="button"

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import BottomSheet from '$lib/components/BottomSheet.svelte';
-	import { userData } from '$lib/firebase';
+	import { workouts } from '$lib/firebase';
 	import { getWorkoutNameValidationMsg } from '$lib/utils';
 
 	interface Props {
@@ -21,7 +21,7 @@
 	let validationMsg: string | undefined = $state();
 
 	function handleSave() {
-		validationMsg = getWorkoutNameValidationMsg(newWorkoutName, $userData?.workouts);
+		validationMsg = getWorkoutNameValidationMsg(newWorkoutName, $workouts ?? undefined);
 
 		if (!validationMsg) {
 			onSave?.(newWorkoutName);

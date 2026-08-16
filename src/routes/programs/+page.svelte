@@ -1,13 +1,14 @@
 <script lang="ts">
-	import { user, userData, db } from '$lib/firebase';
+	import { user, userData, routines, programs, db } from '$lib/firebase';
 	import {
 		type Program,
 		getProgramSchedule,
 		getProgramDays,
-		getRoutineExercises
+		getRoutineExercises,
+		toaster
 	} from '$lib/state.svelte';
 	import { v4 as uuidv4 } from 'uuid';
-	import { arrayUnion, doc, updateDoc } from 'firebase/firestore';
+	import { deleteDoc, deleteField, doc, setDoc, updateDoc } from 'firebase/firestore';
 	import NewProgramSheet from '$lib/components/NewProgramSheet.svelte';
 	import EditProgramSheet from '$lib/components/EditProgramSheet.svelte';
 	import FAB from '$lib/components/Buttons/FAB.svelte';
@@ -29,9 +30,9 @@
 
 	let activeProgramId = $derived($userData?.activeProgramId ?? null);
 	let activeProgram = $derived(
-		($userData?.programs ?? []).find((s) => s.id === activeProgramId) ?? null
+		($programs ?? []).find((s) => s.id === activeProgramId) ?? null
 	);
-	let otherPrograms = $derived(($userData?.programs ?? []).filter((s) => s.id !== activeProgramId));
+	let otherPrograms = $derived(($programs ?? []).filter((s) => s.id !== activeProgramId));
 
 	function getTodayEntry(program: Program) {
 		return getProgramSchedule(program).find((sd) => sd.day === todayDow) ?? null;
@@ -46,24 +47,34 @@
 		if (!sd) return 0;
 		return sd.items.reduce((sum, item) => {
 			if (item.type === 'exercise') return sum + 1;
-			const routine = $userData?.routines?.find((r) => r.id === item.routineId);
+			const routine = $routines?.find((r) => r.id === item.routineId);
 			return sum + (routine ? getRoutineExercises(routine).length : 0);
 		}, 0);
 	}
 
+	function programRef(programId: string) {
+		return doc(db, 'users', $user!.uid, 'programs', programId);
+	}
+
 	async function handleNewProgramSave(name: string) {
-		if (!$userData) return;
-		const userRef = doc(db, 'users', $user!.uid);
+		if (!$user) return;
 		const newProgram: Program = {
 			id: uuidv4(),
 			name,
-			schedule: []
+			schedule: [],
+			createdAt: Date.now()
 		};
 		try {
-			await updateDoc(userRef, { programs: arrayUnion(newProgram) });
+			await setDoc(programRef(newProgram.id), newProgram);
 			goto(`/programs/${newProgram.id}`);
 			newProgramName = '';
-		} catch (error) {}
+		} catch (error) {
+			toaster.addToast({
+				type: 'error',
+				message: "Couldn't create program — try again",
+				dismissible: true
+			});
+		}
 	}
 
 	function handleProgramEditClick(program: Program) {
@@ -72,47 +83,51 @@
 	}
 
 	async function handleEditProgramSave(name: string, notes: string) {
-		if (!$userData) return;
-		const programs = $userData.programs ?? [];
-		const idx = programs.findIndex((s) => s.id === editingProgram?.id);
-		const userRef = doc(db, 'users', $user!.uid);
-		const original = { ...programs[idx] };
-		programs[idx] = { ...programs[idx], name, ...(notes ? { notes } : { notes: undefined }) };
+		if (!editingProgram || !$user) return;
 		try {
-			await updateDoc(userRef, { programs });
+			await updateDoc(programRef(editingProgram.id), {
+				name,
+				notes: notes ? notes : deleteField()
+			});
 		} catch {
-			programs[idx] = original;
+			toaster.addToast({
+				type: 'error',
+				message: "Couldn't save program — try again",
+				dismissible: true
+			});
 		}
 		isEditingPrograms = false;
 	}
 
 	async function handleEditProgramDelete() {
-		if (!$userData) return;
-		const programs = $userData.programs ?? [];
-		const idx = programs.findIndex((s) => s.id === editingProgram?.id);
-		const userRef = doc(db, 'users', $user!.uid);
-		const deleted = programs.splice(idx, 1)[0];
-		const extra: Record<string, unknown> = { programs };
-		if (deleted.id === activeProgramId) extra.activeProgramId = null;
+		if (!editingProgram || !$user) return;
+		const deletedId = editingProgram.id;
 		try {
-			await updateDoc(userRef, extra);
+			await deleteDoc(programRef(deletedId));
+			// activeProgramId lives on the user doc — clear it if it pointed here.
+			if (deletedId === activeProgramId) {
+				await updateDoc(doc(db, 'users', $user.uid), { activeProgramId: null });
+			}
 		} catch {
-			programs.splice(idx, 0, deleted);
+			toaster.addToast({
+				type: 'error',
+				message: "Couldn't delete program — try again",
+				dismissible: true
+			});
 		}
 		isEditingPrograms = false;
 	}
 
 	async function handleSetActive(session: Program) {
-		if (!$userData) return;
-		const userRef = doc(db, 'users', $user!.uid);
-		await updateDoc(userRef, { activeProgramId: session.id });
+		if (!$user) return;
+		await updateDoc(doc(db, 'users', $user.uid), { activeProgramId: session.id });
 	}
 </script>
 
 <div class="mx-auto flex w-full max-w-lg flex-col gap-4">
 	<!-- Header -->
 	<div class="flex justify-end">
-		{#if ($userData?.programs?.length ?? 0) > 0}
+		{#if ($programs?.length ?? 0) > 0}
 			<button
 				class="btn btn-ghost btn-sm w-14 font-semibold"
 				class:text-primary={isEditingPrograms}
@@ -123,13 +138,13 @@
 		{/if}
 	</div>
 
-	{#if $userData === undefined}
+	{#if $programs === null}
 		<div class="flex flex-col gap-3">
 			{#each { length: 3 } as _}
 				<div class="skeleton h-24 w-full rounded-2xl"></div>
 			{/each}
 		</div>
-	{:else if ($userData?.programs?.length ?? 0) > 0}
+	{:else if ($programs?.length ?? 0) > 0}
 		<!-- ── Active Program ──────────────────────────────────────── -->
 		{#if activeProgram}
 			{@const todayEntry = getTodayEntry(activeProgram)}

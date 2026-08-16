@@ -3,8 +3,8 @@
 	import SetsHistoryTable from '../../SetsHistoryTable.svelte';
 	import RecordSetSheet from '$lib/components/RecordSetSheet.svelte';
 	import FAB from '$lib/components/Buttons/FAB.svelte';
-	import { db, userData, user } from '$lib/firebase';
-	import { doc, updateDoc } from 'firebase/firestore';
+	import { db, userData, user, workouts } from '$lib/firebase';
+	import { arrayUnion, doc, updateDoc } from 'firebase/firestore';
 	import { page } from '$app/state';
 	import { navState } from '$lib/state.svelte';
 	import { toaster } from '$lib/state.svelte';
@@ -12,9 +12,7 @@
 	import { HAPTIC } from '$lib/haptic';
 	import confetti from 'canvas-confetti';
 
-	let workout = $derived(
-		$userData?.workouts.find((workout) => workout.id === page.params.workoutId)
-	);
+	let workout = $derived($workouts?.find((workout) => workout.id === page.params.workoutId));
 
 	let showRecordSetSheet = $state(false);
 	let reps = $state(10);
@@ -151,7 +149,7 @@
 		newNotes: string,
 		newDate: string
 	) {
-		if (!$userData) return;
+		if (!workout || !$user) return;
 
 		const isPR = checkPR(newReps, newWeight);
 
@@ -163,29 +161,18 @@
 			...(newNotes.trim() ? { notes: newNotes.trim() } : {})
 		};
 
-		// Save original state for rollback
-		const originalSets = workout!.sets;
-
-		// Optimistic update
-		workout!.sets = [...workout!.sets, newSet];
-
-		const workouts = $userData.workouts;
-		const index = $userData.workouts.findIndex((currWorkout) => currWorkout.id === workout!.id);
-		workouts[index] = workout!;
-
-		const userRef = doc(db, 'users', $user!.uid);
+		const workoutRef = doc(db, 'users', $user.uid, 'workouts', workout.id);
 
 		HAPTIC.medium();
 		document.dispatchEvent(new CustomEvent('startTimer'));
 		document.dispatchEvent(new CustomEvent('setRecorded'));
 
 		try {
-			await updateDoc(userRef, { workouts });
+			// Atomic append — no read-modify-write, so concurrent sets can't clobber.
+			await updateDoc(workoutRef, { sets: arrayUnion(newSet) });
 
 			if (isPR) celebratePR();
 		} catch (error) {
-			// Rollback on error
-			workout!.sets = originalSets;
 			toaster.addToast({
 				type: 'error',
 				message: "Couldn't save set — try again",
