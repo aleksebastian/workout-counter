@@ -2,6 +2,7 @@ import type { LayoutServerLoad } from './$types';
 import { adminDB } from '$lib/server/admin';
 import { redirect } from '@sveltejs/kit';
 import type { UserData } from '$lib/firebase';
+import { getRequiredOnboardingRoute } from '$lib/logic/onboarding';
 
 export const load = (async ({ locals, url }) => {
 	const uid = locals.userID;
@@ -15,14 +16,11 @@ export const load = (async ({ locals, url }) => {
 	}
 
 	const userDoc = await adminDB.collection('users').doc(uid).get();
-	const userData = userDoc.data();
+	const userData = userDoc.data() as UserData | undefined;
+	const redirectTarget = getRequiredOnboardingRoute(url.pathname, userData ?? null);
 
-	if (!userData && !url.pathname.startsWith('/login/username') && !url.pathname.startsWith('/preferences')) {
-		throw redirect(302, '/login/username');
-	}
-
-	if (userData && url.pathname.startsWith('/login')) {
-		throw redirect(302, '/');
+	if (redirectTarget) {
+		throw redirect(302, redirectTarget);
 	}
 
 	// Authenticated routes: return undefined so client-side Firebase store

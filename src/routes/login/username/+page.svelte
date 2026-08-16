@@ -44,10 +44,14 @@
 			const batch = writeBatch(db);
 
 			batch.set(doc(db, 'usernames', normalizedUsername), { uid: $user?.uid });
-			batch.set(doc(db, 'users', $user!.uid), {
-				username: normalizedUsername,
-				photoURL: $user?.photoURL ?? null
-			});
+			batch.set(
+				doc(db, 'users', $user!.uid),
+				{
+					username: normalizedUsername,
+					photoURL: $user?.photoURL ?? null
+				},
+				{ merge: true }
+			);
 
 			await batch.commit();
 

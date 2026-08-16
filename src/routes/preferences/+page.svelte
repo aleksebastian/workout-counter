@@ -3,7 +3,7 @@
 	import { db, user, userData } from '$lib/firebase';
 	import { navState, toaster } from '$lib/state.svelte';
 	import { fade } from 'svelte/transition';
-	import { doc, updateDoc } from 'firebase/firestore';
+	import { doc, setDoc } from 'firebase/firestore';
 	import { onMount } from 'svelte';
 	import { subscribeToPush } from '$lib/push';
 
@@ -93,7 +93,7 @@
 		const isOnboarding = !hasPreferences;
 		saveState = 'saving';
 		try {
-			await updateDoc(doc(db, 'users', uid), { preferences });
+			await setDoc(doc(db, 'users', uid), { preferences }, { merge: true });
 			if (isOnboarding) {
 				// Wait for the Firestore onSnapshot to deliver the optimistic write
 				// back into the $userData store before navigating. This prevents the
@@ -266,7 +266,7 @@
 						<span class="text-primary text-2xl font-black tabular-nums">{timerPreview}</span>
 					</div>
 					<!-- Quick presets -->
-					<div class="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
+					<div class="-mx-4 flex scrollbar-none gap-2 overflow-x-auto px-4 pb-1">
 						{#each TIMER_PRESETS as preset}
 							<button
 								type="button"
