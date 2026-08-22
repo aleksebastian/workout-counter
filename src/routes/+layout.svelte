@@ -8,8 +8,7 @@
 	import BottomNav from './BottomNav.svelte';
 	import Toasts from '$lib/components/Toasts.svelte';
 	import RestTimerBar from '$lib/components/RestTimerBar.svelte';
-	import { handleSignOut } from '$lib/logic/auth';
-	import { getRequiredOnboardingRoute } from '$lib/logic/onboarding';
+	import { handleSignOut, isSigningOut } from '$lib/logic/auth';
 	import { restTimer } from '$lib/logic/restTimer.svelte';
 	import { pwa } from '$lib/logic/pwa.svelte';
 	import { applyTheme } from '$lib/logic/theme';
@@ -29,27 +28,46 @@
 		session.status === 'loading' && !page.url.pathname.startsWith('/login')
 	);
 
+	// The login flow is reachable without data, so a dead listener shouldn't
+	// replace it with an error panel the user can't act on.
+	let showLoadError = $derived(
+		session.status === 'error' && !page.url.pathname.startsWith('/login')
+	);
+
 	// Client-side routing guard. Runs alongside the server guard because
 	// Firebase's offline persistence resolves a write against the local cache
 	// before the server has it — the server load would still see the old doc.
+	//
+	// It deliberately only pushes an under-onboarded user *towards* username
+	// setup. It must never send a signed-in user from /login to /, because this
+	// state is client-only: the cached profile snapshot lands milliseconds after
+	// sign-in while the server session cookie is still being minted, so that
+	// navigation would hit the server guard cookie-less and bounce straight back
+	// to /login — with neither of this effect's dependencies changed, so it would
+	// never retry. handleSignIn owns that redirect; it knows the cookie is set.
 	$effect(() => {
 		const status = session.status;
 		const path = page.url.pathname;
-		if (status === 'loading') return;
+		if (status === 'loading' || status === 'error') return;
 
 		if (status === 'signed-out') {
-			// Firebase only emits a null user on a real sign-out or revoked
-			// credential, so tear the server session down to match — but say why
-			// rather than silently bouncing someone mid-session.
-			if (!path.startsWith('/login')) {
-				toaster.show({ type: 'info', message: 'Your session ended — please sign in again' });
+			// A deliberate sign-out also empties this store, and does so before its
+			// navigation commits — isSigningOut() tells the two apart so we don't
+			// report the user's own action back to them as an expiry.
+			if (!path.startsWith('/login') && !isSigningOut()) {
+				toaster.show({
+					id: 'session-ended',
+					type: 'info',
+					message: 'Your session ended — please sign in again'
+				});
 				handleSignOut();
 			}
 			return;
 		}
 
-		const target = getRequiredOnboardingRoute(path, session.data);
-		if (target) goto(target);
+		if (status === 'onboarding' && !path.startsWith('/login')) {
+			goto('/login/username');
+		}
 	});
 
 	$effect(() => applyTheme(session.prefs.theme));
@@ -165,7 +183,35 @@
 		? `padding-bottom: calc(${restTimer.active ? '11rem' : '6rem'} + env(safe-area-inset-bottom, 0px))`
 		: 'padding-bottom: 2rem;'}
 >
-	{#if isAuthLoading}
+	{#if showLoadError}
+		<!-- Firestore stops a listener once it errors and never retries it, so a
+		     reload is the only honest recovery we can offer. -->
+		<div class="mx-auto flex max-w-lg flex-col items-center gap-4 py-16 text-center">
+			<div class="bg-error/10 text-error rounded-full p-5">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-8 w-8"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+					stroke-width="1.5"
+					aria-hidden="true"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+					/>
+				</svg>
+			</div>
+			<div>
+				<p class="font-semibold">Couldn't load your data</p>
+				<p class="text-base-content/50 mt-1 max-w-xs text-sm">{session.error}</p>
+			</div>
+			<button class="btn btn-primary btn-sm" onclick={() => window.location.reload()}>Reload</button
+			>
+		</div>
+	{:else if isAuthLoading}
 		<div class="mx-auto flex w-full max-w-lg flex-col gap-4">
 			<div class="skeleton h-8 w-44 rounded-lg"></div>
 			<div class="skeleton h-28 w-full rounded-2xl"></div>

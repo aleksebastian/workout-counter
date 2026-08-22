@@ -11,7 +11,7 @@ const CACHE = `cache-${version}`;
 
 const ASSETS = [
 	...build, // the app itself (hashed filenames)
-	...files  // everything in `static`
+	...files // everything in `static`
 ];
 
 // Hostnames whose requests the SW must never intercept.
@@ -73,13 +73,11 @@ sw.addEventListener('notificationclick', (event) => {
 	event.notification.close();
 
 	event.waitUntil(
-		sw.clients
-			.matchAll({ type: 'window', includeUncontrolled: true })
-			.then((clientList) => {
-				const existing = clientList.find((c) => c.url.startsWith(sw.location.origin));
-				if (existing) return existing.focus();
-				return sw.clients.openWindow('/');
-			})
+		sw.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+			const existing = clientList.find((c) => c.url.startsWith(sw.location.origin));
+			if (existing) return existing.focus();
+			return sw.clients.openWindow('/');
+		})
 	);
 });
 
@@ -97,6 +95,16 @@ sw.addEventListener('fetch', (event) => {
 
 	event.respondWith(respond(event.request, url));
 });
+
+/** True when a SvelteKit data response is really a redirect instruction. */
+async function isRedirectPayload(response: Response): Promise<boolean> {
+	try {
+		const body = await response.clone().json();
+		return body?.type === 'redirect';
+	} catch {
+		return false;
+	}
+}
 
 async function respond(request: Request, url: URL): Promise<Response> {
 	const cache = await caches.open(CACHE);
@@ -118,18 +126,27 @@ async function respond(request: Request, url: URL): Promise<Response> {
 	// for all non-login routes).
 	if (url.pathname.endsWith('/__data.json')) {
 		// Routes whose server data contains the user document (see +layout.server.ts) —
-		// never persist those responses in the SW cache at rest.
+		// never persist those responses in the SW cache at rest. `/` is included
+		// because its layout data is an auth redirect while signed out.
 		const isSensitive =
-			url.pathname.startsWith('/login') || url.pathname.startsWith('/preferences');
+			url.pathname.startsWith('/login') ||
+			url.pathname.startsWith('/preferences') ||
+			url.pathname === '/__data.json';
 
 		const cached = isSensitive ? undefined : await cache.match(request);
 
-		const networkPromise = fetch(request).then((response) => {
-			if (response.status === 200 && !isSensitive) {
-				cache.put(request, response.clone());
-			}
-			return response;
-		}).catch(() => null);
+		const networkPromise = fetch(request)
+			.then(async (response) => {
+				// SvelteKit serialises a redirect as HTTP 200 with a {"type":"redirect"}
+				// body. Caching one pins the redirect in place for every later
+				// navigation until the next deploy changes CACHE — so an auth bounce
+				// survives the user actually signing in.
+				if (response.status === 200 && !isSensitive && !(await isRedirectPayload(response))) {
+					cache.put(request, response.clone());
+				}
+				return response;
+			})
+			.catch(() => null);
 
 		if (cached) {
 			networkPromise.catch(() => {});
@@ -158,12 +175,14 @@ async function respond(request: Request, url: URL): Promise<Response> {
 	if (request.mode === 'navigate') {
 		const cached = await cache.match(request);
 
-		const networkPromise = fetch(request).then((response) => {
-			if (response.status === 200) {
-				cache.put(request, response.clone());
-			}
-			return response;
-		}).catch(() => null);
+		const networkPromise = fetch(request)
+			.then((response) => {
+				if (response.status === 200) {
+					cache.put(request, response.clone());
+				}
+				return response;
+			})
+			.catch(() => null);
 
 		// Return the cached version immediately if available, otherwise wait.
 		if (cached) {

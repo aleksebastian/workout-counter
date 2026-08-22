@@ -158,16 +158,23 @@
 
 	// iOS-safe scroll lock: position:fixed prevents touch-scroll on background
 	let savedScrollY = 0;
+	let didLock = false;
 
 	$effect(() => {
 		if (open) {
 			savedScrollY = window.scrollY;
+			didLock = true;
 			document.body.style.position = 'fixed';
 			document.body.style.top = `-${savedScrollY}px`;
 			document.body.style.left = '0';
 			document.body.style.right = '0';
 			document.body.style.overflow = 'hidden';
-		} else {
+		} else if (didLock) {
+			// Only unlock a lock we actually took. This effect also runs on mount
+			// with `open` false, and unconditionally restoring would clear styles
+			// we never set and scroll the page to 0 — visible on any page that
+			// mounts a closed sheet, and the Library mounts three.
+			didLock = false;
 			document.body.style.position = '';
 			document.body.style.top = '';
 			document.body.style.left = '';

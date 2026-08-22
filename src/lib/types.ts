@@ -92,3 +92,69 @@ export type Toast = {
 	dismissible?: boolean;
 	timeout?: number;
 };
+
+// ── Document parsing ─────────────────────────────────────────────────────────
+
+/**
+ * Firestore is schemaless, so a stored document is only ever a *claim* about
+ * its shape. Documents written by earlier builds of this app are missing fields
+ * the types above declare as required — programs predating the weekly schedule
+ * have no `schedule` at all, and every `program.schedule.find(...)` in the app
+ * throws on them.
+ *
+ * These parsers run at the store boundary so nothing downstream has to guard.
+ * They are deliberately *not* a legacy-shape normaliser: a program with no
+ * usable schedule becomes an empty one, it does not get reconstructed from the
+ * old `days`/`items`/`exercises` fields.
+ *
+ * The raw input is typed as a plain record rather than Firestore's
+ * `DocumentData` to keep this module free of Firebase imports; `DocumentData`
+ * is structurally assignable to it.
+ */
+type RawDoc = Record<string, unknown>;
+
+export type Parse<T> = (raw: RawDoc, id: string) => T;
+
+function arrayOf<T>(value: unknown): T[] {
+	return Array.isArray(value) ? (value as T[]) : [];
+}
+
+function str(value: unknown, fallback = ''): string {
+	return typeof value === 'string' ? value : fallback;
+}
+
+function num(value: unknown, fallback = 0): number {
+	return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+export const parseWorkout: Parse<Workout> = (raw, id) => ({
+	...(raw as Workout),
+	id: str(raw.id, id),
+	name: str(raw.name),
+	sets: arrayOf<Set>(raw.sets),
+	createdAt: num(raw.createdAt)
+});
+
+export const parseRoutine: Parse<Routine> = (raw, id) => ({
+	...(raw as Routine),
+	id: str(raw.id, id),
+	name: str(raw.name),
+	exercises: arrayOf<RoutineExercise>(raw.exercises),
+	createdAt: num(raw.createdAt)
+});
+
+export const parseProgram: Parse<Program> = (raw, id) => ({
+	...(raw as Program),
+	id: str(raw.id, id),
+	name: str(raw.name),
+	// Each day's `items` is coerced too: `programDays` reads `d.items.length`,
+	// so a schedule containing a malformed day would still throw.
+	schedule: arrayOf<RawDoc>(raw.schedule).map((day) => ({
+		...(day as unknown as ProgramDay),
+		day: num(day?.day),
+		items: arrayOf<ProgramItem>(day?.items)
+	})),
+	createdAt: num(raw.createdAt)
+});
+
+export const parseUserData: Parse<UserData> = (raw) => raw as UserData;

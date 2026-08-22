@@ -66,6 +66,7 @@
 			aria-current={current === 'train' ? 'page' : undefined}
 			class="nav-item"
 		>
+			<!-- Dumbbell, built from rects so it is exactly symmetric about x=12. -->
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6"
@@ -73,9 +74,11 @@
 				fill="currentColor"
 				aria-hidden="true"
 			>
-				<path
-					d="M4.5 8.25a1.5 1.5 0 0 1 1.5 1.5v4.5a1.5 1.5 0 0 1-3 0v-4.5a1.5 1.5 0 0 1 1.5-1.5ZM19.5 8.25a1.5 1.5 0 0 1 1.5 1.5v4.5a1.5 1.5 0 0 1-3 0v-4.5a1.5 1.5 0 0 1 1.5-1.5ZM8.25 6.75a1.5 1.5 0 0 1 1.5 1.5v7.5a1.5 1.5 0 0 1-3 0v-7.5a1.5 1.5 0 0 1 1.5-1.5ZM15.75 6.75a1.5 1.5 0 0 1 1.5 1.5v7.5a1.5 1.5 0 0 1-3 0v-7.5a1.5 1.5 0 0 1 1.5-1.5ZM9.75 11.25h4.5v1.5h-4.5v-1.5Z"
-				/>
+				<rect x="1.5" y="7.5" width="3" height="9" rx="1.5" />
+				<rect x="5.5" y="5" width="3.5" height="14" rx="1.75" />
+				<rect x="9" y="10" width="6" height="4" rx="1" />
+				<rect x="15" y="5" width="3.5" height="14" rx="1.75" />
+				<rect x="19.5" y="7.5" width="3" height="9" rx="1.5" />
 			</svg>
 			<span class="text-xs font-medium">Train</span>
 		</a>
@@ -86,6 +89,8 @@
 			aria-current={current === 'library' ? 'page' : undefined}
 			class="nav-item"
 		>
+			<!-- Open book: two mirrored halves, symmetric about x=12 and the same
+			     visual weight as the solid house. -->
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6"
@@ -94,12 +99,10 @@
 				aria-hidden="true"
 			>
 				<path
-					fill-rule="evenodd"
-					d="M3.75 3a.75.75 0 0 0-.75.75v16.5c0 .414.336.75.75.75h1.5a.75.75 0 0 0 .75-.75V3.75A.75.75 0 0 0 5.25 3h-1.5Zm5.25 0a.75.75 0 0 0-.75.75v16.5c0 .414.336.75.75.75h1.5a.75.75 0 0 0 .75-.75V3.75A.75.75 0 0 0 10.5 3H9Zm5.106.882a.75.75 0 0 0-.918.53l-.388 1.45 3.16 11.79.389-1.45a.75.75 0 0 0-.53-.918l-1.713-11.402Zm2.298-.34a.75.75 0 0 0-.918.53l-.194.724 4.35 12.29.194-.725a.75.75 0 0 0-.53-.918l-2.902-11.9Z"
-					clip-rule="evenodd"
+					d="M11.25 4.533A9.707 9.707 0 0 0 6 3a9.735 9.735 0 0 0-3.25.555.75.75 0 0 0-.5.707v14.25a.75.75 0 0 0 1 .707A8.237 8.237 0 0 1 6 18.75c1.995 0 3.823.707 5.25 1.886V4.533Z"
 				/>
 				<path
-					d="M14.03 4.53a.75.75 0 0 1 .918-.53l1.449.388a.75.75 0 0 1 .53.918l-3.86 14.408a.75.75 0 0 1-.917.53l-1.45-.388a.75.75 0 0 1-.53-.918L14.03 4.53Z"
+					d="M12.75 20.636A8.214 8.214 0 0 1 18 18.75c.966 0 1.89.166 2.75.47a.75.75 0 0 0 1-.708V4.262a.75.75 0 0 0-.5-.707A9.735 9.735 0 0 0 18 3a9.707 9.707 0 0 0-5.25 1.533v16.103Z"
 				/>
 			</svg>
 			<span class="text-xs font-medium">Library</span>
