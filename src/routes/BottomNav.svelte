@@ -25,10 +25,23 @@
 	}
 
 	let path = $derived(page.url.pathname);
-	let isHome = $derived(path === '/');
-	let isExercises = $derived(path.startsWith('/exercises') || path.startsWith('/workout'));
-	let isRoutines = $derived(path.startsWith('/routines'));
-	let isSessions = $derived(path.startsWith('/programs'));
+
+	// Detail pages count as part of the tab they belong to, so the highlight
+	// never disappears while you're drilled in.
+	let current = $derived.by(() => {
+		if (path === '/') return 'home';
+		if (path.startsWith('/train')) return 'train';
+		if (
+			path.startsWith('/library') ||
+			path.startsWith('/workout') ||
+			path.startsWith('/exercises') ||
+			path.startsWith('/routines') ||
+			path.startsWith('/programs')
+		) {
+			return 'library';
+		}
+		return '';
+	});
 </script>
 
 <nav
@@ -37,17 +50,20 @@
 	in:launchSlide|global
 >
 	<div class="flex h-16 items-center">
-		<!-- Home -->
-		<a href="/" aria-label="Home" aria-current={isHome ? 'page' : undefined} class="nav-item">
+		<a
+			href="/"
+			aria-label="Home"
+			aria-current={current === 'home' ? 'page' : undefined}
+			class="nav-item"
+		>
 			<span class="h-6 w-6 [&>svg]:h-6 [&>svg]:w-6">{@html HomeIcon}</span>
 			<span class="text-xs font-medium">Home</span>
 		</a>
 
-		<!-- Exercises -->
 		<a
-			href="/exercises"
-			aria-label="Exercises"
-			aria-current={isExercises ? 'page' : undefined}
+			href="/train"
+			aria-label="Train"
+			aria-current={current === 'train' ? 'page' : undefined}
 			class="nav-item"
 		>
 			<svg
@@ -55,26 +71,19 @@
 				class="h-6 w-6"
 				viewBox="0 0 24 24"
 				fill="currentColor"
+				aria-hidden="true"
 			>
 				<path
-					fill-rule="evenodd"
-					d="M7.502 6h7.128A3.375 3.375 0 0 1 18 9.375v9.375a3 3 0 0 0 3-3V6.108c0-1.505-1.125-2.811-2.664-2.94a48.972 48.972 0 0 0-.673-.05A3 3 0 0 0 15 1.5h-1.5a3 3 0 0 0-2.663 1.618c-.225.015-.45.032-.673.05C8.662 3.295 7.554 4.542 7.502 6ZM13.5 3A1.5 1.5 0 0 0 12 4.5h4.5A1.5 1.5 0 0 0 15 3h-1.5Z"
-					clip-rule="evenodd"
-				/>
-				<path
-					fill-rule="evenodd"
-					d="M3 9.375C3 8.339 3.84 7.5 4.875 7.5h9.75c1.036 0 1.875.84 1.875 1.875v11.25c0 1.035-.84 1.875-1.875 1.875h-9.75A1.875 1.875 0 0 1 3 20.625V9.375Zm9.586 4.594a.75.75 0 0 0-1.172-.938l-2.476 3.096-.908-.907a.75.75 0 0 0-1.06 1.06l1.5 1.5a.75.75 0 0 0 1.116-.062l3-3.75Z"
-					clip-rule="evenodd"
+					d="M4.5 8.25a1.5 1.5 0 0 1 1.5 1.5v4.5a1.5 1.5 0 0 1-3 0v-4.5a1.5 1.5 0 0 1 1.5-1.5ZM19.5 8.25a1.5 1.5 0 0 1 1.5 1.5v4.5a1.5 1.5 0 0 1-3 0v-4.5a1.5 1.5 0 0 1 1.5-1.5ZM8.25 6.75a1.5 1.5 0 0 1 1.5 1.5v7.5a1.5 1.5 0 0 1-3 0v-7.5a1.5 1.5 0 0 1 1.5-1.5ZM15.75 6.75a1.5 1.5 0 0 1 1.5 1.5v7.5a1.5 1.5 0 0 1-3 0v-7.5a1.5 1.5 0 0 1 1.5-1.5ZM9.75 11.25h4.5v1.5h-4.5v-1.5Z"
 				/>
 			</svg>
-			<span class="text-xs font-medium">Exercises</span>
+			<span class="text-xs font-medium">Train</span>
 		</a>
 
-		<!-- Routines -->
 		<a
-			href="/routines"
-			aria-label="Routines"
-			aria-current={isRoutines ? 'page' : undefined}
+			href="/library"
+			aria-label="Library"
+			aria-current={current === 'library' ? 'page' : undefined}
 			class="nav-item"
 		>
 			<svg
@@ -82,40 +91,18 @@
 				class="h-6 w-6"
 				viewBox="0 0 24 24"
 				fill="currentColor"
+				aria-hidden="true"
 			>
 				<path
 					fill-rule="evenodd"
-					d="M2.625 6.75a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0Zm4.875 0A.75.75 0 0 1 8.25 6h12a.75.75 0 0 1 0 1.5h-12a.75.75 0 0 1-.75-.75ZM2.625 12a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0ZM7.5 12a.75.75 0 0 1 .75-.75h12a.75.75 0 0 1 0 1.5h-12A.75.75 0 0 1 7.5 12Zm-4.875 5.25a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0Zm4.875 0a.75.75 0 0 1 .75-.75h12a.75.75 0 0 1 0 1.5h-12a.75.75 0 0 1-.75-.75Z"
+					d="M3.75 3a.75.75 0 0 0-.75.75v16.5c0 .414.336.75.75.75h1.5a.75.75 0 0 0 .75-.75V3.75A.75.75 0 0 0 5.25 3h-1.5Zm5.25 0a.75.75 0 0 0-.75.75v16.5c0 .414.336.75.75.75h1.5a.75.75 0 0 0 .75-.75V3.75A.75.75 0 0 0 10.5 3H9Zm5.106.882a.75.75 0 0 0-.918.53l-.388 1.45 3.16 11.79.389-1.45a.75.75 0 0 0-.53-.918l-1.713-11.402Zm2.298-.34a.75.75 0 0 0-.918.53l-.194.724 4.35 12.29.194-.725a.75.75 0 0 0-.53-.918l-2.902-11.9Z"
 					clip-rule="evenodd"
 				/>
-			</svg>
-			<span class="text-xs font-medium">Routines</span>
-		</a>
-
-		<!-- Programs -->
-		<a
-			href="/programs"
-			aria-label="Programs"
-			aria-current={isSessions ? 'page' : undefined}
-			class="nav-item"
-		>
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="h-6 w-6"
-				viewBox="0 0 24 24"
-				fill="currentColor"
-			>
 				<path
-					d="M11.644 1.59a.75.75 0 0 1 .712 0l9.75 5.25a.75.75 0 0 1 0 1.32l-9.75 5.25a.75.75 0 0 1-.712 0l-9.75-5.25a.75.75 0 0 1 0-1.32l9.75-5.25Z"
-				/>
-				<path
-					d="m3.265 10.602 7.668 4.129a2.25 2.25 0 0 0 2.134 0l7.668-4.13 1.37.739a.75.75 0 0 1 0 1.32l-9.75 5.25a.75.75 0 0 1-.71 0l-9.75-5.25a.75.75 0 0 1 0-1.32l1.37-.738Z"
-				/>
-				<path
-					d="m10.933 19.231-7.668-4.13-1.37.739a.75.75 0 0 0 0 1.32l9.75 5.25c.221.12.489.12.71 0l9.75-5.25a.75.75 0 0 0 0-1.32l-1.37-.738-7.668 4.13a2.25 2.25 0 0 1-2.134-.001Z"
+					d="M14.03 4.53a.75.75 0 0 1 .918-.53l1.449.388a.75.75 0 0 1 .53.918l-3.86 14.408a.75.75 0 0 1-.917.53l-1.45-.388a.75.75 0 0 1-.53-.918L14.03 4.53Z"
 				/>
 			</svg>
-			<span class="text-xs font-medium">Programs</span>
+			<span class="text-xs font-medium">Library</span>
 		</a>
 	</div>
 </nav>
@@ -128,7 +115,7 @@
 		gap: 0.125rem;
 		padding-top: 0.5rem;
 		padding-bottom: 0.5rem;
-		width: 25%;
+		width: 33.3333%;
 		opacity: 0.35;
 	}
 

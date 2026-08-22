@@ -1,39 +1,34 @@
 export type MinimalUserData = {
 	username?: string;
 	photoURL?: string | null;
-	preferences?: {
-		timer?: { minutes?: number; seconds?: number };
-		theme?: 'light' | 'dark' | 'system';
-		weightUnit?: 'lbs' | 'kg';
-		weekStart?: 0 | 1;
-		weeklyGoal?: number;
-		streaksEnabled?: boolean;
-	};
 };
 
-export function getRequiredOnboardingRoute(pathname: string, userData: MinimalUserData | null | undefined) {
-	if (!userData) {
-		if (pathname.startsWith('/login')) return null;
-		return '/login/username';
+/**
+ * The single source of truth for "where does this user have to be right now".
+ *
+ * Used by the server load (to redirect before render) and by the root layout
+ * (to catch the client-side case where Firestore's offline cache resolves a
+ * write before the server has it). Both callers use this function rather than
+ * re-deriving the rules, so the two can't drift.
+ *
+ * Claiming a username is the only hard gate. Preferences are seeded with
+ * defaults at that point, so a new account lands in the app and can start
+ * logging immediately instead of answering a settings questionnaire first.
+ */
+export function getRequiredOnboardingRoute(
+	pathname: string,
+	userData: MinimalUserData | null | undefined
+): string | null {
+	if (!userData?.username) {
+		return pathname.startsWith('/login') ? null : '/login/username';
 	}
 
-	if (!userData.username) {
-		if (pathname.startsWith('/login/username')) return null;
-		return '/login/username';
-	}
-
-	if (!userData.preferences) {
-		if (pathname.startsWith('/preferences')) return null;
-		return '/preferences';
-	}
-
+	// Onboarded — nothing left to do but get out of the login flow.
 	if (pathname.startsWith('/login')) return '/';
 	return null;
 }
 
-export function getPostLoginDestination(userData: MinimalUserData | null | undefined) {
-	if (!userData) return '/login/username';
-	if (!userData.username) return '/login/username';
-	if (!userData.preferences) return '/preferences';
-	return '/';
+/** Where to land immediately after a successful sign-in. */
+export function getPostLoginDestination(userData: MinimalUserData | null | undefined): string {
+	return getRequiredOnboardingRoute('/', userData) ?? '/';
 }

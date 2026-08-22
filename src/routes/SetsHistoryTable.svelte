@@ -1,17 +1,15 @@
-<script lang="ts" module>
-	export type OrganizedSet = { date: string; sets: Set[]; totalReps?: number };
-</script>
-
 <script lang="ts">
-	import { type Set, type Workout } from '$lib/state.svelte';
-	import { toaster } from '$lib/state.svelte';
+	import { v4 as uuidv4 } from 'uuid';
+	import { format, formatRelative } from 'date-fns';
 	import EditSetSheet from '$lib/components/EditSetSheet.svelte';
 	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
-	import { db, userData, user } from '$lib/firebase';
-	import { arrayRemove, arrayUnion, doc, updateDoc } from 'firebase/firestore';
-	import { format, formatRelative } from 'date-fns';
+	import { swipeable } from '$lib/actions/swipeable';
+	import { exercises } from '$lib/data';
+	import { session } from '$lib/session.svelte';
+	import { restTimer } from '$lib/logic/restTimer.svelte';
+	import { pwa } from '$lib/logic/pwa.svelte';
 	import { HAPTIC } from '$lib/haptic';
-	import { v4 as uuidv4 } from 'uuid';
+	import type { Set, Workout } from '$lib/types';
 
 	interface Props {
 		workout: Workout;
@@ -20,220 +18,85 @@
 
 	let { workout, hideFirstHeader = false }: Props = $props();
 
-	let weightUnit = $derived($userData?.preferences?.weightUnit ?? 'lbs');
+	let unit = $derived(session.prefs.weightUnit);
 
-	function workoutRef() {
-		return doc(db, 'users', $user!.uid, 'workouts', workout.id);
-	}
+	let showEditSheet = $state(false);
+	let editing = $state<Set | undefined>(undefined);
+	let pendingDelete = $state<Set | undefined>(undefined);
+	let deleteDialog = $state<HTMLDialogElement>()!;
 
-	let showEditSetSheet = $state(false);
-	let organizedSets: OrganizedSet[] = $derived(organizeSetsByDate(workout.sets));
+	type DayGroup = { date: string; sets: Set[]; totalReps: number };
 
-	let editSetId: string | undefined = undefined;
-
-	// ── Swipe-to-delete confirmation ───────────────────────────────────────────
-	let pendingDeleteSetId = $state<string | undefined>(undefined);
-	let deleteDialog: HTMLDialogElement = $state()!;
-
-	function handleDeleteDialogClose(event: Event) {
-		const dialog = event.target as HTMLDialogElement;
-		if (dialog.returnValue === 'default' && pendingDeleteSetId) {
-			handleDeleteSet(pendingDeleteSetId);
+	let sessionDays = $derived.by((): DayGroup[] => {
+		const groups = new Map<string, Set[]>();
+		for (const set of workout.sets) {
+			const key = format(new Date(set.date), 'M/dd/yyyy');
+			if (!groups.has(key)) groups.set(key, []);
+			groups.get(key)!.push(set);
 		}
-		pendingDeleteSetId = undefined;
-	}
+		return [...groups.entries()]
+			.map(([date, sets]) => ({
+				date,
+				sets,
+				totalReps: sets.reduce((sum, s) => sum + s.reps, 0)
+			}))
+			.reverse();
+	});
 
-	// ── Swipe state (left = duplicate, right = delete) ─────────────────────────
-	let swipeX: Record<string, number> = $state({});
-	let swipeTouchStartX: Record<string, number> = {};
-	let swipeTouchStartY: Record<string, number> = {};
-	let swipeDirectionLocked: Record<string, 'horizontal' | 'vertical' | null> = {};
-	let lastHapticTime = 0; // Throttle haptic feedback
-	const SWIPE_DELETE_THRESHOLD = 80;
-	const SWIPE_DUPLICATE_THRESHOLD = 80;
-	const SWIPE_REVEAL_THRESHOLD = 40;
-	const DIRECTION_LOCK_THRESHOLD = 5; // px of movement before locking direction
-
-	function onSwipeTouchStart(setId: string, e: TouchEvent) {
-		swipeTouchStartX[setId] = e.touches[0].clientX;
-		swipeTouchStartY[setId] = e.touches[0].clientY;
-		swipeDirectionLocked[setId] = null;
-	}
-
-	function onSwipeTouchMove(setId: string, e: TouchEvent) {
-		const dx = swipeTouchStartX[setId] - e.touches[0].clientX;
-		const dy = swipeTouchStartY[setId] - e.touches[0].clientY;
-
-		// Lock gesture direction once movement exceeds threshold
-		if (swipeDirectionLocked[setId] === null) {
-			if (Math.abs(dx) > DIRECTION_LOCK_THRESHOLD || Math.abs(dy) > DIRECTION_LOCK_THRESHOLD) {
-				swipeDirectionLocked[setId] = Math.abs(dx) >= Math.abs(dy) ? 'horizontal' : 'vertical';
-			}
+	function dayHeading(date: string) {
+		const relative = formatRelative(new Date(date), new Date());
+		if (relative.includes('at')) {
+			const trimmed = relative.slice(0, relative.indexOf('at') - 1);
+			return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
 		}
-
-		// Ignore if scrolling vertically
-		if (swipeDirectionLocked[setId] !== 'horizontal') return;
-
-		// Right swipe (negative dx) = duplicate, Left swipe (positive dx) = delete
-		if (dx > 0) {
-			swipeX[setId] = Math.min(dx, SWIPE_DELETE_THRESHOLD + 20);
-			// Throttle haptic to max once per 100ms to prevent micro-stutters
-			if (Math.round(dx) === SWIPE_REVEAL_THRESHOLD && Date.now() - lastHapticTime > 100) {
-				HAPTIC.tap();
-				lastHapticTime = Date.now();
-			}
-		} else if (dx < 0) {
-			swipeX[setId] = Math.max(dx, -(SWIPE_DUPLICATE_THRESHOLD + 20));
-			if (
-				Math.round(Math.abs(dx)) === SWIPE_REVEAL_THRESHOLD &&
-				Date.now() - lastHapticTime > 100
-			) {
-				HAPTIC.tap();
-				lastHapticTime = Date.now();
-			}
-		}
+		return format(new Date(date), 'MMMM d, yyyy');
 	}
 
-	function onSwipeTouchEnd(setId: string, set: Set) {
-		swipeDirectionLocked[setId] = null;
-		const dx = swipeX[setId] ?? 0;
-		if (dx >= SWIPE_DELETE_THRESHOLD) {
-			swipeX[setId] = 0;
-			pendingDeleteSetId = set.id;
-			deleteDialog?.showModal();
-		} else if (dx <= -SWIPE_DUPLICATE_THRESHOLD) {
-			swipeX[setId] = 0;
-			handleDuplicateSet(set);
-		} else {
-			swipeX[setId] = 0;
-		}
-	}
-
-	function organizeSetsByDate(sets: Set[]) {
-		const setsByDate: OrganizedSet[] = [];
-
-		for (const set of sets) {
-			const date = format(new Date(set.date), 'M/dd/yyyy');
-			const index = setsByDate.findIndex((set) => set.date === date);
-
-			if (index === -1) {
-				setsByDate.push({ date, sets: [set] });
-			} else {
-				setsByDate[index].sets.push(set);
-			}
-		}
-
-		setsByDate.forEach((set) => {
-			set.totalReps = set.sets.reduce((acc, curr) => acc + curr.reps, 0);
-		});
-
-		return setsByDate.reverse();
-	}
-
-	function handleEditSetOpen(set: Set) {
-		editSetId = set.id;
-		reps = set.reps;
-		weight = set.weight ?? 0;
-		setDate = set.date;
-		setNotes = set.notes ?? '';
-		showEditSetSheet = true;
-	}
-
-	async function handleDuplicateSet(set: Set) {
-		if (!$user) return;
+	async function duplicate(set: Set) {
 		HAPTIC.success();
-
-		const newSet = {
+		const copy: Set = {
 			id: uuidv4(),
 			reps: set.reps,
 			date: new Date().toISOString(),
-			...(set.weight && { weight: set.weight })
+			...(set.weight ? { weight: set.weight } : {})
 		};
-
-		try {
-			// Atomic append — no read-modify-write.
-			await updateDoc(workoutRef(), { sets: arrayUnion(newSet) });
-			document.dispatchEvent(new CustomEvent('startTimer'));
-			document.dispatchEvent(new CustomEvent('setRecorded'));
-		} catch (err) {
-			toaster.addToast({
-				type: 'error',
-				message: "Couldn't duplicate set — try again",
-				dismissible: true
-			});
+		const ok = await exercises.addSet(workout.id, copy);
+		if (ok) {
+			restTimer.start({ workoutId: workout.id });
+			pwa.noteSetRecorded();
 		}
 	}
 
-	async function handleDeleteSet(setId: string) {
-		if (!$user) return;
+	function confirmDelete(set: Set) {
+		pendingDelete = set;
+		deleteDialog?.showModal();
+	}
+
+	function remove(set: Set) {
 		HAPTIC.heavy();
-
-		const target = workout.sets.find((set) => set.id === setId);
-		if (!target) return;
-
-		try {
-			// Atomic removal — matches the element by value, so it can't clobber
-			// sets added concurrently on another device.
-			await updateDoc(workoutRef(), { sets: arrayRemove(target) });
-		} catch (err) {
-			toaster.addToast({
-				type: 'error',
-				message: "Couldn't delete set — try again",
-				dismissible: true
-			});
-		}
+		exercises.removeSet(workout.id, set);
 	}
 
-	let reps = $state(0);
-	let weight = $state(0);
-	let setDate = $state('');
-	let setNotes = $state('');
-	async function handleEditSetSave(
-		newReps: number,
-		newWeight: number,
-		newDate: string,
-		newNotes: string
-	) {
-		if (!$user) return;
-
-		// Rewrite the sets array in place so chronological order is preserved.
-		// Scoped to this one exercise document, so an edit here can never clobber
-		// work recorded against a different exercise.
+	function saveEdit(reps: number, weight: number, date: string, notes: string) {
+		if (!editing) return;
+		// Rewrite the array in place so chronological order survives an edit.
 		const sets = workout.sets.map((set) =>
-			set.id === editSetId
+			set.id === editing!.id
 				? {
 						id: set.id,
-						reps: newReps,
-						date: newDate,
-						...(newWeight > 0 ? { weight: newWeight } : {}),
-						...(newNotes.trim() ? { notes: newNotes.trim() } : {})
+						reps,
+						date,
+						...(weight > 0 ? { weight } : {}),
+						...(notes.trim() ? { notes: notes.trim() } : {})
 					}
 				: set
 		);
-
-		try {
-			await updateDoc(workoutRef(), { sets });
-		} catch {
-			toaster.addToast({ type: 'error', message: "Couldn't save — try again", dismissible: true });
-		}
-	}
-
-	function getRelativeDate(date: string) {
-		const relativeDate = formatRelative(new Date(date), new Date());
-		if (relativeDate.includes('at')) {
-			return (relativeDate.charAt(0).toUpperCase() + relativeDate.slice(1)).slice(
-				0,
-				relativeDate.indexOf('at') - 1
-			);
-		}
-
-		return format(new Date(date), 'MMMM d, yyyy');
+		exercises.replaceSets(workout.id, sets);
 	}
 </script>
 
-{#if organizedSets.length === 0}
-	<!-- Empty state -->
-	<div class="fade-in flex flex-col items-center gap-3 py-16 text-center">
+{#if sessionDays.length === 0}
+	<div class="flex flex-col items-center gap-3 py-16 text-center">
 		<div class="bg-base-200 rounded-full p-6">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
@@ -254,21 +117,21 @@
 		<p class="text-base-content/50 max-w-xs text-sm">Tap the + button to record your first set.</p>
 	</div>
 {:else}
-	{#each organizedSets as organizedSet, index}
-		{@const hasWeight = organizedSet.sets.some((s) => s.weight)}
+	{#each sessionDays as group, index (group.date)}
+		{@const hasWeight = group.sets.some((s) => s.weight)}
+		{@const columns = hasWeight ? 'grid-cols-[1fr_1fr_1fr]' : 'grid-cols-[1fr_1fr]'}
 		<div class={index > 0 ? 'mt-6' : ''}>
 			{#if !(index === 0 && hideFirstHeader)}
 				<div class="mb-2 flex justify-between">
-					<h3>{getRelativeDate(organizedSet.date)}</h3>
-					<p><strong>{organizedSet.totalReps} reps</strong></p>
+					<h3>{dayHeading(group.date)}</h3>
+					<p><strong>{group.totalReps} reps</strong></p>
 				</div>
 			{/if}
 
-			<!-- Column headers -->
 			<div
 				class={[
 					'text-base-content/40 mb-1 grid pl-1 text-xs font-semibold tracking-wide uppercase',
-					hasWeight ? 'grid-cols-[1fr_1fr_1fr]' : 'grid-cols-[1fr_1fr]'
+					columns
 				].join(' ')}
 			>
 				<span>Reps</span>
@@ -276,31 +139,20 @@
 				<span>Time</span>
 			</div>
 
-			<!-- Set rows -->
 			<div class="divide-base-content/8 divide-y">
-				{#each organizedSet.sets.toReversed() as set}
+				{#each group.sets.toReversed() as set (set.id)}
 					{@const time = new Date(set.date).toLocaleTimeString([], {
 						hour: 'numeric',
 						minute: '2-digit'
 					})}
-					{@const offsetX = swipeX[set.id] ?? 0}
-					<!-- svelte-ignore a11y_no_static_element_interactions -->
-					<div
-						class="relative"
-						style="touch-action: pan-y;"
-						ontouchstart={(e) => onSwipeTouchStart(set.id, e)}
-						ontouchmove={(e) => onSwipeTouchMove(set.id, e)}
-						ontouchend={() => onSwipeTouchEnd(set.id, set)}
-					>
-						<!-- Duplicate action panel — fixed on the left, revealed on swipe right -->
+					<div class="relative">
+						<!-- Action panels sit behind the row and are revealed as it slides. -->
 						<div
 							class="bg-success absolute inset-y-0 left-0 flex w-20 items-center justify-center rounded-l-lg"
 							aria-hidden="true"
 						>
 							<span class="text-success-content text-sm font-semibold">Record</span>
 						</div>
-
-						<!-- Delete action panel — fixed on the right, revealed as content slides away -->
 						<div
 							class="bg-error absolute inset-y-0 right-0 flex w-20 items-center justify-center rounded-r-lg"
 							aria-hidden="true"
@@ -308,22 +160,26 @@
 							<span class="text-error-content text-sm font-semibold">Delete</span>
 						</div>
 
-						<!-- overflow-hidden clips the sliding row -->
 						<div class="overflow-hidden">
 							<button
 								type="button"
 								class={[
 									'bg-base-100 active:bg-base-200 grid w-full items-center gap-2 py-3 pl-1 text-left transition-colors',
-									hasWeight ? 'grid-cols-[1fr_1fr_1fr]' : 'grid-cols-[1fr_1fr]'
+									columns
 								].join(' ')}
-								style="transform: translateX({-offsetX}px); transition: {offsetX === 0
-									? 'transform 0.2s ease'
-									: 'none'};"
-								onclick={() => handleEditSetOpen(set)}
+								style="touch-action: pan-y;"
+								use:swipeable={{
+									onSwipeLeft: () => confirmDelete(set),
+									onSwipeRight: () => duplicate(set)
+								}}
+								onclick={() => {
+									editing = set;
+									showEditSheet = true;
+								}}
 							>
 								<span class="text-sm">{set.reps}</span>
 								{#if hasWeight}
-									<span class="text-sm">{set.weight ? `${set.weight} ${weightUnit}` : '—'}</span>
+									<span class="text-sm">{set.weight ? `${set.weight} ${unit}` : '—'}</span>
 								{/if}
 								<span class="text-base-content/50 text-sm">{time}</span>
 							</button>
@@ -334,20 +190,24 @@
 		</div>
 	{/each}
 {/if}
+
 <EditSetSheet
-	bind:open={showEditSetSheet}
-	bind:reps
-	bind:weight
-	bind:date={setDate}
-	bind:notes={setNotes}
-	onSave={handleEditSetSave}
-	onDelete={() => editSetId && handleDeleteSet(editSetId)}
+	bind:open={showEditSheet}
+	set={editing}
+	onSave={saveEdit}
+	onDelete={() => editing && remove(editing)}
 />
+
 <ConfirmationDialog
 	bind:dialog={deleteDialog}
-	onclose={handleDeleteDialogClose}
 	header="Delete this set?"
 	content="This can't be undone."
 	actionLabel="Delete"
 	destructive
+	onclose={(e) => {
+		if ((e.target as HTMLDialogElement).returnValue === 'default' && pendingDelete) {
+			remove(pendingDelete);
+		}
+		pendingDelete = undefined;
+	}}
 />

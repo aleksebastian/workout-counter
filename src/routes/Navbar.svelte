@@ -3,8 +3,9 @@
 	import { page } from '$app/state';
 	import { beforeNavigate } from '$app/navigation';
 	import { fade } from 'svelte/transition';
-	import { user } from '$lib/firebase';
-	import { navState } from '$lib/state.svelte';
+	import { session } from '$lib/session.svelte';
+	import { navState } from '$lib/nav.svelte';
+	import { TAB_ROUTES } from '$lib/routes';
 	import Avatar from './Avatar.svelte';
 	import HomeIcon from '$lib/icons/home.svg?raw';
 
@@ -22,16 +23,13 @@
 	});
 
 	const TAB_TITLES: Record<string, string> = {
-		'/exercises': 'Exercises',
-		'/routines': 'Routines',
-		'/programs': 'Programs'
+		'/train': 'Train',
+		'/library': 'Library'
 	};
-
-	const TAB_ROUTES = new Set(['/', '/exercises', '/routines', '/programs']);
 
 	let pathname = $derived(page.url.pathname);
 	let isHome = $derived(pathname === '/');
-	let isTab = $derived(!isHome && TAB_ROUTES.has(pathname));
+	let isTab = $derived(!isHome && TAB_TITLES[pathname] !== undefined);
 	let tabTitle = $derived(TAB_TITLES[pathname] ?? '');
 
 	// Track whether the current navigation is tab-to-tab so we can fade only then.
@@ -39,10 +37,10 @@
 	let isTabNav = $state(false);
 	beforeNavigate(({ from, to }) => {
 		isTabNav = !!(
-			from?.url &&
-			to?.url &&
-			TAB_ROUTES.has(from.url.pathname) &&
-			TAB_ROUTES.has(to.url.pathname)
+			from?.route.id &&
+			to?.route.id &&
+			TAB_ROUTES.has(from.route.id) &&
+			TAB_ROUTES.has(to.route.id)
 		);
 	});
 
@@ -138,7 +136,7 @@
 
 	<!-- Right slot: always Avatar -->
 	<div>
-		<Avatar {hasUser} user={$user ?? null} avatarClick={() => {}} signOutClick={signOut} />
+		<Avatar {hasUser} user={session.user} signOutClick={signOut} />
 	</div>
 </div>
 

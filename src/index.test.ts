@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getRequiredOnboardingRoute } from './lib/logic/onboarding';
+import { getPostLoginDestination, getRequiredOnboardingRoute } from './lib/logic/onboarding';
 
 describe('onboarding route guard', () => {
 	it('redirects signed-in users without a profile document to username setup', () => {
@@ -12,20 +12,27 @@ describe('onboarding route guard', () => {
 		expect(getRequiredOnboardingRoute('/app', { photoURL: 'x' })).toBe('/login/username');
 	});
 
-	it('redirects users without preferences to the preferences page', () => {
-		expect(getRequiredOnboardingRoute('/', { username: 'coach', photoURL: 'x' })).toBe('/preferences');
-		expect(getRequiredOnboardingRoute('/exercises', { username: 'coach', photoURL: 'x' })).toBe(
-			'/preferences'
-		);
+	it('lets users without a username stay inside the login flow', () => {
+		expect(getRequiredOnboardingRoute('/login', null)).toBeNull();
+		expect(getRequiredOnboardingRoute('/login/username', { photoURL: 'x' })).toBeNull();
 	});
 
-	it('allows fully onboarded users to use the app', () => {
-		expect(
-			getRequiredOnboardingRoute('/exercises', {
-				username: 'coach',
-				photoURL: 'x',
-				preferences: { timer: { minutes: 1, seconds: 30 } }
-			})
-		).toBeNull();
+	it('does not gate on preferences — defaults are seeded at username claim', () => {
+		expect(getRequiredOnboardingRoute('/', { username: 'coach', photoURL: 'x' })).toBeNull();
+		expect(getRequiredOnboardingRoute('/library', { username: 'coach', photoURL: 'x' })).toBeNull();
+	});
+
+	it('pushes onboarded users out of the login flow', () => {
+		expect(getRequiredOnboardingRoute('/login', { username: 'coach', photoURL: 'x' })).toBe('/');
+	});
+});
+
+describe('post-login destination', () => {
+	it('sends brand-new accounts to username setup', () => {
+		expect(getPostLoginDestination(null)).toBe('/login/username');
+	});
+
+	it('sends returning users straight to the app', () => {
+		expect(getPostLoginDestination({ username: 'coach', photoURL: 'x' })).toBe('/');
 	});
 });

@@ -1,143 +1,67 @@
 <script lang="ts">
 	import { onNavigate, goto } from '$app/navigation';
-	import Navbar from './Navbar.svelte';
-	import BottomNav from './BottomNav.svelte';
-	import { handleSignOut } from '$lib/logic/auth';
+	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
-	import { add } from 'date-fns';
-	import { user, userData } from '$lib/firebase';
+	import Navbar from './Navbar.svelte';
+	import BottomNav from './BottomNav.svelte';
 	import Toasts from '$lib/components/Toasts.svelte';
 	import RestTimerBar from '$lib/components/RestTimerBar.svelte';
-	import { restTimer } from '$lib/state.svelte';
-	import { HAPTIC } from '$lib/haptic';
-	import { subscribeToPush } from '$lib/push';
+	import { handleSignOut } from '$lib/logic/auth';
+	import { getRequiredOnboardingRoute } from '$lib/logic/onboarding';
+	import { restTimer } from '$lib/logic/restTimer.svelte';
+	import { pwa } from '$lib/logic/pwa.svelte';
+	import { applyTheme } from '$lib/logic/theme';
+	import { session } from '$lib/session.svelte';
+	import { toaster } from '$lib/toast.svelte';
+	import { TAB_ROUTES } from '$lib/routes';
 
 	let { children } = $props();
 
-	let defaultRestTime = { minutes: 1, seconds: 30 };
-	let restTime = { minutes: 1, seconds: 30 };
-	// Fixed: Use client-side $userData store as source of truth since server load is now deferred
-	let hasUser = $derived($userData ? Object.hasOwn($userData, 'username') : false);
+	let hasUser = $derived(session.ready);
 
-	// Client-side onboarding redirect: send to preferences whenever userData exists but has no preferences.
-	// Done client-side (not server-side) to avoid a race condition where Firebase's offline persistence
-	// resolves write promises after the local cache write — before the Firestore server has the data.
+	// The skeleton stands in for app content while auth resolves. Login and
+	// username setup must render regardless: a brand-new account has no user
+	// document yet, which is indistinguishable from "still loading" — gating
+	// those pages on it would leave them stuck behind a permanent skeleton.
+	let isAuthLoading = $derived(
+		session.status === 'loading' && !page.url.pathname.startsWith('/login')
+	);
+
+	// Client-side routing guard. Runs alongside the server guard because
+	// Firebase's offline persistence resolves a write against the local cache
+	// before the server has it — the server load would still see the old doc.
 	$effect(() => {
-		if (!$userData) return;
-		const path = typeof window !== 'undefined' ? window.location.pathname : '';
+		const status = session.status;
+		const path = page.url.pathname;
+		if (status === 'loading') return;
 
-		if (!$userData.username && !path.startsWith('/login/username') && !path.startsWith('/login')) {
-			goto('/login/username');
-			return;
-		}
-
-		if ($userData.username && !$userData.preferences && !path.startsWith('/preferences')) {
-			goto('/preferences');
-			return;
-		}
-
-		if ($userData.preferences && path.startsWith('/login')) {
-			goto('/');
-		}
-	});
-
-	const localStorageKey = 'workout-counter-rest-timer';
-
-	let userStoreUnsubscribe: (() => void) | undefined;
-
-	onMount(() => {
-		// iOS Safari/PWA fix: Update --app-height on resize to handle keyboard
-		const setAppHeight = () => {
-			document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
-		};
-		setAppHeight();
-		window.addEventListener('resize', setAppHeight);
-
-		isOnline = navigator.onLine;
-
-		const handleOnline = () => (isOnline = true);
-		const handleOffline = () => (isOnline = false);
-		window.addEventListener('online', handleOnline);
-		window.addEventListener('offline', handleOffline);
-
-		const handleBeforeInstall = (e: Event) => {
-			e.preventDefault();
-			deferredInstallPrompt = e as BeforeInstallPromptEvent;
-		};
-		window.addEventListener('beforeinstallprompt', handleBeforeInstall);
-
-		const handleSetRecorded = () => {
-			recordedSetCount++;
-			if (recordedSetCount === 3 && deferredInstallPrompt) {
-				showInstallBanner = true;
-			}
-		};
-		document.addEventListener('setRecorded', handleSetRecorded);
-
-		userStoreUnsubscribe = user.subscribe((value) => {
-			isAuthLoading = value === undefined;
-			if (value === null) {
+		if (status === 'signed-out') {
+			// Firebase only emits a null user on a real sign-out or revoked
+			// credential, so tear the server session down to match — but say why
+			// rather than silently bouncing someone mid-session.
+			if (!path.startsWith('/login')) {
+				toaster.show({ type: 'info', message: 'Your session ended — please sign in again' });
 				handleSignOut();
 			}
-		});
-
-		document.addEventListener('startTimer', startTimer);
-		document.addEventListener('stopTimer', stopTimer);
-
-		// ── SW update detection ──────────────────────────────────────────────────
-		let handleControllerChange: () => void;
-		if ('serviceWorker' in navigator) {
-			navigator.serviceWorker.getRegistration().then((reg) => {
-				if (!reg) return;
-				swRegistration = reg;
-
-				if (reg.waiting) {
-					updateAvailable = true;
-				}
-
-				reg.addEventListener('updatefound', () => {
-					const worker = reg.installing;
-					worker?.addEventListener('statechange', () => {
-						if (worker.state === 'installed' && navigator.serviceWorker.controller) {
-							updateAvailable = true;
-						}
-					});
-				});
-			});
-
-			handleControllerChange = () => window.location.reload();
-			navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange);
+			return;
 		}
 
-		// ── Init notification state ──────────────────────────────────────────────
-		notificationPromptShown = localStorage.getItem('sc-notif-prompted') === 'true';
-		subscribeToPush();
-
-		return () => {
-			cleanupTimer();
-			document.removeEventListener('startTimer', startTimer);
-			document.removeEventListener('stopTimer', stopTimer);
-			document.removeEventListener('setRecorded', handleSetRecorded);
-			window.removeEventListener('online', handleOnline);
-			window.removeEventListener('offline', handleOffline);
-			window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
-			window.removeEventListener('resize', setAppHeight);
-			userStoreUnsubscribe?.();
-			if ('serviceWorker' in navigator && handleControllerChange!) {
-				navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange);
-			}
-		};
+		const target = getRequiredOnboardingRoute(path, session.data);
+		if (target) goto(target);
 	});
 
-	function cleanupTimer() {
-		if (restTimerHandle !== undefined) {
-			clearInterval(restTimerHandle);
-			restTimerHandle = undefined;
-		}
-		cancelPush();
-	}
+	$effect(() => applyTheme(session.prefs.theme));
+
+	onMount(() => {
+		const teardownPwa = pwa.init();
+		const teardownTimer = restTimer.restore();
+		return () => {
+			teardownPwa();
+			teardownTimer();
+		};
+	});
 
 	onNavigate((navigation) => {
 		if (!document.startViewTransition) return;
@@ -149,19 +73,18 @@
 
 		// Tab navigation — skip view transition entirely to avoid compositing artifacts
 		// (even animation:none still freezes/captures/composites, causing fixed elements to shift)
-		const fromBottomNav =
+		const isTabSwitch =
 			navigation.from &&
 			navigation.to?.route.id &&
-			['/', '/exercises', '/routines', '/programs'].includes(navigation.to.route.id) &&
-			['/', '/exercises', '/routines', '/programs'].includes(navigation.from.route.id || '');
-		if (fromBottomNav) {
+			TAB_ROUTES.has(navigation.to.route.id) &&
+			TAB_ROUTES.has(navigation.from.route.id || '');
+		if (isTabSwitch) {
 			document.documentElement.dataset.navDirection = 'tab';
 			return;
 		}
 
 		document.documentElement.dataset.navDirection = 'forward';
 
-		// Wrap navigation in view transition
 		return new Promise((resolve) => {
 			document.startViewTransition(async () => {
 				resolve();
@@ -169,208 +92,6 @@
 			});
 		});
 	});
-
-	let hasInitialized = false;
-	$effect(() => {
-		if (hasUser) {
-			if ($userData!.preferences?.timer) {
-				defaultRestTime = { ...$userData!.preferences.timer };
-				restTime = { ...defaultRestTime };
-			}
-
-			const theme = $userData!.preferences?.theme ?? 'system';
-			if (theme === 'light') {
-				document.documentElement.setAttribute('data-theme', 'emerald');
-			} else if (theme === 'dark') {
-				document.documentElement.setAttribute('data-theme', 'dracula');
-			} else {
-				document.documentElement.removeAttribute('data-theme');
-			}
-
-			if (hasInitialized) return;
-
-			initialize();
-			hasInitialized = true;
-		}
-	});
-
-	function initialize() {
-		const restTimerExpirationDate = localStorage.getItem(localStorageKey);
-		if (restTimerExpirationDate) {
-			expirationDate = new Date(restTimerExpirationDate);
-			const now = new Date();
-			if (now < expirationDate) {
-				const diff = expirationDate.getTime() - now.getTime();
-				restTime.minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-				restTime.seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-				startTimer();
-			}
-		}
-	}
-
-	async function startTimer(e?: Event) {
-		const override = (e as CustomEvent<{ duration?: { minutes: number; seconds: number } }>)?.detail
-			?.duration;
-		if (override) {
-			restTime = { ...override };
-		} else {
-			restTime = { ...defaultRestTime };
-		}
-		activeTimerTotal = { ...restTime };
-
-		expirationDate = add(new Date(), { minutes: restTime.minutes, seconds: restTime.seconds });
-		localStorage.setItem(localStorageKey, expirationDate.toISOString());
-
-		if (restTimerHandle) {
-			stopTimer();
-			startTimer(e);
-			return;
-		}
-
-		// ── Schedule push notification ────────────────────────────────────────────
-		if ('Notification' in window && Notification.permission === 'granted') {
-			schedulePush(expirationDate!.getTime());
-		}
-		if (
-			'Notification' in window &&
-			Notification.permission === 'default' &&
-			!notificationPromptShown
-		) {
-			showNotifPrompt = true;
-			notificationPromptShown = true;
-			localStorage.setItem('sc-notif-prompted', 'true');
-		}
-
-		// Set the initial display value immediately (don't wait for first interval tick)
-		{
-			const diff = expirationDate!.getTime() - Date.now();
-			if (diff > 0) {
-				const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-				const s = Math.floor((diff % (1000 * 60)) / 1000);
-				restTimer.value = `${m}:${s < 10 ? '0' + s : s}`;
-			}
-		}
-
-		restTimerHandle = setInterval(() => {
-			const now = new Date();
-			if (now >= expirationDate!) {
-				restTimer.value = '0:00';
-				HAPTIC.timerDone();
-				setTimeout(() => {
-					stopTimer();
-				}, 450);
-			} else {
-				const diff = expirationDate!.getTime() - now.getTime();
-				restTime.minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-				restTime.seconds = Math.floor((diff % (1000 * 60)) / 1000);
-				const seconds = restTime.seconds < 10 ? `0${restTime.seconds}` : restTime.seconds;
-				restTimer.value = `${restTime.minutes}:${seconds}`;
-			}
-		}, 1000);
-	}
-
-	function stopTimer() {
-		cleanupTimer();
-		resetRestTime();
-	}
-
-	function resetRestTime() {
-		restTimer.value = undefined;
-		if (defaultRestTime) {
-			restTime = { ...defaultRestTime };
-		}
-	}
-
-	async function handleInstallClick() {
-		if (!deferredInstallPrompt) return;
-		await deferredInstallPrompt.prompt();
-		const { outcome } = await deferredInstallPrompt.userChoice;
-		if (outcome === 'accepted') deferredInstallPrompt = null;
-		showInstallBanner = false;
-	}
-
-	function applyUpdate() {
-		swRegistration?.waiting?.postMessage({ type: 'SKIP_WAITING' });
-	}
-
-	async function requestNotificationPermission() {
-		showNotifPrompt = false;
-		if (!('Notification' in window)) return;
-		const result = await Notification.requestPermission();
-		if (result === 'granted') {
-			await subscribeToPush();
-			if (expirationDate && expirationDate > new Date()) {
-				schedulePush(expirationDate.getTime());
-			}
-		}
-	}
-
-	async function schedulePush(expiresAt: number) {
-		try {
-			const res = await fetch('/api/push/schedule', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ expiresAt })
-			});
-			console.log('[push] /api/push/schedule status:', res.status);
-			if (res.ok) {
-				const data = await res.json();
-				qstashMessageId = data.messageId;
-				console.log('[push] QStash messageId:', data.messageId);
-			} else {
-				const text = await res.text();
-				console.error('[push] /api/push/schedule error:', res.status, text);
-			}
-		} catch (err) {
-			console.error('[push] schedulePush failed:', err);
-		}
-	}
-
-	function cancelPush() {
-		const id = qstashMessageId;
-		if (!id) return;
-		qstashMessageId = null;
-		fetch('/api/push/cancel', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ messageId: id })
-		}).catch(() => {});
-	}
-
-	let restTimerHandle: NodeJS.Timeout | undefined = undefined;
-	let expirationDate: Date | undefined = undefined;
-	let activeTimerTotal = $state({ minutes: 1, seconds: 30 });
-
-	let timerProgress = $derived.by(() => {
-		if (!restTimer.value) return 0;
-		const [mStr, sStr] = restTimer.value.split(':');
-		const remaining = parseInt(mStr) * 60 + parseInt(sStr);
-		const total = activeTimerTotal.minutes * 60 + activeTimerTotal.seconds;
-		return total > 0 ? Math.min(100, Math.max(0, (remaining / total) * 100)) : 0;
-	});
-
-	// ── Offline indicator ───────────────────────────────────────────────────────
-	let isOnline = $state(true);
-
-	// ── SW update prompt ────────────────────────────────────────────────────────
-	let updateAvailable = $state(false);
-	let swRegistration: ServiceWorkerRegistration | null = null;
-
-	// ── Install prompt ──────────────────────────────────────────────────────────
-	type BeforeInstallPromptEvent = Event & {
-		prompt(): Promise<void>;
-		userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
-	};
-	let deferredInstallPrompt: BeforeInstallPromptEvent | null = null;
-	let showInstallBanner = $state(false);
-	let recordedSetCount = 0;
-	let isAuthLoading = $state(true);
-
-	// ── Push notifications ───────────────────────────────────────────────────────
-	let qstashMessageId: string | null = null;
-	let notificationPromptShown = false;
-	let showNotifPrompt = $state(false);
 </script>
 
 <svelte:head>
@@ -378,7 +99,7 @@
 	<meta name="description" content="The best way to keep track of your workouts" />
 </svelte:head>
 
-{#if !isOnline}
+{#if !pwa.online}
 	<div
 		class="bg-warning text-warning-content fixed top-0 right-0 left-0 z-200 pb-1 text-center text-sm font-medium"
 		style="padding-top: env(safe-area-inset-top, 0px)"
@@ -387,64 +108,61 @@
 	</div>
 {/if}
 
-<div style={!isOnline ? 'margin-top: 1.75rem' : ''}>
+<div style={!pwa.online ? 'margin-top: 1.75rem' : ''}>
 	<Navbar {hasUser} ready={hasUser} signOut={handleSignOut} />
 </div>
 
-{#if showInstallBanner}
+{#snippet banner(
+	title: string,
+	body: string,
+	primaryLabel: string,
+	primary: () => void,
+	dismiss?: () => void
+)}
 	<div
-		class="bg-base-300 fixed right-0 bottom-20 left-0 z-600 flex items-center justify-between px-4 py-3 shadow-lg"
-		style="margin-bottom: env(safe-area-inset-bottom)"
-	>
-		<div>
-			<p class="text-sm font-semibold">Add SetCount to your home screen</p>
-			<p class="text-base-content/60 text-xs">For the best experience</p>
-		</div>
-		<div class="flex gap-2">
-			<button class="btn btn-ghost btn-sm" onclick={() => (showInstallBanner = false)}
-				>Not now</button
-			>
-			<button class="btn btn-primary btn-sm" onclick={handleInstallClick}>Install</button>
-		</div>
-	</div>
-{/if}
-
-{#if updateAvailable}
-	<div
-		class="bg-base-200 fixed right-4 left-4 z-[600] flex items-center justify-between rounded-2xl px-4 py-3 shadow-xl"
+		class="bg-base-200 fixed right-4 left-4 z-600 flex items-center justify-between gap-3 rounded-2xl px-4 py-3 shadow-xl"
 		style="bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px))"
 		transition:fly={{ y: 80, duration: 350, easing: cubicOut }}
 	>
-		<div>
-			<p class="text-sm font-semibold">Update Available</p>
-			<p class="text-base-content/60 text-xs">A new version of SetCount is ready</p>
+		<div class="min-w-0">
+			<p class="text-sm font-semibold">{title}</p>
+			<p class="text-base-content/60 text-xs">{body}</p>
 		</div>
-		<button class="btn btn-primary btn-sm" onclick={applyUpdate}>Reload</button>
+		<div class="flex shrink-0 gap-2">
+			{#if dismiss}
+				<button class="btn btn-ghost btn-sm" onclick={dismiss}>Not now</button>
+			{/if}
+			<button class="btn btn-primary btn-sm" onclick={primary}>{primaryLabel}</button>
+		</div>
 	</div>
-{/if}
+{/snippet}
 
-{#if showNotifPrompt}
-	<div
-		class="bg-base-200 fixed right-4 left-4 z-[600] flex items-center justify-between rounded-2xl px-4 py-3 shadow-xl"
-		style="bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px))"
-		transition:fly={{ y: 80, duration: 350, easing: cubicOut }}
-	>
-		<div>
-			<p class="text-sm font-semibold">Get notified when rest ends</p>
-			<p class="text-base-content/60 text-xs">Even when you leave the app</p>
-		</div>
-		<div class="flex gap-2">
-			<button class="btn btn-ghost btn-sm" onclick={() => (showNotifPrompt = false)}>Not now</button
-			>
-			<button class="btn btn-primary btn-sm" onclick={requestNotificationPermission}>Enable</button>
-		</div>
-	</div>
+{#if pwa.updateReady}
+	{@render banner('Update available', 'A new version of SetCount is ready', 'Reload', () =>
+		pwa.applyUpdate()
+	)}
+{:else if pwa.showNotifPrompt}
+	{@render banner(
+		'Get notified when rest ends',
+		'Even when you leave the app',
+		'Enable',
+		() => pwa.requestNotifications(),
+		() => pwa.dismissNotifPrompt()
+	)}
+{:else if pwa.showInstall}
+	{@render banner(
+		'Add SetCount to your home screen',
+		'For the best experience',
+		'Install',
+		() => pwa.install(),
+		() => pwa.dismissInstall()
+	)}
 {/if}
 
 <div
 	class="mx-auto p-4 transition-[padding] duration-200"
 	style={hasUser
-		? `padding-bottom: calc(${restTimer.value ? '11rem' : '6rem'} + env(safe-area-inset-bottom, 0px))`
+		? `padding-bottom: calc(${restTimer.active ? '11rem' : '6rem'} + env(safe-area-inset-bottom, 0px))`
 		: 'padding-bottom: 2rem;'}
 >
 	{#if isAuthLoading}
@@ -461,7 +179,7 @@
 </div>
 
 {#if hasUser}
-	<RestTimerBar progress={timerProgress} onDismiss={stopTimer} />
+	<RestTimerBar />
 	<BottomNav />
 {/if}
 

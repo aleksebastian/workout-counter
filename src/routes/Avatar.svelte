@@ -7,11 +7,10 @@
 	interface Props {
 		hasUser: boolean;
 		user: User | null;
-		avatarClick: () => void;
 		signOutClick: () => void;
 	}
 
-	let { hasUser, user, avatarClick, signOutClick }: Props = $props();
+	let { hasUser, user, signOutClick }: Props = $props();
 
 	let open = $state(false);
 	let containerEl = $state<HTMLDivElement>();
@@ -29,7 +28,6 @@
 
 	function toggle() {
 		open = !open;
-		avatarClick();
 	}
 
 	function close() {

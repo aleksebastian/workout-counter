@@ -1,40 +1,47 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import { v4 as uuidv4 } from 'uuid';
+	import { formatRelative } from 'date-fns';
+	import confetti from 'canvas-confetti';
 	import SetsHistoryTable from '../../SetsHistoryTable.svelte';
 	import RecordSetSheet from '$lib/components/RecordSetSheet.svelte';
 	import FAB from '$lib/components/Buttons/FAB.svelte';
-	import { db, userData, user, workouts } from '$lib/firebase';
-	import { arrayUnion, doc, updateDoc } from 'firebase/firestore';
-	import { page } from '$app/state';
-	import { navState } from '$lib/state.svelte';
-	import { toaster } from '$lib/state.svelte';
-	import { formatRelative } from 'date-fns';
+	import { exercises } from '$lib/data';
+	import { session } from '$lib/session.svelte';
+	import { setPageNav } from '$lib/nav.svelte';
+	import { restTimer } from '$lib/logic/restTimer.svelte';
+	import { pwa } from '$lib/logic/pwa.svelte';
 	import { HAPTIC } from '$lib/haptic';
-	import confetti from 'canvas-confetti';
+	import type { Set } from '$lib/types';
 
-	let workout = $derived($workouts?.find((workout) => workout.id === page.params.workoutId));
+	let workout = $derived(session.workout(page.params.workoutId));
+	let unit = $derived(session.prefs.weightUnit);
 
-	let showRecordSetSheet = $state(false);
+	// `from` lets a routine or program hand us a back target; default to Train,
+	// which is where an ad-hoc log usually starts.
+	let backHref = $derived(page.url.searchParams.get('from') ?? '/train');
+
+	setPageNav(
+		() => workout?.name ?? '',
+		() => backHref
+	);
+
+	let showRecordSheet = $state(false);
 	let reps = $state(10);
 	let weight = $state(0);
 
+	// Seed the sheet from the most recent set for this exercise.
+	let seededFor = $state<string | null>(null);
 	$effect(() => {
-		navState.title = workout?.name ?? '';
-		navState.backHref = '/';
-		return () => {
-			navState.title = '';
-		};
+		const id = workout?.id;
+		if (!id || seededFor === id) return;
+		seededFor = id;
+		const last = workout!.sets.at(-1);
+		reps = last?.reps ?? 10;
+		weight = last?.weight ?? 0;
 	});
 
-	$effect(() => {
-		if (!workout?.sets.length) return;
-		reps = workout.sets[workout.sets.length - 1].reps;
-		weight = workout.sets[workout.sets.length - 1].weight ?? 0;
-	});
-
-	let weightUnit = $derived($userData?.preferences?.weightUnit ?? 'lbs');
-
-	// ── Session comparison ───────────────────────────────────────────────────
+	// ── Session comparison ─────────────────────────────────────────────────────
 	// pos: true = up (green), false = down (red), null = same (neutral)
 	function fmtDelta(cur: number, prev: number): { str: string; pos: boolean | null } {
 		const diff = Math.round((cur - prev) * 10) / 10;
@@ -47,31 +54,33 @@
 		const rel = formatRelative(new Date(isoDate), new Date());
 		// formatRelative returns e.g. "last Friday at 5:30 PM" or "04/03/2026"
 		if (rel.includes(' at ')) return rel.slice(0, rel.indexOf(' at '));
-		// Older dates — just use a readable format
-		const d = new Date(isoDate);
-		return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+		return new Date(isoDate).toLocaleDateString(undefined, {
+			month: 'short',
+			day: 'numeric',
+			year: 'numeric'
+		});
 	}
 
-	let isWeightedExercise = $derived((workout?.sets ?? []).some((s) => (s.weight ?? 0) > 0));
+	let isWeighted = $derived((workout?.sets ?? []).some((s) => (s.weight ?? 0) > 0));
 
 	type StatItem = { label: string; value: string; delta: { str: string; pos: boolean | null } };
 
-	// Bucket all sets by calendar day, newest first
+	/** All sets bucketed by calendar day, newest first. */
 	let sessionDays = $derived.by(() => {
-		const allSets = workout?.sets ?? [];
-		if (!allSets.length) return [] as { date: string; sets: typeof allSets }[];
-		const map = new Map<string, typeof allSets>();
-		for (const s of allSets) {
+		const all = workout?.sets ?? [];
+		if (!all.length) return [] as { date: string; sets: Set[] }[];
+		const map = new Map<string, Set[]>();
+		for (const s of all) {
 			const key = new Date(s.date).toDateString();
 			if (!map.has(key)) map.set(key, []);
 			map.get(key)!.push(s);
 		}
-		return [...map.entries()]
-			.map(([, sets]) => ({ date: sets[0].date, sets }))
+		return [...map.values()]
+			.map((sets) => ({ date: sets[0].date, sets }))
 			.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 	});
 
-	function computeSessionStats(sets: { reps: number; weight?: number }[]) {
+	function summarise(sets: { reps: number; weight?: number }[]) {
 		return {
 			sets: sets.length,
 			reps: sets.reduce((s, x) => s + x.reps, 0),
@@ -81,102 +90,80 @@
 		};
 	}
 
-	let sessionComparisonStats = $derived.by((): StatItem[] => {
+	let comparisonStats = $derived.by((): StatItem[] => {
 		if (sessionDays.length < 2) return [];
-		const cur = computeSessionStats(sessionDays[0].sets);
-		const prev = computeSessionStats(sessionDays[1].sets);
-
+		const cur = summarise(sessionDays[0].sets);
+		const prev = summarise(sessionDays[1].sets);
 		const stat = (label: string, value: string, c: number, p: number): StatItem => ({
 			label,
 			value,
 			delta: fmtDelta(c, p)
 		});
 
-		if (isWeightedExercise) {
+		if (isWeighted) {
 			return [
 				stat('Sets', String(cur.sets), cur.sets, prev.sets),
 				stat('Reps', String(cur.reps), cur.reps, prev.reps),
-				stat('Volume', `${cur.volume.toLocaleString()} ${weightUnit}`, cur.volume, prev.volume),
-				stat('Top weight', `${cur.topWeight} ${weightUnit}`, cur.topWeight, prev.topWeight)
+				stat('Volume', `${cur.volume.toLocaleString()} ${unit}`, cur.volume, prev.volume),
+				stat('Top weight', `${cur.topWeight} ${unit}`, cur.topWeight, prev.topWeight)
 			];
 		}
-		const avgPerSet = cur.sets > 0 ? Math.round(cur.reps / cur.sets) : 0;
+		const avg = cur.sets > 0 ? Math.round(cur.reps / cur.sets) : 0;
 		const prevAvg = prev.sets > 0 ? Math.round(prev.reps / prev.sets) : 0;
 		return [
 			stat('Sets', String(cur.sets), cur.sets, prev.sets),
 			stat('Reps', String(cur.reps), cur.reps, prev.reps),
 			stat('Best set', `${cur.bestSetReps} reps`, cur.bestSetReps, prev.bestSetReps),
-			stat('Avg / set', `${avgPerSet} reps`, avgPerSet, prevAvg)
+			stat('Avg / set', `${avg} reps`, avg, prevAvg)
 		];
 	});
 
-	let sessionCardLabel = $derived(
+	let comparisonLabel = $derived(
 		sessionDays.length >= 2 ? `vs ${relativeDay(sessionDays[1].date)}` : ''
 	);
 
-	let latestSessionHeader = $derived.by(() => {
+	let latestHeader = $derived.by(() => {
 		if (sessionDays.length < 2) return null;
 		const latest = sessionDays[0];
-		const totalReps = latest.sets.reduce((s, x) => s + x.reps, 0);
-		return { date: relativeDay(latest.date), reps: totalReps };
+		return {
+			date: relativeDay(latest.date),
+			reps: latest.sets.reduce((s, x) => s + x.reps, 0)
+		};
 	});
 
-	// ── PR detection ────────────────────────────────────────────────────────────
-	function checkPR(newReps: number, newWeight: number): boolean {
+	// ── Recording ───────────────────────────────────────────────────────────────
+	function isPR(newReps: number, newWeight: number): boolean {
 		if (!workout?.sets.length) return false;
 		const maxReps = Math.max(...workout.sets.map((s) => s.reps));
 		const maxWeight = Math.max(...workout.sets.map((s) => s.weight ?? 0));
 		return newReps > maxReps || (newWeight > 0 && newWeight > maxWeight);
 	}
 
-	function celebratePR() {
-		HAPTIC.success();
-		confetti({
-			particleCount: 120,
-			spread: 80,
-			origin: { y: 0.6 },
-			colors: ['#a855f7', '#3b82f6', '#10b981', '#f59e0b', '#ef4444']
-		});
-	}
+	async function recordSet(newReps: number, newWeight: number, notes: string, date: string) {
+		if (!workout) return;
 
-	function handleOpenSheet() {
-		showRecordSetSheet = true;
-	}
-
-	async function handleRecordSet(
-		newReps: number,
-		newWeight: number,
-		newNotes: string,
-		newDate: string
-	) {
-		if (!workout || !$user) return;
-
-		const isPR = checkPR(newReps, newWeight);
-
-		const newSet = {
+		const pr = isPR(newReps, newWeight);
+		const set: Set = {
 			id: uuidv4(),
 			reps: newReps,
-			date: newDate ?? new Date().toISOString(),
+			date: date ?? new Date().toISOString(),
 			...(newWeight > 0 ? { weight: newWeight } : {}),
-			...(newNotes.trim() ? { notes: newNotes.trim() } : {})
+			...(notes.trim() ? { notes: notes.trim() } : {})
 		};
 
-		const workoutRef = doc(db, 'users', $user.uid, 'workouts', workout.id);
-
 		HAPTIC.medium();
-		document.dispatchEvent(new CustomEvent('startTimer'));
-		document.dispatchEvent(new CustomEvent('setRecorded'));
+		// Picks up a routine's custom rest timer when this exercise belongs to one.
+		restTimer.start({ workoutId: workout.id });
+		pwa.noteSetRecorded();
 
-		try {
-			// Atomic append — no read-modify-write, so concurrent sets can't clobber.
-			await updateDoc(workoutRef, { sets: arrayUnion(newSet) });
-
-			if (isPR) celebratePR();
-		} catch (error) {
-			toaster.addToast({
-				type: 'error',
-				message: "Couldn't save set — try again",
-				dismissible: true
+		const ok = await exercises.addSet(workout.id, set);
+		if (ok && pr) {
+			HAPTIC.success();
+			confetti({
+				particleCount: 120,
+				spread: 80,
+				origin: { y: 0.6 },
+				colors: ['#a855f7', '#3b82f6', '#10b981', '#f59e0b', '#ef4444']
 			});
 		}
 	}
@@ -184,18 +171,17 @@
 
 {#if workout}
 	<div class="mx-auto flex w-full max-w-lg flex-col gap-4">
-		<!-- Session comparison card -->
-		{#if sessionComparisonStats.length && latestSessionHeader}
+		{#if comparisonStats.length && latestHeader}
 			<div class="flex items-baseline justify-between">
-				<span class="text-base font-bold capitalize">{latestSessionHeader.date}</span>
-				<span class="text-base font-bold">{latestSessionHeader.reps} reps</span>
+				<span class="text-base font-bold capitalize">{latestHeader.date}</span>
+				<span class="text-base font-bold">{latestHeader.reps} reps</span>
 			</div>
 			<div class="bg-base-200 rounded-2xl p-4">
 				<p class="text-base-content/40 mb-3 text-[10px] font-semibold tracking-widest uppercase">
-					{sessionCardLabel}
+					{comparisonLabel}
 				</p>
 				<div class="grid grid-cols-2 gap-x-6 gap-y-3">
-					{#each sessionComparisonStats as stat}
+					{#each comparisonStats as stat}
 						<div class="flex flex-col">
 							<span class="text-base-content/40 text-[10px] font-semibold tracking-wider uppercase"
 								>{stat.label}</span
@@ -214,43 +200,32 @@
 			</div>
 		{/if}
 
-		<!-- History -->
-		<SetsHistoryTable {workout} hideFirstHeader={sessionComparisonStats.length > 0} />
+		<SetsHistoryTable {workout} hideFirstHeader={comparisonStats.length > 0} />
 	</div>
 
-	<!-- FAB -->
-	<FAB onclick={handleOpenSheet} />
+	<FAB onclick={() => (showRecordSheet = true)} label="Record a set" />
 
-	<!-- Record Set Sheet -->
 	<RecordSetSheet
-		bind:open={showRecordSetSheet}
+		bind:open={showRecordSheet}
 		bind:reps
 		bind:weight
-		exerciseName={workout?.name}
-		onRecord={handleRecordSet}
+		exerciseName={workout.name}
+		onRecord={recordSet}
 	/>
-{:else}
-	<!-- Skeleton while loading -->
+{:else if session.workouts === null}
 	<div class="mx-auto flex min-h-[80vh] w-full max-w-lg flex-col justify-center gap-6">
-		<!-- Header skeleton -->
-		<div class="flex items-center justify-between">
-			<div class="skeleton h-10 w-10 shrink-0 rounded-full"></div>
-			<div class="skeleton h-8 w-48 rounded-lg"></div>
-			<div class="skeleton h-10 w-10 shrink-0 rounded-full"></div>
-		</div>
-
-		<!-- Session card skeleton -->
 		<div class="skeleton h-28 w-full rounded-2xl"></div>
-
-		<!-- History section skeleton -->
 		<div class="flex flex-col gap-3">
-			<div class="flex justify-between">
-				<div class="skeleton h-5 w-24 rounded"></div>
-				<div class="skeleton h-5 w-16 rounded"></div>
-			</div>
+			<div class="skeleton h-5 w-24 rounded"></div>
 			<div class="skeleton h-12 w-full rounded-lg"></div>
 			<div class="skeleton h-12 w-full rounded-lg"></div>
 			<div class="skeleton h-12 w-full rounded-lg"></div>
 		</div>
+	</div>
+{:else}
+	<div class="mx-auto flex max-w-lg flex-col items-center gap-4 py-16 text-center">
+		<p class="font-semibold">That exercise isn't available</p>
+		<p class="text-base-content/50 text-sm">It may have been deleted on another device.</p>
+		<a class="btn btn-primary btn-sm" href="/library?tab=exercises">Back to Library</a>
 	</div>
 {/if}

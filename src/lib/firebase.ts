@@ -13,7 +13,7 @@ import {
 import { getAuth, onAuthStateChanged, type User } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 import { writable, type Readable, derived } from 'svelte/store';
-import type { Workout, Routine, Program } from './state.svelte';
+import type { Workout, Routine, Program, UserData } from '$lib/types';
 
 const firebaseConfig = {
 	apiKey: 'AIzaSyB2Wxz_yyr7spT7MrwhxpGPK9XXbo8SDmU',
@@ -74,7 +74,6 @@ export const user = userStore();
 
 /**
  * @param  {string} path document path or reference
- * @param  {any} startWith optional default data
  * @returns a store with realtime updates on document data
  */
 export function docStore<T>(path: string) {
@@ -138,20 +137,6 @@ export const workouts = userCollection<Workout>('workouts');
 export const routines = userCollection<Routine>('routines');
 export const programs = userCollection<Program>('programs');
 
-export interface UserData {
-	username: string;
-	photoURL: string;
-	activeProgramId?: string;
-	preferences?: {
-		timer: { minutes: number; seconds: number };
-		theme?: 'light' | 'dark' | 'system';
-		weightUnit?: 'lbs' | 'kg';
-		weekStart?: 0 | 1;
-		weeklyGoal?: number;
-		streaksEnabled?: boolean;
-	};
-}
-
 export const userData: Readable<UserData | null> = derived(user, ($user, set) => {
 	if ($user) {
 		return docStore<UserData>(`users/${$user.uid}`).subscribe(set);
@@ -160,3 +145,5 @@ export const userData: Readable<UserData | null> = derived(user, ($user, set) =>
 		return () => {};
 	}
 });
+
+export type { UserData };
