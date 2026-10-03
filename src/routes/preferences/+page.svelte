@@ -1,11 +1,10 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { user } from '$lib/data';
 	import { session } from '$lib/session.svelte';
 	import { setPageNav } from '$lib/nav.svelte';
 	import { applyTheme } from '$lib/logic/theme';
-	import { subscribeToPush } from '$lib/push';
+	import { pwa } from '$lib/logic/pwa.svelte';
 	import { TIMER_PRESETS } from '$lib/constants';
 	import type { Preferences } from '$lib/types';
 
@@ -72,19 +71,8 @@
 	}
 
 	// ── Notifications ──────────────────────────────────────────────────────────
-	let notifSupported = $state(false);
-	let notifPermission = $state<NotificationPermission>('default');
-
-	onMount(() => {
-		notifSupported = 'Notification' in window;
-		if (notifSupported) notifPermission = Notification.permission;
-	});
-
-	async function enableNotifications() {
-		if (!notifSupported) return;
-		notifPermission = await Notification.requestPermission();
-		if (notifPermission === 'granted') await subscribeToPush();
-	}
+	// Shared with the home checklist, so both always show the same state.
+	let notifStatus = $derived(pwa.notifStatus);
 </script>
 
 {#snippet row(title: string, blurb: string)}
@@ -254,22 +242,28 @@
 		</div>
 	</section>
 
-	{#if notifSupported}
+	{#if notifStatus && notifStatus !== 'unsupported'}
 		<section class="flex flex-col gap-3">
 			<p class="text-base-content/40 text-xs font-semibold tracking-widest uppercase">
 				Notifications
 			</p>
 			<div class="bg-base-200 flex items-center justify-between gap-4 rounded-2xl px-4 py-4">
 				{@render row('Rest Timer Alerts', 'Notify you when rest ends, even if you leave the app')}
-				{#if notifPermission === 'granted'}
+				{#if notifStatus === 'granted'}
 					<span class="badge badge-success badge-lg">On</span>
-				{:else if notifPermission === 'denied'}
+				{:else if notifStatus === 'needs-install'}
+					<p class="text-base-content/50 max-w-36 text-right text-xs">
+						Add SetCount to your Home Screen to turn this on
+					</p>
+				{:else if notifStatus === 'denied'}
 					<div class="text-right">
 						<span class="badge badge-ghost badge-lg">Blocked</span>
 						<p class="text-base-content/40 mt-1 text-xs">Allow in Settings</p>
 					</div>
 				{:else}
-					<button class="btn btn-primary btn-sm" onclick={enableNotifications}>Enable</button>
+					<button class="btn btn-primary btn-sm" onclick={() => pwa.requestNotifications()}
+						>Enable</button
+					>
 				{/if}
 			</div>
 		</section>

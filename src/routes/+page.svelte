@@ -5,6 +5,7 @@
 	import { cubicOut } from 'svelte/easing';
 	import { formatDistanceToNow } from 'date-fns';
 	import { session } from '$lib/session.svelte';
+	import { pwa } from '$lib/logic/pwa.svelte';
 	import { libraryHref, runProgramHref, runRoutineHref } from '$lib/routes';
 	import { itemsForDay } from '$lib/types';
 	import Chevron from '$lib/components/Chevron.svelte';
@@ -204,13 +205,57 @@
 	let hasRoutines = $derived((session.routines?.length ?? 0) > 0);
 	let firstWorkout = $derived(session.workouts?.[0]);
 
-	let checklist = $derived([
+	// Rest-end alerts: asking right after the user opts in beats a cold prompt
+	// mid-workout. Blocked counts as done so the card stops asking.
+	let notifStatus = $derived(pwa.notifStatus);
+	let alertsDone = $derived(notifStatus === 'granted' || notifStatus === 'denied');
+	let showInstallSteps = $state(false);
+	let timerLabel = $derived(
+		`${session.prefs.timer.minutes}:${session.prefs.timer.seconds < 10 ? '0' : ''}${session.prefs.timer.seconds}`
+	);
+
+	type ChecklistStep = {
+		done: boolean;
+		title: string;
+		blurb: string;
+		href?: string;
+		onclick?: () => void;
+		note?: string;
+		enabled: boolean;
+		hidden?: boolean;
+	};
+
+	let checklist = $derived<ChecklistStep[]>([
 		{
 			done: hasExercises,
 			title: 'Add exercises',
 			blurb: 'The building blocks of every workout',
 			href: libraryHref('exercises'),
 			enabled: true
+		},
+		{
+			done: alertsDone,
+			title: 'Get notified when your rest time is up',
+			blurb:
+				notifStatus === 'needs-install'
+					? 'Add SetCount to your Home Screen to turn this on'
+					: "Even when you're in another app or your phone is locked",
+			onclick:
+				notifStatus === 'default'
+					? () => pwa.requestNotifications()
+					: notifStatus === 'needs-install'
+						? () => (showInstallSteps = !showInstallSteps)
+						: undefined,
+			note:
+				notifStatus === 'granted'
+					? `Your rest timer is ${timerLabel}. Change it anytime in Preferences (top-left icon).`
+					: notifStatus === 'denied'
+						? 'Notifications are off. You can turn them on later in your device settings.'
+						: notifStatus === 'needs-install' && showInstallSteps
+							? 'In Safari, tap the Share button, then “Add to Home Screen”. Open SetCount from there.'
+							: undefined,
+			enabled: true,
+			hidden: notifStatus === null || notifStatus === 'unsupported'
 		},
 		{
 			done: hasSet,
@@ -228,6 +273,42 @@
 		}
 	]);
 </script>
+
+{#snippet stepBody(step: ChecklistStep)}
+	<div
+		class={[
+			'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
+			step.done ? 'bg-success/15' : step.enabled ? 'bg-primary/10' : 'bg-base-300'
+		].join(' ')}
+	>
+		{#if step.done}
+			<CheckIcon class="text-success h-4 w-4" />
+		{:else}
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class={step.enabled ? 'text-primary h-4 w-4' : 'text-base-content/40 h-4 w-4'}
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke="currentColor"
+				stroke-width="2"
+			>
+				<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+			</svg>
+		{/if}
+	</div>
+	<div class="flex-1">
+		<p class="text-sm font-semibold {step.done ? 'line-through opacity-40' : ''}">
+			{step.title}
+		</p>
+		<p class="text-base-content/40 text-xs">{step.blurb}</p>
+		{#if step.note}
+			<p class="text-base-content/70 mt-1.5 text-xs">{step.note}</p>
+		{/if}
+	</div>
+	{#if step.enabled && !step.done}
+		<Chevron />
+	{/if}
+{/snippet}
 
 {#if loading}
 	<div class="mx-auto flex max-w-lg flex-col gap-5">
@@ -411,48 +492,28 @@
 					Get started
 				</p>
 
-				{#each checklist as step}
-					<a
-						href={step.href}
-						class={[
-							'rounded-box flex items-center gap-4 px-4 py-4 transition-all active:scale-[0.98]',
-							step.enabled
-								? 'bg-base-200 hover:bg-base-300'
-								: 'bg-base-200/50 pointer-events-none opacity-40'
-						].join(' ')}
-						aria-disabled={!step.enabled}
-					>
-						<div
-							class={[
-								'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
-								step.done ? 'bg-success/15' : step.enabled ? 'bg-primary/10' : 'bg-base-300'
-							].join(' ')}
-						>
-							{#if step.done}
-								<CheckIcon class="text-success h-4 w-4" />
-							{:else}
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class={step.enabled ? 'text-primary h-4 w-4' : 'text-base-content/40 h-4 w-4'}
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									stroke-width="2"
-								>
-									<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-								</svg>
-							{/if}
+				{#each checklist.filter((s) => !s.hidden) as step (step.title)}
+					{@const cls = [
+						'rounded-box flex w-full items-center gap-4 px-4 py-4 text-left transition-all',
+						!step.enabled
+							? 'bg-base-200/50 pointer-events-none opacity-40'
+							: step.onclick || step.href
+								? 'bg-base-200 hover:bg-base-300 active:scale-[0.98]'
+								: 'bg-base-200'
+					].join(' ')}
+					{#if step.onclick}
+						<button type="button" class={cls} onclick={step.onclick}>
+							{@render stepBody(step)}
+						</button>
+					{:else if step.href}
+						<a href={step.href} class={cls} aria-disabled={!step.enabled}>
+							{@render stepBody(step)}
+						</a>
+					{:else}
+						<div class={cls}>
+							{@render stepBody(step)}
 						</div>
-						<div class="flex-1">
-							<p class="text-sm font-semibold {step.done ? 'line-through opacity-40' : ''}">
-								{step.title}
-							</p>
-							<p class="text-base-content/40 text-xs">{step.blurb}</p>
-						</div>
-						{#if step.enabled && !step.done}
-							<Chevron />
-						{/if}
-					</a>
+					{/if}
 				{/each}
 			</div>
 		{/if}

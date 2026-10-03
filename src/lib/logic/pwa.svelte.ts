@@ -11,6 +11,25 @@ type BeforeInstallPromptEvent = Event & {
 	userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 };
 
+/**
+ * Whether rest-end alerts can be turned on here. `needs-install` is iOS/iPadOS
+ * Safari in a regular tab: web push only exists once the app is added to the
+ * Home Screen, so there is nothing to prompt for until then.
+ */
+export type NotifStatus = NotificationPermission | 'needs-install' | 'unsupported';
+
+function readNotifStatus(): NotifStatus {
+	if ('Notification' in window) return Notification.permission;
+	const ua = navigator.userAgent;
+	// iPadOS reports itself as a Mac; touch support gives it away.
+	const appleMobile =
+		/iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+	const standalone =
+		matchMedia('(display-mode: standalone)').matches ||
+		(navigator as Navigator & { standalone?: boolean }).standalone === true;
+	return appleMobile && !standalone ? 'needs-install' : 'unsupported';
+}
+
 const NOTIF_PROMPTED_KEY = 'sc-notif-prompted';
 /** Sets recorded before we suggest installing — enough to show the app works. */
 const SETS_BEFORE_INSTALL_PROMPT = 3;
@@ -19,6 +38,8 @@ let online = $state(true);
 let updateReady = $state(false);
 let showInstall = $state(false);
 let showNotifPrompt = $state(false);
+/** Null until `init()` runs in the browser. */
+let notifStatus = $state<NotifStatus | null>(null);
 
 let deferredPrompt: BeforeInstallPromptEvent | null = null;
 let registration: ServiceWorkerRegistration | null = null;
@@ -38,11 +59,15 @@ export const pwa = {
 	get showNotifPrompt() {
 		return showNotifPrompt;
 	},
+	get notifStatus() {
+		return notifStatus;
+	},
 
 	/** Call from the layout's `onMount`; returns its teardown. */
 	init() {
 		online = navigator.onLine;
 		notifPromptShown = localStorage.getItem(NOTIF_PROMPTED_KEY) === 'true';
+		notifStatus = readNotifStatus();
 		subscribeToPush();
 
 		// iOS Safari/PWA: keep --app-height in sync so the software keyboard
@@ -53,6 +78,10 @@ export const pwa = {
 
 		const onOnline = () => (online = true);
 		const onOffline = () => (online = false);
+		// The user can flip the permission in system settings while we're backgrounded.
+		const onVisible = () => {
+			if (document.visibilityState === 'visible') notifStatus = readNotifStatus();
+		};
 		const onBeforeInstall = (e: Event) => {
 			e.preventDefault();
 			deferredPrompt = e as BeforeInstallPromptEvent;
@@ -62,6 +91,7 @@ export const pwa = {
 		window.addEventListener('online', onOnline);
 		window.addEventListener('offline', onOffline);
 		window.addEventListener('beforeinstallprompt', onBeforeInstall);
+		document.addEventListener('visibilitychange', onVisible);
 
 		let onControllerChange: (() => void) | undefined;
 		if ('serviceWorker' in navigator) {
@@ -89,6 +119,7 @@ export const pwa = {
 			window.removeEventListener('online', onOnline);
 			window.removeEventListener('offline', onOffline);
 			window.removeEventListener('beforeinstallprompt', onBeforeInstall);
+			document.removeEventListener('visibilitychange', onVisible);
 			if (onControllerChange && 'serviceWorker' in navigator) {
 				navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
 			}
@@ -104,7 +135,7 @@ export const pwa = {
 		if (recordedSets === SETS_BEFORE_INSTALL_PROMPT && deferredPrompt) {
 			showInstall = true;
 		}
-		if ('Notification' in window && Notification.permission === 'default' && !notifPromptShown) {
+		if (notifStatus === 'default' && !notifPromptShown) {
 			showNotifPrompt = true;
 			notifPromptShown = true;
 			localStorage.setItem(NOTIF_PROMPTED_KEY, 'true');
@@ -134,7 +165,8 @@ export const pwa = {
 	async requestNotifications() {
 		showNotifPrompt = false;
 		if (!('Notification' in window)) return;
-		if ((await Notification.requestPermission()) === 'granted') {
+		notifStatus = await Notification.requestPermission();
+		if (notifStatus === 'granted') {
 			await subscribeToPush();
 		}
 	}
