@@ -103,10 +103,11 @@
 	// focusing mid-animation strands the caret away from the field.
 	function focusFirst() {
 		if (!sheetElement || sheetElement.contains(document.activeElement)) return;
-		const target =
-			sheetElement.querySelector<HTMLElement>('[autofocus], input, textarea, select') ??
-			sheetElement.querySelector<HTMLElement>('button, [href], [tabindex]:not([tabindex="-1"])');
-		target?.focus();
+		sheetElement
+			.querySelector<HTMLElement>(
+				'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+			)
+			?.focus();
 	}
 
 	$effect(() => {
