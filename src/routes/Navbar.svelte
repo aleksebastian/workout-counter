@@ -63,7 +63,7 @@
 	class="navbar bg-base-100 relative z-100 flex justify-between p-4"
 	class:navbar-launch={animated}
 	class:navbar-hidden={!animated}
-	style="padding-top: calc(1rem + env(safe-area-inset-top))"
+	style="padding-top: max(calc(1rem + env(safe-area-inset-top)), var(--app-inset-top))"
 >
 	<!-- Left slot -->
 	{#key leftKey}

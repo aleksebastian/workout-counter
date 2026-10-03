@@ -120,7 +120,7 @@
 {#if !pwa.online}
 	<div
 		class="bg-warning text-warning-content fixed top-0 right-0 left-0 z-200 pb-1 text-center text-sm font-medium"
-		style="padding-top: env(safe-area-inset-top, 0px)"
+		style="padding-top: var(--app-inset-top)"
 	>
 		You're offline — changes will sync when reconnected
 	</div>
