@@ -79,8 +79,12 @@ export const pwa = {
 		const onOnline = () => (online = true);
 		const onOffline = () => (online = false);
 		// The user can flip the permission in system settings while we're backgrounded.
+		// A fresh grant needs a push subscription too, or the alert never arrives.
 		const onVisible = () => {
-			if (document.visibilityState === 'visible') notifStatus = readNotifStatus();
+			if (document.visibilityState !== 'visible') return;
+			const next = readNotifStatus();
+			if (next === 'granted' && notifStatus !== 'granted') subscribeToPush();
+			notifStatus = next;
 		};
 		const onBeforeInstall = (e: Event) => {
 			e.preventDefault();

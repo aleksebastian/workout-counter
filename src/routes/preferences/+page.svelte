@@ -261,9 +261,9 @@
 						<p class="text-base-content/40 mt-1 text-xs">Allow in Settings</p>
 					</div>
 				{:else}
-					<button class="btn btn-primary btn-sm" onclick={() => pwa.requestNotifications()}
-						>Enable</button
-					>
+					<button class="btn btn-primary btn-sm" onclick={() => pwa.requestNotifications()}>
+						Enable
+					</button>
 				{/if}
 			</div>
 		</section>

@@ -252,7 +252,7 @@
 					: notifStatus === 'denied'
 						? 'Notifications are off. You can turn them on later in your device settings.'
 						: notifStatus === 'needs-install' && showInstallSteps
-							? 'In Safari, tap the Share button, then “Add to Home Screen”. Open SetCount from there.'
+							? 'Tap the Share button, then “Add to Home Screen”. Open SetCount from there.'
 							: undefined,
 			enabled: true,
 			hidden: notifStatus === null || notifStatus === 'unsupported'
