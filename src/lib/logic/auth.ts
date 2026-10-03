@@ -31,6 +31,10 @@ export function isSigningOut() {
 
 export async function handleSignIn() {
 	const provider = new GoogleAuthProvider();
+	// Without this, Google silently reuses the only account signed in on the
+	// device (common on iOS), so after signing out there's no way to pick a
+	// different account.
+	provider.setCustomParameters({ prompt: 'select_account' });
 
 	const credential = await withTimeout(
 		signInWithPopup(auth, provider),

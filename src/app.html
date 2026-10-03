@@ -5,7 +5,7 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		<meta name="mobile-web-app-capable" content="yes" />
 		<meta name="apple-mobile-web-app-capable" content="yes" />
-		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="default" />
 		<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
 		<meta name="theme-color" content="#282a36" media="(prefers-color-scheme: dark)" />
 
@@ -29,7 +29,13 @@
 		<link rel="dns-prefetch" href="https://firestore.googleapis.com" />
 		<link rel="dns-prefetch" href="https://identitytoolkit.googleapis.com" />
 
-		<link rel="manifest" crossorigin="use-credentials" href="manifest.json" />
+		<link rel="manifest" crossorigin="use-credentials" href="/manifest.json" />
+
+		<script>
+			// iOS-only flag for installed (Home Screen) apps; set before first paint
+			// so the header never jumps. See --app-inset-top in app.css.
+			if (navigator.standalone) document.documentElement.classList.add('ios-standalone');
+		</script>
 
 		%sveltekit.head%
 	</head>

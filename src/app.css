@@ -10,15 +10,46 @@
 		dracula --prefersdark;
 }
 
-/* iOS Safari/PWA fix: Use custom property for dynamic viewport height */
 :root {
-	--app-height: 100%;
+	/* Native iOS tab bar row height; the home-indicator inset is added on top. */
+	--bottom-nav-height: 49px;
+	/* Where top-anchored content can start without sitting under system chrome. */
+	--app-inset-top: env(safe-area-inset-top, 0px);
 }
 
+/*
+ * iOS 26+ draws a Liquid Glass blur along the top edge of installed web apps,
+ * and no CSS or meta tag turns it off. With an opaque status bar (`default`
+ * style in app.html) the band below it is short, so starting the header 16px
+ * down leaves only empty padding under it at rest; content scrolled into it
+ * still gets the soft native-style fade. Safari tabs and other platforms
+ * don't get it.
+ * The class comes from app.html rather than (display-mode: standalone), which
+ * reports `browser` for Home Screen apps installed without a manifest.
+ *
+ * The status bar style is read when the app is added to the Home Screen, so
+ * installs from before the switch still draw under a translucent status bar
+ * (safe-area-inset-top > 0), where the blur band reaches further. min() adds
+ * 12px only in that case: 16px below the status bar vs 62 + 28 = 90px.
+ */
+:root.ios-standalone {
+	--app-inset-top: calc(
+		env(safe-area-inset-top, 0px) + 16px + min(env(safe-area-inset-top, 0px), 12px)
+	);
+}
+
+/*
+ * Size the page to the large viewport, never the dynamic one. iOS 26 home-screen
+ * apps intermittently report dvh/svh/innerHeight a status-bar-height short (812
+ * vs 874 on an iPhone 17 Pro), at launch and after the keyboard closes. A page
+ * sized to dvh then measures exactly that short viewport, iOS never grows it
+ * back, and everything pinned to bottom: 0 floats above the screen edge. lvh
+ * stays at the full height, which makes WebKit restore the real viewport.
+ */
 html,
 body {
-	height: var(--app-height);
-	min-height: 100dvh;
+	min-height: 100vh;
+	min-height: 100lvh;
 	scrollbar-gutter: stable;
 	overscroll-behavior-inline: none;
 }

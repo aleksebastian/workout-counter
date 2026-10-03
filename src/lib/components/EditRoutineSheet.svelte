@@ -16,7 +16,6 @@
 	let name = $state('');
 	let notes = $state('');
 	let error = $state<string | undefined>(undefined);
-	let input = $state<HTMLInputElement>();
 
 	let useCustomTimer = $state(false);
 	let timerMinutes = $state(1);
@@ -34,10 +33,6 @@
 		const seed = routine.timer ?? session.prefs.timer;
 		timerMinutes = seed.minutes;
 		timerSeconds = seed.seconds;
-	});
-
-	$effect(() => {
-		if (open && input) setTimeout(() => input?.focus(), 100);
 	});
 
 	function save() {
@@ -61,7 +56,6 @@
 			<label class="text-base-content/60 text-sm font-medium" for="edit-routine-name">Name</label>
 			<input
 				id="edit-routine-name"
-				bind:this={input}
 				type="text"
 				autocomplete="off"
 				class="input input-bordered w-full"

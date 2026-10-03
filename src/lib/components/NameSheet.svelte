@@ -27,7 +27,6 @@
 
 	let name = $state('');
 	let error = $state<string | undefined>(undefined);
-	let input = $state<HTMLInputElement>();
 
 	// Reseed on open so reopening never shows the last attempt's text or error.
 	$effect(() => {
@@ -35,10 +34,6 @@
 			name = initialValue;
 		}
 		error = undefined;
-	});
-
-	$effect(() => {
-		if (open && input) setTimeout(() => input?.focus(), 100);
 	});
 
 	function save() {
@@ -53,7 +48,6 @@
 	<div class="flex flex-col gap-4">
 		<div class="flex flex-col gap-2">
 			<input
-				bind:this={input}
 				aria-label={title}
 				type="text"
 				autocomplete="off"

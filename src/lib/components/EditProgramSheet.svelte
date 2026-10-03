@@ -15,7 +15,6 @@
 	let name = $state('');
 	let notes = $state('');
 	let error = $state<string | undefined>(undefined);
-	let input = $state<HTMLInputElement>();
 
 	$effect(() => {
 		if (open && program) {
@@ -23,10 +22,6 @@
 			notes = program.notes ?? '';
 			error = undefined;
 		}
-	});
-
-	$effect(() => {
-		if (open && input) setTimeout(() => input?.focus(), 100);
 	});
 
 	function save() {
@@ -46,7 +41,6 @@
 			<label class="text-base-content/60 text-sm font-medium" for="edit-program-name">Name</label>
 			<input
 				id="edit-program-name"
-				bind:this={input}
 				type="text"
 				autocomplete="off"
 				class="input input-bordered w-full text-base"

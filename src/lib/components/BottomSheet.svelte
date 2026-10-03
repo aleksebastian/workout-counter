@@ -98,21 +98,20 @@
 		}
 	}
 
-	// Focus trap and iOS keyboard handling
+	// Focus only once the slide-up has actually finished. iOS places the caret
+	// (and its tap targets) wherever the input is at the moment of focus, so
+	// focusing mid-animation strands the caret away from the field.
+	function focusFirst() {
+		if (!sheetElement || sheetElement.contains(document.activeElement)) return;
+		sheetElement
+			.querySelector<HTMLElement>(
+				'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+			)
+			?.focus();
+	}
+
 	$effect(() => {
 		if (!open || !sheetElement) return;
-
-		// Delay focus until after the slide-up animation completes (350ms).
-		// Without this, iOS opens the keyboard before the sheet is in position,
-		// causing the keyboard to render on top of the bottom sheet.
-		const focusTimer = setTimeout(() => {
-			if (!sheetElement) return;
-			const focusableElements = sheetElement.querySelectorAll(
-				'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-			);
-			const firstElement = focusableElements[0] as HTMLElement;
-			firstElement?.focus();
-		}, 350);
 
 		// iOS keyboard handling: scroll input into view when focused
 		const inputs = sheetElement.querySelectorAll('input, textarea');
@@ -128,7 +127,6 @@
 		});
 
 		return () => {
-			clearTimeout(focusTimer);
 			inputs.forEach((input) => {
 				input.removeEventListener('focus', handleFocus);
 			});
@@ -210,6 +208,7 @@
 			class="bg-base-100 relative flex w-full flex-col rounded-t-3xl shadow-2xl {sizeClasses[size]}"
 			style="padding-bottom: env(safe-area-inset-bottom, 0px); touch-action: pan-y;"
 			in:slideUp={{ duration: 350 }}
+			onintroend={focusFirst}
 			out:slideUp={{ duration: 300 }}
 			role="dialog"
 			aria-modal="true"
