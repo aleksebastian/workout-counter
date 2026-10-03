@@ -60,7 +60,7 @@
 </script>
 
 <div
-	class="navbar bg-base-100 relative z-100 flex justify-between p-4"
+	class="navbar bg-base-100 relative z-100 flex min-h-0 justify-between px-4 pb-1"
 	class:navbar-launch={animated}
 	class:navbar-hidden={!animated}
 	style="padding-top: max(calc(1rem + env(safe-area-inset-top)), var(--app-inset-top))"
