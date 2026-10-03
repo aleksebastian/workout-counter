@@ -39,13 +39,14 @@
 	let startY = 0;
 	let currentY = 0;
 	let isDragging = false;
-	let keyboardOffset = $state(0);
 
-	const sizeClasses = {
-		small: 'max-h-[40svh]',
-		medium: 'max-h-[60svh]',
-		large: 'max-h-[85svh]',
-		full: 'max-h-[95svh]'
+	// Capped at 100% of the overlay too, which shrinks to the space above the
+	// keyboard while it's open.
+	const maxHeights = {
+		small: 'min(40svh, 100%)',
+		medium: 'min(60svh, 100%)',
+		large: 'min(85svh, 100%)',
+		full: 'min(95svh, 100%)'
 	};
 
 	function close() {
@@ -98,97 +99,122 @@
 		}
 	}
 
-	// Focus trap and iOS keyboard handling
+	// Focus the sheet's input only once the slide-up has actually finished.
+	// iOS places the caret (and its tap targets) wherever the input is at the
+	// moment of focus, so focusing mid-animation strands the caret below the
+	// field and makes the buttons under it untappable.
+	function focusFirst() {
+		if (!sheetElement || sheetElement.contains(document.activeElement)) return;
+		const target =
+			sheetElement.querySelector<HTMLElement>('[autofocus], input, textarea, select') ??
+			sheetElement.querySelector<HTMLElement>('button, [href], [tabindex]:not([tabindex="-1"])');
+		target?.focus();
+	}
+
+	// Pin the overlay to the visual viewport — the area actually visible above
+	// the software keyboard — so the sheet always sits right on top of it and
+	// iOS never needs to pan the page to reveal the focused input. Tracked even
+	// while closed so the outro follows the keyboard as it slides away.
+	let viewport = $state<{ top: number; height: number }>();
+
 	$effect(() => {
-		if (!open || !sheetElement) return;
-
-		// Delay focus until after the slide-up animation completes (350ms).
-		// Without this, iOS opens the keyboard before the sheet is in position,
-		// causing the keyboard to render on top of the bottom sheet.
-		const focusTimer = setTimeout(() => {
-			if (!sheetElement) return;
-			const focusableElements = sheetElement.querySelectorAll(
-				'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-			);
-			const firstElement = focusableElements[0] as HTMLElement;
-			firstElement?.focus();
-		}, 350);
-
-		// iOS keyboard handling: scroll input into view when focused
-		const inputs = sheetElement.querySelectorAll('input, textarea');
-		const handleFocus = (e: Event) => {
-			const target = e.target as HTMLElement;
-			setTimeout(() => {
-				target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-			}, 300); // delay for keyboard animation
-		};
-
-		inputs.forEach((input) => {
-			input.addEventListener('focus', handleFocus);
-		});
-
-		return () => {
-			clearTimeout(focusTimer);
-			inputs.forEach((input) => {
-				input.removeEventListener('focus', handleFocus);
-			});
-		};
-	});
-
-	// Visual viewport tracking: lift sheet above the software keyboard
-	$effect(() => {
-		if (!open || typeof window === 'undefined' || !window.visualViewport) return;
+		if (typeof window === 'undefined' || !window.visualViewport) return;
 
 		const vv = window.visualViewport;
+		const update = () => (viewport = { top: vv.offsetTop, height: vv.height });
 
-		function updateOffset() {
-			keyboardOffset = Math.max(0, window.innerHeight - (vv.height + vv.offsetTop));
-		}
-
-		vv.addEventListener('resize', updateOffset);
-		vv.addEventListener('scroll', updateOffset);
-		updateOffset();
+		vv.addEventListener('resize', update);
+		vv.addEventListener('scroll', update);
+		update();
 
 		return () => {
-			vv.removeEventListener('resize', updateOffset);
-			vv.removeEventListener('scroll', updateOffset);
-			keyboardOffset = 0;
+			vv.removeEventListener('resize', update);
+			vv.removeEventListener('scroll', update);
 		};
 	});
 
 	// iOS-safe scroll lock: position:fixed prevents touch-scroll on background
 	let savedScrollY = 0;
 	let didLock = false;
+	let cancelPendingUnlock: (() => void) | undefined;
+
+	function lockScroll() {
+		savedScrollY = window.scrollY;
+		didLock = true;
+		document.body.style.position = 'fixed';
+		document.body.style.top = `-${savedScrollY}px`;
+		document.body.style.left = '0';
+		document.body.style.right = '0';
+		document.body.style.overflow = 'hidden';
+	}
+
+	function unlockScroll() {
+		cancelPendingUnlock = undefined;
+		didLock = false;
+		document.body.style.position = '';
+		document.body.style.top = '';
+		document.body.style.left = '';
+		document.body.style.right = '';
+		document.body.style.overflow = '';
+		// Also clears any pan iOS left behind for the keyboard, which otherwise
+		// strands fixed elements like the bottom nav above the screen's edge.
+		window.scrollTo(0, savedScrollY);
+	}
+
+	// Unlocking while the keyboard is still on screen restores the scroll
+	// position before iOS has undone its keyboard pan, and the page stays
+	// shifted. Dismiss the keyboard first and unlock once it has gone.
+	function unlockAfterKeyboard() {
+		const active = document.activeElement;
+		if (active instanceof HTMLElement && sheetElement?.contains(active)) active.blur();
+
+		const vv = window.visualViewport;
+		const keyboardUp = (vv: VisualViewport) => window.innerHeight - vv.height > 150;
+		if (!vv || !keyboardUp(vv)) {
+			unlockScroll();
+			return;
+		}
+
+		const onResize = () => {
+			if (!keyboardUp(vv)) done();
+		};
+		const fallback = setTimeout(() => done(), 600);
+		const cleanup = () => {
+			clearTimeout(fallback);
+			vv.removeEventListener('resize', onResize);
+		};
+		const done = () => {
+			cleanup();
+			unlockScroll();
+		};
+		vv.addEventListener('resize', onResize);
+		cancelPendingUnlock = cleanup;
+	}
 
 	$effect(() => {
 		if (open) {
-			savedScrollY = window.scrollY;
-			didLock = true;
-			document.body.style.position = 'fixed';
-			document.body.style.top = `-${savedScrollY}px`;
-			document.body.style.left = '0';
-			document.body.style.right = '0';
-			document.body.style.overflow = 'hidden';
-		} else if (didLock) {
+			if (cancelPendingUnlock) {
+				// Reopened before the previous close finished unlocking: the
+				// original lock (and its saved scroll position) is still in place.
+				cancelPendingUnlock();
+				cancelPendingUnlock = undefined;
+			} else {
+				lockScroll();
+			}
+		} else if (didLock && !cancelPendingUnlock) {
 			// Only unlock a lock we actually took. This effect also runs on mount
 			// with `open` false, and unconditionally restoring would clear styles
 			// we never set and scroll the page to 0 — visible on any page that
 			// mounts a closed sheet, and the Library mounts three.
-			didLock = false;
-			document.body.style.position = '';
-			document.body.style.top = '';
-			document.body.style.left = '';
-			document.body.style.right = '';
-			document.body.style.overflow = '';
-			window.scrollTo(0, savedScrollY);
+			unlockAfterKeyboard();
 		}
 	});
 </script>
 
 {#if open}
 	<div
-		class="fixed inset-0 z-1000 flex items-end"
-		style="overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: {keyboardOffset}px;"
+		class="fixed inset-x-0 top-0 z-1000 flex h-full items-end"
+		style={viewport ? `top: ${viewport.top}px; height: ${viewport.height}px;` : undefined}
 		in:fade={{ duration: 200 }}
 		out:fade={{ duration: 250 }}
 		onkeydown={handleKeydown}
@@ -207,9 +233,12 @@
 		<!-- Bottom Sheet -->
 		<div
 			bind:this={sheetElement}
-			class="bg-base-100 relative flex w-full flex-col rounded-t-3xl shadow-2xl {sizeClasses[size]}"
-			style="padding-bottom: env(safe-area-inset-bottom, 0px); touch-action: pan-y;"
+			class="bg-base-100 relative flex w-full flex-col rounded-t-3xl shadow-2xl"
+			style="max-height: {maxHeights[
+				size
+			]}; padding-bottom: env(safe-area-inset-bottom, 0px); touch-action: pan-y;"
 			in:slideUp={{ duration: 350 }}
+			onintroend={focusFirst}
 			out:slideUp={{ duration: 300 }}
 			role="dialog"
 			aria-modal="true"

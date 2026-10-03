@@ -15,7 +15,6 @@
 	let name = $state('');
 	let notes = $state('');
 	let error = $state<string | undefined>(undefined);
-	let input = $state<HTMLInputElement>();
 
 	// Seed the form from whichever exercise the sheet was opened for.
 	$effect(() => {
@@ -24,10 +23,6 @@
 			notes = workout.notes ?? '';
 			error = undefined;
 		}
-	});
-
-	$effect(() => {
-		if (open && input) setTimeout(() => input?.focus(), 100);
 	});
 
 	function save() {
@@ -47,7 +42,6 @@
 			<label class="text-base-content/60 text-sm font-medium" for="edit-exercise-name">Name</label>
 			<input
 				id="edit-exercise-name"
-				bind:this={input}
 				type="text"
 				autocomplete="off"
 				class="input input-bordered w-full"
