@@ -49,7 +49,7 @@
 	style="padding-bottom: env(safe-area-inset-bottom, 0); transform: translate3d(0,0,0); -webkit-transform: translate3d(0,0,0);"
 	in:launchSlide|global
 >
-	<div class="flex h-16 items-center">
+	<div class="flex h-(--bottom-nav-height) items-start">
 		<a
 			href="/"
 			aria-label="Home"
@@ -57,7 +57,7 @@
 			class="nav-item"
 		>
 			<span class="h-6 w-6 [&>svg]:h-6 [&>svg]:w-6">{@html HomeIcon}</span>
-			<span class="text-xs font-medium">Home</span>
+			<span class="text-[10px] font-medium">Home</span>
 		</a>
 
 		<a
@@ -80,7 +80,7 @@
 				<rect x="15" y="5" width="3.5" height="14" rx="1.75" />
 				<rect x="19.5" y="7.5" width="3" height="9" rx="1.5" />
 			</svg>
-			<span class="text-xs font-medium">Train</span>
+			<span class="text-[10px] font-medium">Train</span>
 		</a>
 
 		<a
@@ -105,7 +105,7 @@
 					d="M12.75 20.636A8.214 8.214 0 0 1 18 18.75c.966 0 1.89.166 2.75.47a.75.75 0 0 0 1-.708V4.262a.75.75 0 0 0-.5-.707A9.735 9.735 0 0 0 18 3a9.707 9.707 0 0 0-5.25 1.533v16.103Z"
 				/>
 			</svg>
-			<span class="text-xs font-medium">Library</span>
+			<span class="text-[10px] font-medium">Library</span>
 		</a>
 	</div>
 </nav>
@@ -116,8 +116,7 @@
 		flex-direction: column;
 		align-items: center;
 		gap: 0.125rem;
-		padding-top: 0.5rem;
-		padding-bottom: 0.5rem;
+		padding-top: 0.375rem;
 		width: 33.3333%;
 		opacity: 0.35;
 	}

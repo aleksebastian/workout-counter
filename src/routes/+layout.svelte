@@ -139,7 +139,7 @@
 )}
 	<div
 		class="bg-base-200 fixed right-4 left-4 z-600 flex items-center justify-between gap-3 rounded-2xl px-4 py-3 shadow-xl"
-		style="bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px))"
+		style="bottom: calc(var(--bottom-nav-height) + 0.75rem + env(safe-area-inset-bottom, 0px))"
 		transition:fly={{ y: 80, duration: 350, easing: cubicOut }}
 	>
 		<div class="min-w-0">
@@ -180,7 +180,7 @@
 <div
 	class="mx-auto p-4 transition-[padding] duration-200"
 	style={hasUser
-		? `padding-bottom: calc(${restTimer.active ? '11rem' : '6rem'} + env(safe-area-inset-bottom, 0px))`
+		? `padding-bottom: calc(var(--bottom-nav-height) + ${restTimer.active ? '7rem' : '2rem'} + env(safe-area-inset-bottom, 0px))`
 		: 'padding-bottom: 2rem;'}
 >
 	{#if showLoadError}

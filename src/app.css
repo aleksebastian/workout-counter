@@ -18,6 +18,12 @@
  * back, and everything pinned to bottom: 0 floats above the screen edge. lvh
  * stays at the full height, which makes WebKit restore the real viewport.
  */
+
+:root {
+	/* Native iOS tab bar row height; the home-indicator inset is added on top. */
+	--bottom-nav-height: 49px;
+}
+
 html,
 body {
 	min-height: 100vh;

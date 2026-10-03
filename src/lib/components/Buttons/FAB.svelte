@@ -12,8 +12,8 @@
 	// Move FAB up when rest timer is active to avoid blocking it
 	let bottomPosition = $derived(
 		restTimer.active
-			? 'calc(4rem + env(safe-area-inset-bottom, 0px) + 5.75rem)'
-			: 'calc(4rem + env(safe-area-inset-bottom, 0px) + 0.75rem)'
+			? 'calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 5.75rem)'
+			: 'calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 0.75rem)'
 	);
 </script>
 
