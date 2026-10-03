@@ -2,7 +2,7 @@
 	import { untrack } from 'svelte';
 	import BottomSheet from '$lib/components/BottomSheet.svelte';
 	import { type Routine } from '$lib/state.svelte';
-	import { userData } from '$lib/firebase';
+	import { userData, routines } from '$lib/firebase';
 	import { getRoutineNameValidationMsg } from '$lib/utils';
 	import DeleteIcon from '$lib/icons/delete.svg?raw';
 
@@ -49,7 +49,7 @@
 	function handleSave() {
 		editError = getRoutineNameValidationMsg(
 			name,
-			$userData?.routines?.filter((r) => r.id !== editingRoutine?.id)
+			($routines ?? []).filter((r) => r.id !== editingRoutine?.id)
 		);
 
 		if (!editError) {

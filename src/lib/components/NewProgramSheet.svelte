@@ -1,6 +1,6 @@
 <script lang="ts">
 	import BottomSheet from '$lib/components/BottomSheet.svelte';
-	import { userData } from '$lib/firebase';
+	import { programs } from '$lib/firebase';
 	import { getProgramNameValidationMsg } from '$lib/utils';
 
 	interface Props {
@@ -21,7 +21,7 @@
 	let validationMsg: string | undefined = $state();
 
 	function handleSave() {
-		validationMsg = getProgramNameValidationMsg(newProgramName, $userData?.programs);
+		validationMsg = getProgramNameValidationMsg(newProgramName, $programs ?? undefined);
 
 		if (!validationMsg) {
 			onSave?.(newProgramName);

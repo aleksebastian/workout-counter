@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { user, userData, type UserData } from '$lib/firebase';
+	import { user, userData, workouts, routines, programs, type UserData } from '$lib/firebase';
 	import {
 		getProgramSchedule,
 		getProgramItemsForDay,
@@ -42,7 +42,7 @@
 
 	// ── Data derivations ─────────────────────────────────────────────────────────
 
-	let allSets = $derived((effectiveUserData?.workouts ?? []).flatMap((w) => w.sets));
+	let allSets = $derived(($workouts ?? []).flatMap((w) => w.sets));
 
 	let lastSet = $derived(
 		allSets.length ? allSets.reduce((a, b) => (new Date(a.date) > new Date(b.date) ? a : b)) : null
@@ -55,9 +55,7 @@
 
 	let lastWorkout = $derived(
 		lastSet
-			? ((effectiveUserData?.workouts ?? []).find((w) =>
-					w.sets.some((s) => s.id === lastSet!.id)
-				) ?? null)
+			? (($workouts ?? []).find((w) => w.sets.some((s) => s.id === lastSet!.id)) ?? null)
 			: null
 	);
 
@@ -190,7 +188,7 @@
 	// Most overdue exercise (only shown if been > 7 days and there are at least 3 tracked exercises)
 	let overdueExercise = $derived(
 		(() => {
-			const withSets = (effectiveUserData?.workouts ?? []).filter((w) => w.sets.length > 0);
+			const withSets = ($workouts ?? []).filter((w) => w.sets.length > 0);
 			if (withSets.length < 3) return null;
 			const sorted = [...withSets].sort((a, b) => {
 				const lastA = Math.max(...a.sets.map((s) => new Date(s.date).getTime()));
@@ -219,7 +217,7 @@
 </script>
 
 <PullToRefresh onRefresh={handleRefresh}>
-	{#if $user === undefined || effectiveUserData === null}
+	{#if $user === undefined || effectiveUserData === null || $workouts === null}
 		<!-- Skeleton -->
 		<div class="mx-auto flex max-w-lg flex-col gap-5">
 			<div class="flex flex-col gap-1.5">
@@ -363,7 +361,7 @@
 
 			<!-- Active program ──────────────────────────────────────────────────── -->
 			{#if effectiveUserData?.activeProgramId}
-				{@const activeProgram = (effectiveUserData.programs ?? []).find(
+				{@const activeProgram = ($programs ?? []).find(
 					(s) => s.id === effectiveUserData!.activeProgramId
 				)}
 				{#if activeProgram}
@@ -372,7 +370,7 @@
 					{@const todayItems = todayEntry ? getProgramItemsForDay(activeProgram, todayDow) : []}
 					{@const flatCount = todayItems.reduce((sum, item) => {
 						if (item.type === 'exercise') return sum + 1;
-						const r = (effectiveUserData?.routines ?? []).find((r) => r.id === item.routineId);
+						const r = ($routines ?? []).find((r) => r.id === item.routineId);
 						return sum + (r ? getRoutineExercises(r).length : 0);
 					}, 0)}
 					<div in:landingFly|global={{ y: 20, duration: 400, delay: 200, easing: cubicOut }}>
@@ -410,13 +408,13 @@
 			{/if}
 
 			<!-- Quick-start routines -->
-			{#if effectiveUserData?.routines?.length}
+			{#if $routines?.length}
 				<div in:landingFly|global={{ y: 20, duration: 400, delay: 570, easing: cubicOut }}>
 					<p class="text-base-content/40 mb-2 text-xs font-semibold tracking-wider uppercase">
 						Quick start
 					</p>
 					<div class="flex flex-col gap-2">
-						{#each (effectiveUserData.routines ?? []).slice(0, 3) as routine}
+						{#each ($routines ?? []).slice(0, 3) as routine}
 							<a
 								class="bg-base-200 hover:bg-base-300 rounded-box flex items-center gap-3 px-4 py-3 transition-all active:scale-[0.98]"
 								href={'/routines/' + routine.id}
@@ -501,10 +499,10 @@
 
 			<!-- Empty state: brand-new user / onboarding checklist -->
 			{#if !allSets.length}
-				{@const hasExercises = (effectiveUserData?.workouts?.length ?? 0) > 0}
-				{@const hasRoutines = (effectiveUserData?.routines?.length ?? 0) > 0}
+				{@const hasExercises = ($workouts?.length ?? 0) > 0}
+				{@const hasRoutines = ($routines?.length ?? 0) > 0}
 				{@const hasSet = allSets.length > 0}
-				{@const firstWorkout = effectiveUserData?.workouts?.[0]}
+				{@const firstWorkout = $workouts?.[0]}
 				<div
 					class="flex flex-col gap-3 pt-2"
 					in:landingFly|global={{ y: 20, duration: 400, delay: 400, easing: cubicOut }}

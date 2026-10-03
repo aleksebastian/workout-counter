@@ -8,7 +8,7 @@
 	import EditSetSheet from '$lib/components/EditSetSheet.svelte';
 	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
 	import { db, userData, user } from '$lib/firebase';
-	import { doc, updateDoc } from 'firebase/firestore';
+	import { arrayRemove, arrayUnion, doc, updateDoc } from 'firebase/firestore';
 	import { format, formatRelative } from 'date-fns';
 	import { HAPTIC } from '$lib/haptic';
 	import { v4 as uuidv4 } from 'uuid';
@@ -21,6 +21,10 @@
 	let { workout, hideFirstHeader = false }: Props = $props();
 
 	let weightUnit = $derived($userData?.preferences?.weightUnit ?? 'lbs');
+
+	function workoutRef() {
+		return doc(db, 'users', $user!.uid, 'workouts', workout.id);
+	}
 
 	let showEditSetSheet = $state(false);
 	let organizedSets: OrganizedSet[] = $derived(organizeSetsByDate(workout.sets));
@@ -136,7 +140,7 @@
 	}
 
 	async function handleDuplicateSet(set: Set) {
-		if (!$userData) return;
+		if (!$user) return;
 		HAPTIC.success();
 
 		const newSet = {
@@ -146,21 +150,12 @@
 			...(set.weight && { weight: set.weight })
 		};
 
-		const originalSets = [...workout.sets];
-		workout.sets = [...workout.sets, newSet];
-
-		const workouts = $userData.workouts.map((currWorkout) =>
-			currWorkout.id === workout.id ? workout : currWorkout
-		);
-
-		const userRef = doc(db, 'users', $user!.uid);
-
 		try {
-			await updateDoc(userRef, { workouts });
+			// Atomic append — no read-modify-write.
+			await updateDoc(workoutRef(), { sets: arrayUnion(newSet) });
 			document.dispatchEvent(new CustomEvent('startTimer'));
 			document.dispatchEvent(new CustomEvent('setRecorded'));
 		} catch (err) {
-			workout.sets = originalSets;
 			toaster.addToast({
 				type: 'error',
 				message: "Couldn't duplicate set — try again",
@@ -170,20 +165,17 @@
 	}
 
 	async function handleDeleteSet(setId: string) {
-		if (!$userData) return;
+		if (!$user) return;
 		HAPTIC.heavy();
-		const originalSets = [...workout.sets];
-		const workouts = $userData.workouts.map((currWorkout) => {
-			if (currWorkout.id === workout!.id) {
-				currWorkout.sets = currWorkout.sets.filter((set) => set.id !== setId);
-			}
-			return currWorkout;
-		});
-		const userRef = doc(db, 'users', $user!.uid);
+
+		const target = workout.sets.find((set) => set.id === setId);
+		if (!target) return;
+
 		try {
-			await updateDoc(userRef, { workouts });
+			// Atomic removal — matches the element by value, so it can't clobber
+			// sets added concurrently on another device.
+			await updateDoc(workoutRef(), { sets: arrayRemove(target) });
 		} catch (err) {
-			workout.sets = originalSets;
 			toaster.addToast({
 				type: 'error',
 				message: "Couldn't delete set — try again",
@@ -202,49 +194,26 @@
 		newDate: string,
 		newNotes: string
 	) {
-		if (!$userData) return;
+		if (!$user) return;
 
-		const workouts = $userData.workouts;
-
-		const editedSet = workout!.sets.find((set) => set.id === editSetId)!;
-		const originalReps = editedSet.reps;
-		const originalWeight = editedSet.weight;
-		const originalDate = editedSet.date;
-		const originalNotes = editedSet.notes;
-
-		editedSet.reps = newReps;
-		if (newWeight > 0) {
-			editedSet.weight = newWeight;
-		} else {
-			delete editedSet.weight;
-		}
-		editedSet.date = newDate;
-		if (newNotes.trim()) {
-			editedSet.notes = newNotes.trim();
-		} else {
-			delete editedSet.notes;
-		}
-		const index = $userData.workouts.findIndex((currWorkout) => currWorkout.id === workout!.id);
-
-		workouts[index] = workout!;
-
-		const userRef = doc(db, 'users', $user!.uid);
+		// Rewrite the sets array in place so chronological order is preserved.
+		// Scoped to this one exercise document, so an edit here can never clobber
+		// work recorded against a different exercise.
+		const sets = workout.sets.map((set) =>
+			set.id === editSetId
+				? {
+						id: set.id,
+						reps: newReps,
+						date: newDate,
+						...(newWeight > 0 ? { weight: newWeight } : {}),
+						...(newNotes.trim() ? { notes: newNotes.trim() } : {})
+					}
+				: set
+		);
 
 		try {
-			await updateDoc(userRef, { workouts });
+			await updateDoc(workoutRef(), { sets });
 		} catch {
-			editedSet.reps = originalReps;
-			if (originalWeight !== undefined) {
-				editedSet.weight = originalWeight;
-			} else {
-				delete editedSet.weight;
-			}
-			editedSet.date = originalDate;
-			if (originalNotes !== undefined) {
-				editedSet.notes = originalNotes;
-			} else {
-				delete editedSet.notes;
-			}
 			toaster.addToast({ type: 'error', message: "Couldn't save — try again", dismissible: true });
 		}
 	}

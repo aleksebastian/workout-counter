@@ -1,7 +1,7 @@
 <script lang="ts">
 	import BottomSheet from '$lib/components/BottomSheet.svelte';
 	import { type Program } from '$lib/state.svelte';
-	import { userData } from '$lib/firebase';
+	import { programs } from '$lib/firebase';
 	import { getProgramNameValidationMsg } from '$lib/utils';
 	import DeleteIcon from '$lib/icons/delete.svg?raw';
 
@@ -30,7 +30,7 @@
 	let confirmingDelete = $state(false);
 
 	function validate(): string | undefined {
-		const nameMsg = getProgramNameValidationMsg(name, $userData?.programs);
+		const nameMsg = getProgramNameValidationMsg(name, $programs ?? undefined);
 		if (nameMsg && name.toLowerCase() !== editingProgram?.name.toLowerCase()) return nameMsg;
 		return undefined;
 	}

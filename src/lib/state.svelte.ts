@@ -13,6 +13,8 @@ export type Workout = {
 	name: string;
 	sets: Set[];
 	notes?: string;
+	/** Epoch ms — gives the subcollection a stable insertion order. */
+	createdAt: number;
 };
 
 export type RoutineExercise = {
@@ -28,6 +30,8 @@ export type Routine = {
 	exercises: RoutineExercise[];
 	timer?: { minutes: number; seconds: number };
 	notes?: string;
+	/** Epoch ms — gives the subcollection a stable insertion order. */
+	createdAt: number;
 };
 
 export function getRoutineExercises(routine: Routine): RoutineExercise[] {
@@ -54,6 +58,8 @@ export type Program = {
 	name: string;
 	notes?: string;
 	schedule?: ProgramDay[]; // new: per-day items; source of truth when present
+	/** Epoch ms — gives the subcollection a stable insertion order. */
+	createdAt: number;
 	// Backward-compat fields:
 	days?: number[];
 	exercises?: ProgramExercise[];

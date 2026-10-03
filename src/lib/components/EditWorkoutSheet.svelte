@@ -1,7 +1,7 @@
 <script lang="ts">
 	import BottomSheet from '$lib/components/BottomSheet.svelte';
 	import { type Workout } from '$lib/state.svelte';
-	import { userData } from '$lib/firebase';
+	import { workouts } from '$lib/firebase';
 	import { getWorkoutNameValidationMsg } from '$lib/utils';
 	import DeleteIcon from '$lib/icons/delete.svg?raw';
 
@@ -32,7 +32,7 @@
 	function handleSave() {
 		editWorkoutError = getWorkoutNameValidationMsg(
 			name,
-			$userData?.workouts.filter((w) => w.id !== editingWorkout?.id)
+			($workouts ?? []).filter((w) => w.id !== editingWorkout?.id)
 		);
 
 		if (!editWorkoutError) {

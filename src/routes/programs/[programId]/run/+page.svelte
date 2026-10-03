@@ -1,13 +1,14 @@
 <script lang="ts">
-	import { user, userData, db } from '$lib/firebase';
+	import { user, userData, workouts, routines, programs, db } from '$lib/firebase';
 	import {
 		getProgramItemsForDay,
 		getProgramDays,
 		getRoutineExercises,
-		navState
+		navState,
+		toaster
 	} from '$lib/state.svelte';
 	import { v4 as uuidv4 } from 'uuid';
-	import { doc, updateDoc } from 'firebase/firestore';
+	import { arrayUnion, doc, updateDoc } from 'firebase/firestore';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import AddIcon from '$lib/icons/add.svg?raw';
@@ -33,7 +34,7 @@
 		routineId?: string; // for per-routine timer lookup
 	};
 
-	let session = $derived($userData?.programs?.find((s) => s.id === page.params.programId));
+	let session = $derived($programs?.find((s) => s.id === page.params.programId));
 	let weightUnit = $derived($userData?.preferences?.weightUnit ?? 'lbs');
 	let quickWeights = $derived(weightUnit === 'kg' ? QUICK_WEIGHTS_KG : QUICK_WEIGHTS_LBS);
 	let todayStr = $derived(new Date().toDateString());
@@ -58,14 +59,14 @@
 
 	// Flat plan built from session items — expands routine items into individual exercises
 	let planEntries = $derived.by((): PlanEntry[] => {
-		if (!session || !$userData) return [];
+		if (!session || !$workouts) return [];
 		const items = getProgramItemsForDay(session, dayParam);
 		const entries: PlanEntry[] = [];
 		for (const item of items) {
 			if (item.type === 'exercise') {
 				entries.push({ workoutId: item.workoutId, targetSets: item.targetSets });
 			} else {
-				const routine = $userData!.routines?.find((r) => r.id === item.routineId);
+				const routine = $routines?.find((r) => r.id === item.routineId);
 				if (!routine) continue;
 				const exs = getRoutineExercises(routine);
 				exs.forEach((ex, idx) => {
@@ -84,8 +85,8 @@
 
 	function setsToday(workoutId: string): number {
 		return (
-			$userData?.workouts
-				.find((w) => w.id === workoutId)
+			$workouts
+				?.find((w) => w.id === workoutId)
 				?.sets.filter((s) => new Date(s.date).toDateString() === todayStr).length ?? 0
 		);
 	}
@@ -122,7 +123,7 @@
 	let isFreeForm = $derived(currentEntry?.targetSets === undefined);
 	let currentWorkout = $derived(
 		currentEntry
-			? ($userData?.workouts.find((w) => w.id === currentEntry!.workoutId) ?? null)
+			? ($workouts?.find((w) => w.id === currentEntry!.workoutId) ?? null)
 			: null
 	);
 
@@ -201,7 +202,7 @@
 	);
 	let sessionTotalReps = $derived.by(() => {
 		return planEntries.reduce((sum, entry) => {
-			const w = $userData?.workouts.find((w) => w.id === entry.workoutId);
+			const w = $workouts?.find((w) => w.id === entry.workoutId);
 			return (
 				sum +
 				(w?.sets
@@ -212,7 +213,7 @@
 	});
 
 	async function handleRecordSet() {
-		if (!currentWorkout || !$userData || !currentEntry) return;
+		if (!currentWorkout || !$user || !currentEntry) return;
 
 		const capturedIndex = currentIndex;
 		const willComplete =
@@ -225,16 +226,10 @@
 			...(weight > 0 ? { weight } : {})
 		};
 
-		const originalSets = currentWorkout.sets;
-		currentWorkout.sets = [...currentWorkout.sets, newSet];
-		const workouts = $userData.workouts;
-		const idx = workouts.findIndex((w) => w.id === currentWorkout!.id);
-		workouts[idx] = currentWorkout;
-
-		const userRef = doc(db, 'users', $user!.uid);
+		const workoutRef = doc(db, 'users', $user.uid, 'workouts', currentWorkout.id);
 		HAPTIC.medium();
 		const routineTimer = currentEntry.routineId
-			? $userData?.routines?.find((r) => r.id === currentEntry!.routineId)?.timer
+			? $routines?.find((r) => r.id === currentEntry!.routineId)?.timer
 			: undefined;
 		document.dispatchEvent(
 			new CustomEvent('startTimer', { detail: routineTimer ? { duration: routineTimer } : {} })
@@ -242,13 +237,18 @@
 		document.dispatchEvent(new CustomEvent('setRecorded'));
 
 		try {
-			await updateDoc(userRef, { workouts });
+			// Atomic append — no read-modify-write.
+			await updateDoc(workoutRef, { sets: arrayUnion(newSet) });
 
 			if (willComplete) {
 				justCompletedIndex = capturedIndex;
 			}
 		} catch {
-			currentWorkout.sets = originalSets;
+			toaster.addToast({
+				type: 'error',
+				message: "Couldn't save set — try again",
+				dismissible: true
+			});
 		}
 	}
 
@@ -421,7 +421,7 @@
 								>
 							{/if}
 							<p class="font-semibold">
-								{$userData?.workouts.find((w) => w.id === nextEntry.workoutId)?.name ?? '—'}
+								{$workouts?.find((w) => w.id === nextEntry.workoutId)?.name ?? '—'}
 							</p>
 							<p class="text-base-content/40 text-xs">
 								{#if nextEntry.targetSets !== undefined}{nextEntry.targetSets} sets{:else}Free-form{/if}

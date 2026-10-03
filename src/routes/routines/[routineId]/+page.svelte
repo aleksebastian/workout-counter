@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { db, userData, user } from '$lib/firebase';
-	import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
+	import { db, userData, user, workouts, routines } from '$lib/firebase';
+	import { doc, updateDoc, writeBatch } from 'firebase/firestore';
 	import { v4 as uuidv4 } from 'uuid';
 	import { formatDistanceToNow } from 'date-fns';
 	import { flip } from 'svelte/animate';
@@ -18,10 +18,10 @@
 	import CheckIcon from '$lib/icons/check.svg?raw';
 	import EditIcon from '$lib/icons/edit.svg?raw';
 	import type { Workout, RoutineExercise } from '$lib/state.svelte';
-	import { getRoutineExercises, navState } from '$lib/state.svelte';
+	import { getRoutineExercises, navState, toaster } from '$lib/state.svelte';
 	import { getWorkoutNameValidationMsg } from '$lib/utils';
 
-	let routine = $derived($userData?.routines?.find((r) => r.id === page.params.routineId));
+	let routine = $derived($routines?.find((r) => r.id === page.params.routineId));
 
 	// Source of truth: exercises array
 	let routineExercises = $derived(
@@ -32,13 +32,13 @@
 		routineExercises
 			.map((ex) => ({
 				ex,
-				workout: $userData?.workouts.find((w) => w.id === ex.workoutId)
+				workout: $workouts?.find((w) => w.id === ex.workoutId)
 			}))
 			.filter((item) => item.workout !== undefined) as { ex: RoutineExercise; workout: Workout }[]
 	);
 
 	let workoutsNotInRoutine = $derived(
-		($userData?.workouts ?? []).filter((w) => !routineExercises.some((ex) => ex.workoutId === w.id))
+		($workouts ?? []).filter((w) => !routineExercises.some((ex) => ex.workoutId === w.id))
 	);
 
 	let weightUnit = $derived($userData?.preferences?.weightUnit ?? 'lbs');
@@ -146,7 +146,13 @@
 		try {
 			await saveRoutines(newExercises);
 			closeReorderMode();
-		} catch (error) {}
+		} catch (error) {
+			toaster.addToast({
+				type: 'error',
+				message: "Couldn't save order — try again",
+				dismissible: true
+			});
+		}
 	}
 
 	// Touch-based drag and drop for reordering
@@ -232,38 +238,32 @@
 
 	// ── End Reorder Mode Functions ─────────────────────────────────────────────
 
-	function buildUpdatedRoutine(exercises: RoutineExercise[]) {
-		return { ...routine!, exercises };
-	}
-
+	/** Writes only the exercises array of this one routine document. */
 	async function saveRoutines(exercises: RoutineExercise[]) {
-		if (!$userData || !routine) return;
-		const updated = buildUpdatedRoutine(exercises);
-		const routines = $userData.routines!.map((r) => (r.id === routine!.id ? updated : r));
-		const userRef = doc(db, 'users', $user!.uid);
-		await updateDoc(userRef, { routines });
+		if (!routine || !$user) return;
+		await updateDoc(doc(db, 'users', $user.uid, 'routines', routine.id), { exercises });
 	}
 
 	async function handleCreateAndAddExercise() {
 		const trimmed = newExerciseName.trim();
-		const validationError = getWorkoutNameValidationMsg(trimmed, $userData?.workouts);
+		const validationError = getWorkoutNameValidationMsg(trimmed, $workouts ?? undefined);
 		if (validationError) {
 			newExerciseError = validationError;
 			return;
 		}
-		if (!routine || !$userData) return;
+		if (!routine || !$user) return;
 
-		const newWorkout = { id: uuidv4(), name: trimmed, sets: [] };
+		const newWorkout: Workout = { id: uuidv4(), name: trimmed, sets: [], createdAt: Date.now() };
 		const newExercises = [...routineExercises, { workoutId: newWorkout.id }];
-		const userRef = doc(db, 'users', $user!.uid);
 
 		try {
-			await updateDoc(userRef, {
-				workouts: arrayUnion(newWorkout),
-				routines: $userData.routines!.map((r) =>
-					r.id === routine!.id ? buildUpdatedRoutine(newExercises) : r
-				)
+			// Batched so the exercise and its routine entry land together.
+			const batch = writeBatch(db);
+			batch.set(doc(db, 'users', $user.uid, 'workouts', newWorkout.id), newWorkout);
+			batch.update(doc(db, 'users', $user.uid, 'routines', routine.id), {
+				exercises: newExercises
 			});
+			await batch.commit();
 			showNewExerciseInput = false;
 		} catch (error) {
 			newExerciseError = 'Failed to save. Try again.';
@@ -278,14 +278,15 @@
 		}
 
 		// Otherwise, remove from routine
-		const original = [...routineExercises];
 		const updated = routineExercises.filter((ex) => ex.workoutId !== workoutId);
-		// optimistic
-		routine!.exercises = updated;
 		try {
 			await saveRoutines(updated);
 		} catch {
-			routine!.exercises = original;
+			toaster.addToast({
+				type: 'error',
+				message: "Couldn't remove exercise — try again",
+				dismissible: true
+			});
 		}
 	}
 
@@ -293,12 +294,14 @@
 		if (!routine || !selectedWorkoutId) return;
 		const updated = [...routineExercises, { workoutId: selectedWorkoutId }];
 		selectedWorkoutId = '';
-		routine!.exercises = updated;
 		try {
 			await saveRoutines(updated);
 		} catch {
-			// revert by removing last
-			routine!.exercises = updated.slice(0, -1);
+			toaster.addToast({
+				type: 'error',
+				message: "Couldn't add exercise — try again",
+				dismissible: true
+			});
 		}
 	}
 
@@ -311,11 +314,16 @@
 			const next = current === undefined ? 1 : Math.max(1, Math.min(99, current + delta));
 			return { ...ex, targetSets: next };
 		});
-		routine!.exercises = exercises;
 		try {
 			await saveRoutines(exercises);
 		} catch {
 			/* leave optimistic state */
+			toaster.addToast({
+				id: 'routine-save-failed',
+				type: 'error',
+				message: "Couldn't save changes — try again",
+				dismissible: true
+			});
 		}
 	}
 
@@ -338,16 +346,21 @@
 			}
 			return { ...ex, [field]: next };
 		});
-		routine!.exercises = exercises;
 		try {
 			await saveRoutines(exercises);
 		} catch {
 			/* leave optimistic state */
+			toaster.addToast({
+				id: 'routine-save-failed',
+				type: 'error',
+				message: "Couldn't save changes — try again",
+				dismissible: true
+			});
 		}
 	}
 </script>
 
-{#if !$userData}
+{#if !$routines}
 	<!-- Skeleton -->
 	<div class="mx-auto flex w-full max-w-lg flex-col gap-4">
 		<div class="flex w-full items-center justify-between">

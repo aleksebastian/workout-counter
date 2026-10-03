@@ -1,6 +1,6 @@
 <script lang="ts">
 	import BottomSheet from '$lib/components/BottomSheet.svelte';
-	import { userData } from '$lib/firebase';
+	import { routines } from '$lib/firebase';
 	import { getRoutineNameValidationMsg } from '$lib/utils';
 
 	interface Props {
@@ -21,7 +21,7 @@
 	let validationMsg: string | undefined = $state();
 
 	function handleSave() {
-		validationMsg = getRoutineNameValidationMsg(newRoutineName, $userData?.routines);
+		validationMsg = getRoutineNameValidationMsg(newRoutineName, $routines ?? undefined);
 
 		if (!validationMsg) {
 			onSave?.(newRoutineName);

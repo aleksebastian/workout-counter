@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import AuthCheck from '$lib/components/AuthCheck.svelte';
 	import { db, user, userData } from '$lib/firebase';
+	import { toaster } from '$lib/state.svelte';
 	import { doc, getDoc, writeBatch } from 'firebase/firestore';
 	let username = $state('');
 	let loading = $state(false);
@@ -43,16 +44,28 @@
 			const batch = writeBatch(db);
 
 			batch.set(doc(db, 'usernames', normalizedUsername), { uid: $user?.uid });
-			batch.set(doc(db, 'users', $user!.uid), {
-				username: normalizedUsername,
-				photoURL: $user?.photoURL ?? null,
-				workouts: []
-			});
+			batch.set(
+				doc(db, 'users', $user!.uid),
+				{
+					username: normalizedUsername,
+					photoURL: $user?.photoURL ?? null
+				},
+				{ merge: true }
+			);
 
 			await batch.commit();
 
-			goto('/');
-		} catch (error) {}
+			goto('/preferences');
+		} catch {
+			toaster.addToast({
+				type: 'error',
+				message: "Couldn't claim that username — it may have just been taken",
+				dismissible: true
+			});
+			// Re-check availability so the UI reflects reality
+			isAvailable = false;
+			checkAvailability();
+		}
 	}
 </script>
 

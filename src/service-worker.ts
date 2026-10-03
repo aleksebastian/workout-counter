@@ -117,10 +117,15 @@ async function respond(request: Request, url: URL): Promise<Response> {
 	// (valid since the layout server returns identical { userData: undefined }
 	// for all non-login routes).
 	if (url.pathname.endsWith('/__data.json')) {
-		const cached = await cache.match(request);
+		// Routes whose server data contains the user document (see +layout.server.ts) —
+		// never persist those responses in the SW cache at rest.
+		const isSensitive =
+			url.pathname.startsWith('/login') || url.pathname.startsWith('/preferences');
+
+		const cached = isSensitive ? undefined : await cache.match(request);
 
 		const networkPromise = fetch(request).then((response) => {
-			if (response.status === 200) {
+			if (response.status === 200 && !isSensitive) {
 				cache.put(request, response.clone());
 			}
 			return response;
