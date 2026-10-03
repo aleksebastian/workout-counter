@@ -70,12 +70,6 @@ export const pwa = {
 		notifStatus = readNotifStatus();
 		subscribeToPush();
 
-		// iOS Safari/PWA: keep --app-height in sync so the software keyboard
-		// doesn't leave a gap under fixed elements.
-		const setAppHeight = () =>
-			document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
-		setAppHeight();
-
 		const onOnline = () => (online = true);
 		const onOffline = () => (online = false);
 		// The user can flip the permission in system settings while we're backgrounded.
@@ -91,7 +85,6 @@ export const pwa = {
 			deferredPrompt = e as BeforeInstallPromptEvent;
 		};
 
-		window.addEventListener('resize', setAppHeight);
 		window.addEventListener('online', onOnline);
 		window.addEventListener('offline', onOffline);
 		window.addEventListener('beforeinstallprompt', onBeforeInstall);
@@ -119,7 +112,6 @@ export const pwa = {
 		}
 
 		return () => {
-			window.removeEventListener('resize', setAppHeight);
 			window.removeEventListener('online', onOnline);
 			window.removeEventListener('offline', onOffline);
 			window.removeEventListener('beforeinstallprompt', onBeforeInstall);
