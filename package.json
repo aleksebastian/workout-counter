@@ -60,7 +60,7 @@
 		"canvas-confetti": "^1.9.4",
 		"date-fns": "^4.4.0",
 		"firebase": "^12.17.1",
-		"firebase-admin": "^14.2.0",
+		"firebase-admin": "^13.8.0",
 		"uuid": "^14.0.1",
 		"web-push": "^3.6.7"
 	}
