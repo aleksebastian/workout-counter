@@ -34,7 +34,7 @@
  * reports `browser` for Home Screen apps installed without a manifest.
  */
 :root.ios-standalone {
-	--app-inset-top: calc(env(safe-area-inset-top, 0px) + 2.5rem);
+	--app-inset-top: calc(env(safe-area-inset-top, 0px) + 1.75rem);
 }
 
 html,
