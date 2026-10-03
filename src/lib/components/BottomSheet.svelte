@@ -11,6 +11,12 @@
 		onClose?: () => void;
 		children?: any;
 		headerAction?: Snippet;
+		/**
+		 * Focus the first focusable control on open. Turn off for sheets whose first
+		 * control is an input that shouldn't summon the keyboard by itself; the
+		 * sheet itself takes focus instead.
+		 */
+		autofocus?: boolean;
 	}
 
 	let {
@@ -19,7 +25,8 @@
 		title,
 		onClose,
 		children,
-		headerAction
+		headerAction,
+		autofocus = true
 	}: Props = $props();
 
 	// Custom slide transition that uses element's actual height to prevent overshoot
@@ -103,6 +110,10 @@
 	// focusing mid-animation strands the caret away from the field.
 	function focusFirst() {
 		if (!sheetElement || sheetElement.contains(document.activeElement)) return;
+		if (!autofocus) {
+			sheetElement.focus();
+			return;
+		}
 		sheetElement
 			.querySelector<HTMLElement>(
 				'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
