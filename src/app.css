@@ -29,9 +29,10 @@
 /*
  * iOS 26+ draws a Liquid Glass blur along the top edge of installed web apps,
  * and no CSS or meta tag turns it off. With an opaque status bar (`default`
- * style in app.html) the band below it is short, so a fixed strip in the page
- * colour covers it: the blur only ever has a flat colour to blur, and
- * content starts just below it. Safari tabs and other platforms don't get it.
+ * style in app.html) the band below it is short, so starting the header 16px
+ * down leaves only empty padding under it at rest; content scrolled into it
+ * still gets the soft native-style fade. Safari tabs and other platforms
+ * don't get it.
  * The class comes from app.html rather than (display-mode: standalone), which
  * reports `browser` for Home Screen apps installed without a manifest.
  *
@@ -44,22 +45,6 @@
 	--app-inset-top: calc(
 		env(safe-area-inset-top, 0px) + 16px + min(env(safe-area-inset-top, 0px), 12px)
 	);
-}
-
-.status-tint {
-	display: none;
-}
-
-:root.ios-standalone .status-tint {
-	display: block;
-	position: fixed;
-	top: 0;
-	right: 0;
-	left: 0;
-	z-index: 150;
-	height: var(--app-inset-top);
-	background-color: var(--color-base-100);
-	pointer-events: none;
 }
 
 html,

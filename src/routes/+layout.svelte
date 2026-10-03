@@ -117,9 +117,6 @@
 	<meta name="description" content="The best way to keep track of your workouts" />
 </svelte:head>
 
-<!-- Covers iOS's top-edge blur in the installed app; see .status-tint in app.css. -->
-<div class="status-tint" aria-hidden="true"></div>
-
 {#if !pwa.online}
 	<div
 		class="bg-warning text-warning-content fixed top-0 right-0 left-0 z-200 pb-1 text-center text-sm font-medium"
