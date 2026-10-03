@@ -2,7 +2,7 @@
 	import { onNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
-	import { fly } from 'svelte/transition';
+	import { fade, fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import Navbar from './Navbar.svelte';
 	import BottomNav from './BottomNav.svelte';
@@ -135,7 +135,8 @@
 	body: string,
 	primaryLabel: string,
 	primary: () => void,
-	dismiss?: () => void
+	dismiss?: () => void,
+	busyLabel?: string
 )}
 	<div
 		class="bg-base-200 fixed right-4 left-4 z-600 flex items-center justify-between gap-3 rounded-2xl px-4 py-3 shadow-xl"
@@ -150,14 +151,26 @@
 			{#if dismiss}
 				<button class="btn btn-ghost btn-sm" onclick={dismiss}>Not now</button>
 			{/if}
-			<button class="btn btn-primary btn-sm" onclick={primary}>{primaryLabel}</button>
+			<button class="btn btn-primary btn-sm" onclick={primary} disabled={!!busyLabel}>
+				{#if busyLabel}
+					<span class="loading loading-spinner loading-xs" aria-hidden="true"></span>
+					{busyLabel}
+				{:else}
+					{primaryLabel}
+				{/if}
+			</button>
 		</div>
 	</div>
 {/snippet}
 
 {#if pwa.updateReady}
-	{@render banner('Update available', 'A new version of SetCount is ready', 'Reload', () =>
-		pwa.applyUpdate()
+	{@render banner(
+		'Update available',
+		pwa.updating ? 'Restarting SetCount…' : 'A new version of SetCount is ready',
+		'Reload',
+		() => pwa.applyUpdate(),
+		undefined,
+		pwa.updating ? 'Updating…' : undefined
 	)}
 {:else if pwa.showNotifPrompt}
 	{@render banner(
@@ -223,6 +236,21 @@
 	{/if}
 	<Toasts />
 </div>
+
+{#if pwa.updating}
+	<!-- Covers the seconds between the Reload tap and the new page painting.
+	     It stays up until unload, so the update reads as one continuous step
+	     rather than a frozen app followed by a blank flash. -->
+	<div
+		class="bg-base-100/90 fixed inset-0 z-1100 flex flex-col items-center justify-center gap-3"
+		role="status"
+		aria-live="polite"
+		transition:fade={{ duration: 150 }}
+	>
+		<span class="loading loading-spinner loading-lg text-primary" aria-hidden="true"></span>
+		<p class="text-sm font-medium">Updating SetCount</p>
+	</div>
+{/if}
 
 {#if hasUser}
 	<RestTimerBar />

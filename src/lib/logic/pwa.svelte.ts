@@ -1,4 +1,5 @@
 import { subscribeToPush } from '$lib/push';
+import { toaster } from '$lib/toast.svelte';
 
 /**
  * Everything install/offline/service-worker related. The root layout used to
@@ -31,11 +32,20 @@ function readNotifStatus(): NotifStatus {
 }
 
 const NOTIF_PROMPTED_KEY = 'sc-notif-prompted';
+/** Set just before an update reload so the fresh page can confirm it landed. */
+const JUST_UPDATED_KEY = 'sc-just-updated';
+/**
+ * How long to wait for the new worker to take control before reloading anyway.
+ * `controllerchange` normally fires well inside this; the fallback only exists
+ * so the "Updating" state can never strand the user.
+ */
+const UPDATE_RELOAD_FALLBACK_MS = 4000;
 /** Sets recorded before we suggest installing — enough to show the app works. */
 const SETS_BEFORE_INSTALL_PROMPT = 3;
 
 let online = $state(true);
 let updateReady = $state(false);
+let updating = $state(false);
 let showInstall = $state(false);
 let showNotifPrompt = $state(false);
 /** Null until `init()` runs in the browser. */
@@ -53,6 +63,10 @@ export const pwa = {
 	get updateReady() {
 		return updateReady;
 	},
+	/** True from the Reload tap until the page unloads. */
+	get updating() {
+		return updating;
+	},
 	get showInstall() {
 		return showInstall;
 	},
@@ -69,6 +83,11 @@ export const pwa = {
 		notifPromptShown = localStorage.getItem(NOTIF_PROMPTED_KEY) === 'true';
 		notifStatus = readNotifStatus();
 		subscribeToPush();
+
+		if (sessionStorage.getItem(JUST_UPDATED_KEY)) {
+			sessionStorage.removeItem(JUST_UPDATED_KEY);
+			toaster.show({ id: 'app-updated', type: 'success', message: 'SetCount updated' });
+		}
 
 		const onOnline = () => (online = true);
 		const onOffline = () => (online = false);
@@ -154,8 +173,26 @@ export const pwa = {
 		showInstall = false;
 	},
 
+	/**
+	 * Hands control to the waiting worker; the `controllerchange` listener then
+	 * reloads. That reload can take seconds — and an installed iOS app shows no
+	 * loading indicator of its own — so `updating` drives a visible busy state
+	 * until the page goes away.
+	 */
 	applyUpdate() {
-		registration?.waiting?.postMessage({ type: 'SKIP_WAITING' });
+		if (updating) return;
+		updating = true;
+		sessionStorage.setItem(JUST_UPDATED_KEY, 'true');
+
+		const waiting = registration?.waiting;
+		// Another tab may already have activated the new worker, leaving nothing
+		// waiting here. A plain reload picks the new version up either way.
+		if (!waiting) {
+			window.location.reload();
+			return;
+		}
+		waiting.postMessage({ type: 'SKIP_WAITING' });
+		setTimeout(() => window.location.reload(), UPDATE_RELOAD_FALLBACK_MS);
 	},
 
 	async requestNotifications() {
