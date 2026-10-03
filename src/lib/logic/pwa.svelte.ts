@@ -1,3 +1,4 @@
+import { version } from '$app/environment';
 import { subscribeToPush } from '$lib/push';
 import { toaster } from '$lib/toast.svelte';
 
@@ -32,8 +33,12 @@ function readNotifStatus(): NotifStatus {
 }
 
 const NOTIF_PROMPTED_KEY = 'sc-notif-prompted';
-/** Set just before an update reload so the fresh page can confirm it landed. */
-const JUST_UPDATED_KEY = 'sc-just-updated';
+/**
+ * The build version, stored just before an update reload. The fresh page only
+ * confirms the update if its own version differs — the fallback reload can
+ * land on the old build when the new worker never took over.
+ */
+const UPDATED_FROM_KEY = 'sc-updated-from';
 /**
  * How long to wait for the new worker to take control before reloading anyway.
  * `controllerchange` normally fires well inside this; the fallback only exists
@@ -84,9 +89,12 @@ export const pwa = {
 		notifStatus = readNotifStatus();
 		subscribeToPush();
 
-		if (sessionStorage.getItem(JUST_UPDATED_KEY)) {
-			sessionStorage.removeItem(JUST_UPDATED_KEY);
-			toaster.show({ id: 'app-updated', type: 'success', message: 'SetCount updated' });
+		const updatedFrom = sessionStorage.getItem(UPDATED_FROM_KEY);
+		if (updatedFrom) {
+			sessionStorage.removeItem(UPDATED_FROM_KEY);
+			if (updatedFrom !== version) {
+				toaster.show({ id: 'app-updated', type: 'success', message: 'SetCount updated' });
+			}
 		}
 
 		const onOnline = () => (online = true);
@@ -182,7 +190,7 @@ export const pwa = {
 	applyUpdate() {
 		if (updating) return;
 		updating = true;
-		sessionStorage.setItem(JUST_UPDATED_KEY, 'true');
+		sessionStorage.setItem(UPDATED_FROM_KEY, version);
 
 		const waiting = registration?.waiting;
 		// Another tab may already have activated the new worker, leaving nothing
