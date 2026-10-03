@@ -1,18 +1,16 @@
 <script lang="ts">
-	import { user, userData, workouts, routines, programs, type UserData } from '$lib/firebase';
-	import {
-		getProgramSchedule,
-		getProgramItemsForDay,
-		getRoutineExercises
-	} from '$lib/state.svelte';
 	import { goto, afterNavigate } from '$app/navigation';
-	import { formatDistanceToNow } from 'date-fns';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
-	import PullToRefresh from '$lib/components/PullToRefresh.svelte';
+	import { formatDistanceToNow } from 'date-fns';
+	import { session } from '$lib/session.svelte';
+	import { libraryHref, runProgramHref, runRoutineHref } from '$lib/routes';
+	import { itemsForDay } from '$lib/types';
+	import Chevron from '$lib/components/Chevron.svelte';
+	import CheckIcon from '$lib/components/CheckIcon.svelte';
 
-	// Only animate on fresh page load, not on in-app navigation
+	// Only animate on a fresh page load, not on in-app navigation.
 	let isLanding = $state(false);
 	afterNavigate(({ from }) => {
 		isLanding = from === null;
@@ -22,521 +20,420 @@
 		return isLanding ? fly(node, params) : {};
 	}
 
-	let { data }: { data: { userData?: UserData } } = $props();
-
-	// Prefer the live Firebase store; fall back to the SSR snapshot so the page
-	// never blinks through a null state during client hydration.
-	let effectiveUserData = $derived($userData ?? data.userData ?? null);
-
-	// Optimized: Separate ticker state for time-dependent labels only
-	// This prevents expensive calculations from re-running every second
+	// A dedicated ticker for time-since labels, so the expensive derivations
+	// below don't re-run once a second.
 	let now = $state(Date.now());
-	let lastSetTimestamp = $state<number | null>(null);
-
 	onMount(() => {
-		const t = setInterval(() => {
-			now = Date.now();
-		}, 1000);
+		const t = setInterval(() => (now = Date.now()), 1000);
 		return () => clearInterval(t);
 	});
 
-	// ── Data derivations ─────────────────────────────────────────────────────────
+	let unit = $derived(session.prefs.weightUnit);
+	let weekStart = $derived(session.prefs.weekStart);
+	let weeklyGoal = $derived(session.prefs.weeklyGoal);
+	let streaksEnabled = $derived(session.prefs.streaksEnabled);
 
-	let allSets = $derived(($workouts ?? []).flatMap((w) => w.sets));
+	let loading = $derived(
+		session.status === 'loading' || session.workouts === null || session.programs === null
+	);
+
+	// ── Data derivations ───────────────────────────────────────────────────────
+
+	let allSets = $derived((session.workouts ?? []).flatMap((w) => w.sets));
 
 	let lastSet = $derived(
 		allSets.length ? allSets.reduce((a, b) => (new Date(a.date) > new Date(b.date) ? a : b)) : null
 	);
-
-	// Update lastSetTimestamp when lastSet changes (not every second)
-	$effect(() => {
-		lastSetTimestamp = lastSet ? new Date(lastSet.date).getTime() : null;
-	});
+	let lastSetTimestamp = $derived(lastSet ? new Date(lastSet.date).getTime() : null);
 
 	let lastWorkout = $derived(
 		lastSet
-			? (($workouts ?? []).find((w) => w.sets.some((s) => s.id === lastSet!.id)) ?? null)
+			? ((session.workouts ?? []).find((w) => w.sets.some((s) => s.id === lastSet!.id)) ?? null)
 			: null
 	);
 
-	// Week start: 0=Sunday, 1=Monday (from preferences, default Sunday)
-	let weekStart = $derived((effectiveUserData?.preferences?.weekStart ?? 0) as 0 | 1);
-	let weeklyGoal = $derived(effectiveUserData?.preferences?.weeklyGoal ?? 3);
-	let streaksEnabled = $derived(effectiveUserData?.preferences?.streaksEnabled !== false);
-
-	// Helper: returns the timestamp of the Monday/Sunday that starts the week containing `d`
-	function getWeekStartTs(d: Date, ws: 0 | 1): number {
+	/** Timestamp of the day that starts the week containing `d`. */
+	function weekStartTs(d: Date, ws: 0 | 1): number {
 		const day = new Date(d);
 		day.setHours(0, 0, 0, 0);
-		const daysFromStart = (day.getDay() - ws + 7) % 7;
-		day.setDate(day.getDate() - daysFromStart);
+		day.setDate(day.getDate() - ((day.getDay() - ws + 7) % 7));
 		return day.getTime();
 	}
 
-	// Build the current calendar week (7 slots from weekStart day)
-	let weekDays = $derived(
-		(() => {
-			const today = new Date();
-			today.setHours(0, 0, 0, 0);
-			const dayOfWeek = today.getDay(); // 0=Sun … 6=Sat
-			const daysFromStart = (dayOfWeek - weekStart + 7) % 7;
-			const start = new Date(today);
-			start.setDate(today.getDate() - daysFromStart);
-			return Array.from({ length: 7 }, (_, i) => {
-				const d = new Date(start);
-				d.setDate(start.getDate() + i);
-				const dStr = d.toDateString();
-				const isPast = d <= today;
-				return {
-					label: d.toLocaleDateString('en', { weekday: 'short' }),
-					active: allSets.some((s) => new Date(s.date).toDateString() === dStr),
-					isToday: dStr === today.toDateString(),
-					isFuture: !isPast && dStr !== today.toDateString()
-				};
-			});
-		})()
-	);
+	let weekDays = $derived.by(() => {
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+		const start = new Date(today);
+		start.setDate(today.getDate() - ((today.getDay() - weekStart + 7) % 7));
+		return Array.from({ length: 7 }, (_, i) => {
+			const d = new Date(start);
+			d.setDate(start.getDate() + i);
+			const key = d.toDateString();
+			return {
+				label: d.toLocaleDateString('en', { weekday: 'short' }),
+				active: allSets.some((s) => new Date(s.date).toDateString() === key),
+				isToday: key === today.toDateString(),
+				isFuture: d > today
+			};
+		});
+	});
 
-	// Set of week-start timestamps for weeks where distinct training days >= weeklyGoal
-	// Optimized: Use $state + $effect to only recalculate when allSets actually changes
-	let completedWeeks = $state<Set<number>>(new Set());
-
-	$effect(() => {
-		if (!allSets.length) {
-			completedWeeks = new Set<number>();
-			return;
-		}
-		const weekDayMap = new Map<number, Set<string>>();
+	/** Week-start timestamps for every week that hit the weekly goal. */
+	let completedWeeks = $derived.by(() => {
+		const byWeek = new Map<number, globalThis.Set<string>>();
 		for (const s of allSets) {
-			const wk = getWeekStartTs(new Date(s.date), weekStart);
-			const dayStr = new Date(s.date).toDateString();
-			if (!weekDayMap.has(wk)) weekDayMap.set(wk, new Set());
-			weekDayMap.get(wk)!.add(dayStr);
+			const date = new Date(s.date);
+			const wk = weekStartTs(date, weekStart);
+			if (!byWeek.has(wk)) byWeek.set(wk, new globalThis.Set());
+			byWeek.get(wk)!.add(date.toDateString());
 		}
-		completedWeeks = new Set(
-			[...weekDayMap.entries()].filter(([, days]) => days.size >= weeklyGoal).map(([wk]) => wk)
+		return new globalThis.Set(
+			[...byWeek.entries()].filter(([, days]) => days.size >= weeklyGoal).map(([wk]) => wk)
 		);
 	});
 
-	// Consecutive completed-week streak (current week not penalised if goal not yet met)
-	let streak = $derived(
-		(() => {
-			if (!completedWeeks.size) return 0;
-			let cur = getWeekStartTs(new Date(), weekStart);
-			if (!completedWeeks.has(cur)) cur -= 7 * 24 * 60 * 60 * 1000;
-			let count = 0;
-			while (completedWeeks.has(cur)) {
-				count++;
-				cur -= 7 * 24 * 60 * 60 * 1000;
-			}
-			return count;
-		})()
+	const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+	/** Consecutive goal-hitting weeks; the current week isn't penalised early. */
+	let streak = $derived.by(() => {
+		if (!completedWeeks.size) return 0;
+		let cursor = weekStartTs(new Date(), weekStart);
+		if (!completedWeeks.has(cursor)) cursor -= WEEK_MS;
+		let count = 0;
+		while (completedWeeks.has(cursor)) {
+			count++;
+			cursor -= WEEK_MS;
+		}
+		return count;
+	});
+
+	let weekDayCount = $derived.by(() => {
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+		const cutoff = new Date(today);
+		cutoff.setDate(today.getDate() - ((today.getDay() - weekStart + 7) % 7));
+		return new globalThis.Set(
+			allSets.filter((s) => new Date(s.date) >= cutoff).map((s) => new Date(s.date).toDateString())
+		).size;
+	});
+
+	/** Compact "time since" for the stat tile — the only value tied to `now`. */
+	let sinceLastSet = $derived.by(() => {
+		if (!lastSetTimestamp) return '—';
+		const secs = Math.floor((now - lastSetTimestamp) / 1000);
+		const mins = Math.floor(secs / 60);
+		const hrs = Math.floor(mins / 60);
+		const days = Math.floor(hrs / 24);
+		if (days > 0) return `${days}d`;
+		if (hrs > 0) return `${hrs}h`;
+		if (mins > 0) return `${mins}m`;
+		return `${secs}s`;
+	});
+
+	let lastSetLabel = $derived.by(() => {
+		if (!lastSetTimestamp) return '';
+		const secs = Math.floor((now - lastSetTimestamp) / 1000);
+		const mins = Math.floor(secs / 60);
+		if (secs < 60) return secs <= 1 ? '1 second ago' : `${secs} seconds ago`;
+		if (mins < 10) return `${mins} minute${mins === 1 ? '' : 's'} ago`;
+		return formatDistanceToNow(lastSetTimestamp, { addSuffix: true });
+	});
+
+	// Was hardcoded to "kg" regardless of the user's preference.
+	let lastSetDetail = $derived.by(() => {
+		if (!lastSet) return '';
+		const parts = [`${lastSet.reps} reps`];
+		if (lastSet.weight) parts.push(`${lastSet.weight} ${unit}`);
+		return parts.join(' · ');
+	});
+
+	let greeting = $derived.by(() => {
+		const h = new Date(now).getHours();
+		const name = session.user?.displayName?.split(' ')[0] ?? '';
+		const part = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+		return name ? `${part}, ${name}` : part;
+	});
+
+	let todayLabel = new Date().toLocaleDateString('en', {
+		weekday: 'long',
+		month: 'long',
+		day: 'numeric'
+	});
+
+	/** Stat tiles, built as data so the streaks-on and streaks-off layouts share markup. */
+	let stats = $derived(
+		[
+			{ value: sinceLastSet, label: 'since last set' },
+			{ value: String(weekDayCount), label: 'days this week' },
+			streaksEnabled ? { value: String(streak), label: 'week streak' } : null
+		].filter((s) => s !== null)
 	);
 
-	// This-week stats (current calendar week)
-	let weekSets = $derived(
-		(() => {
-			const today = new Date();
-			today.setHours(0, 0, 0, 0);
-			const daysFromStart = (today.getDay() - weekStart + 7) % 7;
-			const cutoff = new Date(today);
-			cutoff.setDate(today.getDate() - daysFromStart);
-			return allSets.filter((s) => new Date(s.date) >= cutoff);
-		})()
+	// ── Today's plan ────────────────────────────────────────────────────────────
+	const todayDow = new Date().getDay();
+	let activeProgram = $derived(session.activeProgram);
+	let todayEntry = $derived(
+		activeProgram ? (activeProgram.schedule.find((d) => d.day === todayDow) ?? null) : null
 	);
-	let weekDayCount = $derived(new Set(weekSets.map((s) => new Date(s.date).toDateString())).size);
+	let todayCount = $derived.by(() => {
+		if (!activeProgram) return 0;
+		return itemsForDay(activeProgram, todayDow).reduce((sum, item) => {
+			if (item.type === 'exercise') return sum + 1;
+			return sum + (session.routine(item.routineId)?.exercises.length ?? 0);
+		}, 0);
+	});
 
-	// Live "last set" time label — optimized to only use `now` and lastSetTimestamp
-	// This is the ONLY derived value that should update every second
-	let lastSetLabel = $derived(
-		(() => {
-			if (!lastSetTimestamp) return '';
-			const ms = now - lastSetTimestamp;
-			const secs = Math.floor(ms / 1000);
-			const mins = Math.floor(secs / 60);
-			if (secs < 60) return secs <= 1 ? '1 second ago' : `${secs} seconds ago`;
-			if (mins < 10) return `${mins} minute${mins === 1 ? '' : 's'} ago`;
-			return formatDistanceToNow(lastSetTimestamp, { addSuffix: true });
-		})()
-	);
+	// ── Needs attention ─────────────────────────────────────────────────────────
+	let overdue = $derived.by(() => {
+		const trained = (session.workouts ?? []).filter((w) => w.sets.length > 0);
+		if (trained.length < 3) return null;
+		const withLast = trained.map((w) => ({
+			workout: w,
+			last: Math.max(...w.sets.map((s) => new Date(s.date).getTime()))
+		}));
+		const oldest = withLast.reduce((a, b) => (a.last < b.last ? a : b));
+		const days = Math.floor((Date.now() - oldest.last) / (1000 * 60 * 60 * 24));
+		return days >= 7 ? { workout: oldest.workout, days } : null;
+	});
 
-	// Last set detail (reps + weight) — no longer depends on `now`
-	let lastSetDetail = $derived(
-		(() => {
-			if (!lastSet) return '';
-			const parts: string[] = [`${lastSet.reps} reps`];
-			if (lastSet.weight) parts.push(`${lastSet.weight} kg`);
-			return parts.join(' · ');
-		})()
-	);
+	// ── Getting started ─────────────────────────────────────────────────────────
+	// Logging a set only ever needed one exercise; the routine step used to be a
+	// hard gate in front of it, which it isn't.
+	let hasExercises = $derived((session.workouts?.length ?? 0) > 0);
+	let hasSet = $derived(allSets.length > 0);
+	let hasRoutines = $derived((session.routines?.length ?? 0) > 0);
+	let firstWorkout = $derived(session.workouts?.[0]);
 
-	// Time-of-day greeting — still uses `now` but only recalculates hourly in practice
-	let greeting = $derived(
-		(() => {
-			const h = new Date(now).getHours();
-			const name = $user?.displayName?.split(' ')[0] ?? '';
-			const part = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
-			return name ? `${part}, ${name}` : part;
-		})()
-	);
-
-	// Today label — no longer depends on `now`, uses static date
-	let todayLabel = $derived(
-		new Date().toLocaleDateString('en', { weekday: 'long', month: 'long', day: 'numeric' })
-	);
-
-	// Most overdue exercise (only shown if been > 7 days and there are at least 3 tracked exercises)
-	let overdueExercise = $derived(
-		(() => {
-			const withSets = ($workouts ?? []).filter((w) => w.sets.length > 0);
-			if (withSets.length < 3) return null;
-			const sorted = [...withSets].sort((a, b) => {
-				const lastA = Math.max(...a.sets.map((s) => new Date(s.date).getTime()));
-				const lastB = Math.max(...b.sets.map((s) => new Date(s.date).getTime()));
-				return lastA - lastB;
-			});
-			const candidate = sorted[0];
-			const lastDone = Math.max(...candidate.sets.map((s) => new Date(s.date).getTime()));
-			const daysSince = (Date.now() - lastDone) / (1000 * 60 * 60 * 24);
-			return daysSince >= 7 ? candidate : null;
-		})()
-	);
-
-	let overdueDayCount = $derived(
-		overdueExercise
-			? Math.floor(
-					(Date.now() - Math.max(...overdueExercise.sets.map((s) => new Date(s.date).getTime()))) /
-						(1000 * 60 * 60 * 24)
-				)
-			: 0
-	);
-
-	async function handleRefresh() {
-		await new Promise((r) => setTimeout(r, 600));
-	}
+	let checklist = $derived([
+		{
+			done: hasExercises,
+			title: 'Add exercises',
+			blurb: 'The building blocks of every workout',
+			href: libraryHref('exercises'),
+			enabled: true
+		},
+		{
+			done: hasSet,
+			title: 'Log your first set',
+			blurb: 'Tap an exercise and record a rep',
+			href: firstWorkout ? `/workout/${firstWorkout.id}` : libraryHref('exercises'),
+			enabled: hasExercises
+		},
+		{
+			done: hasRoutines,
+			title: 'Create a routine',
+			blurb: 'Group exercises so you can run them start to finish',
+			href: libraryHref('routines'),
+			enabled: hasExercises
+		}
+	]);
 </script>
 
-<PullToRefresh onRefresh={handleRefresh}>
-	{#if $user === undefined || effectiveUserData === null || $workouts === null}
-		<!-- Skeleton -->
-		<div class="mx-auto flex max-w-lg flex-col gap-5">
-			<div class="flex flex-col gap-1.5">
-				<div class="skeleton h-7 w-48 rounded"></div>
-				<div class="skeleton h-4 w-32 rounded"></div>
+{#if loading}
+	<div class="mx-auto flex max-w-lg flex-col gap-5">
+		<div class="flex flex-col gap-1.5">
+			<div class="skeleton h-7 w-48 rounded"></div>
+			<div class="skeleton h-4 w-32 rounded"></div>
+		</div>
+		<div class="skeleton h-14 w-full rounded-xl"></div>
+		<div class="grid grid-cols-3 gap-2">
+			{#each { length: 3 } as _}
+				<div class="skeleton h-16 rounded-xl"></div>
+			{/each}
+		</div>
+		<div class="skeleton h-20 w-full rounded-xl"></div>
+		<div class="skeleton h-20 w-full rounded-xl"></div>
+	</div>
+{:else}
+	<div class="mx-auto flex max-w-lg flex-col gap-6">
+		<div in:landingFly={{ y: 20, duration: 400, delay: 300, easing: cubicOut }}>
+			<h1 class="text-xl font-bold">{greeting}</h1>
+			<p class="text-base-content/50 text-sm">{todayLabel}</p>
+		</div>
+
+		{#if allSets.length}
+			<div
+				class="bg-base-200 rounded-box px-4 py-4"
+				in:landingFly|global={{ y: 20, duration: 400, delay: 400, easing: cubicOut }}
+			>
+				<p class="text-base-content/40 mb-3 text-xs font-semibold tracking-wider uppercase">
+					This week
+				</p>
+				<div class="flex justify-between">
+					{#each weekDays as day}
+						<div class="flex flex-col items-center gap-1.5">
+							<div
+								class={[
+									'rounded-full transition-all',
+									day.isToday ? 'h-3 w-3' : 'h-2.5 w-2.5',
+									day.active ? 'bg-primary' : day.isFuture ? 'bg-base-300/40' : 'bg-base-300'
+								].join(' ')}
+							></div>
+							<span
+								class={[
+									'text-xs',
+									day.isToday
+										? 'text-primary font-bold'
+										: day.isFuture
+											? 'text-base-content/20'
+											: 'text-base-content/40'
+								].join(' ')}>{day.label}</span
+							>
+						</div>
+					{/each}
+				</div>
 			</div>
-			<div class="skeleton h-14 w-full rounded-xl"></div>
-			<div class="grid grid-cols-3 gap-2">
-				{#each { length: 3 } as _}
-					<div class="skeleton h-16 rounded-xl"></div>
+
+			<div
+				class="grid gap-2"
+				class:grid-cols-3={stats.length === 3}
+				class:grid-cols-2={stats.length === 2}
+				in:landingFly|global={{ y: 20, duration: 400, delay: 490, easing: cubicOut }}
+			>
+				{#each stats as stat}
+					<div
+						class="bg-base-200 rounded-box flex flex-col items-center justify-center gap-0.5 py-3"
+					>
+						<span class="text-2xl font-bold tabular-nums">{stat.value}</span>
+						<span class="text-base-content/50 text-center text-xs leading-tight">{stat.label}</span>
+					</div>
 				{/each}
 			</div>
-			<div class="skeleton h-20 w-full rounded-xl"></div>
-			<div class="skeleton h-20 w-full rounded-xl"></div>
-		</div>
-	{:else}
-		<div class="mx-auto flex max-w-lg flex-col gap-6">
-			<!-- Greeting -->
-			<div in:landingFly={{ y: 20, duration: 400, delay: 300, easing: cubicOut }}>
-				<h1 class="text-xl font-bold">{greeting}</h1>
-				<p class="text-base-content/50 text-sm">{todayLabel}</p>
-			</div>
+		{/if}
 
-			{#if allSets.length}
-				<!-- Weekly activity row -->
+		<!-- Today's plan -->
+		{#if activeProgram}
+			<div in:landingFly|global={{ y: 20, duration: 400, delay: 200, easing: cubicOut }}>
+				<p class="text-base-content/40 mb-2 text-xs font-semibold tracking-wider uppercase">
+					Active Program
+				</p>
 				<div
-					class="bg-base-200 rounded-box px-4 py-4"
-					in:landingFly|global={{ y: 20, duration: 400, delay: 400, easing: cubicOut }}
+					class="bg-primary/8 border-primary/20 rounded-box flex items-center gap-3 border px-4 py-3"
 				>
-					<p class="text-base-content/40 mb-3 text-xs font-semibold tracking-wider uppercase">
-						This week
-					</p>
-					<div class="flex justify-between">
-						{#each weekDays as day}
-							<div class="flex flex-col items-center gap-1.5">
-								<div
-									class={[
-										'rounded-full transition-all',
-										day.isToday ? 'h-3 w-3' : 'h-2.5 w-2.5',
-										day.active ? 'bg-primary' : day.isFuture ? 'bg-base-300/40' : 'bg-base-300'
-									].join(' ')}
-								></div>
-								<span
-									class={[
-										'text-xs',
-										day.isToday
-											? 'text-primary font-bold'
-											: day.isFuture
-												? 'text-base-content/20'
-												: 'text-base-content/40'
-									].join(' ')}>{day.label}</span
-								>
-							</div>
-						{/each}
+					<div class="flex flex-1 flex-col gap-0.5 overflow-hidden">
+						<span class="font-semibold">{activeProgram.name}</span>
+						{#if todayEntry?.label}
+							<span class="text-base-content/60 text-xs">{todayEntry.label}</span>
+						{/if}
+						<span class="text-base-content/40 text-xs">
+							{todayCount > 0
+								? `${todayCount} exercise${todayCount === 1 ? '' : 's'} today`
+								: 'Rest day'}
+						</span>
 					</div>
-				</div>
-
-				<!-- Stats row -->
-				<div in:landingFly|global={{ y: 20, duration: 400, delay: 490, easing: cubicOut }}>
-					{#if streaksEnabled}
-						<div class="grid grid-cols-3 gap-2">
-							<div
-								class="bg-base-200 rounded-box flex flex-col items-center justify-center gap-0.5 py-3"
-							>
-								<span class="text-2xl font-bold tabular-nums">
-									{#if lastSet}
-										{(() => {
-											const ms = now - new Date(lastSet.date).getTime();
-											const secs = Math.floor(ms / 1000);
-											const mins = Math.floor(secs / 60);
-											const hrs = Math.floor(mins / 60);
-											const days = Math.floor(hrs / 24);
-											if (days > 0) return `${days}d`;
-											if (hrs > 0) return `${hrs}h`;
-											if (mins > 0) return `${mins}m`;
-											return `${secs}s`;
-										})()}
-									{:else}
-										—
-									{/if}
-								</span>
-								<span class="text-base-content/50 text-center text-xs leading-tight">
-									since last set
-								</span>
-							</div>
-							<div
-								class="bg-base-200 rounded-box flex flex-col items-center justify-center gap-0.5 py-3"
-							>
-								<span class="text-2xl font-bold tabular-nums">{weekDayCount}</span>
-								<span class="text-base-content/50 text-center text-xs leading-tight"
-									>days this week</span
-								>
-							</div>
-							<div
-								class="bg-base-200 rounded-box flex flex-col items-center justify-center gap-0.5 py-3"
-							>
-								<span class="text-2xl font-bold tabular-nums">{streak}</span>
-								<span class="text-base-content/50 text-center text-xs leading-tight">
-									week streak
-								</span>
-							</div>
-						</div>
+					{#if todayCount > 0}
+						<button
+							class="btn btn-primary btn-sm"
+							onclick={() => goto(runProgramHref(activeProgram.id, todayDow))}>Start</button
+						>
 					{:else}
-						<div class="grid grid-cols-2 gap-2">
-							<div
-								class="bg-base-200 rounded-box flex flex-col items-center justify-center gap-0.5 py-3"
-							>
-								<span class="text-2xl font-bold tabular-nums">
-									{#if lastSet}
-										{(() => {
-											const ms = now - new Date(lastSet.date).getTime();
-											const secs = Math.floor(ms / 1000);
-											const mins = Math.floor(secs / 60);
-											const hrs = Math.floor(mins / 60);
-											const days = Math.floor(hrs / 24);
-											if (days > 0) return `${days}d`;
-											if (hrs > 0) return `${hrs}h`;
-											if (mins > 0) return `${mins}m`;
-											return `${secs}s`;
-										})()}
-									{:else}
-										—
-									{/if}
-								</span>
-								<span class="text-base-content/50 text-center text-xs leading-tight">
-									since last set
-								</span>
-							</div>
-							<div
-								class="bg-base-200 rounded-box flex flex-col items-center justify-center gap-0.5 py-3"
-							>
-								<span class="text-2xl font-bold tabular-nums">{weekDayCount}</span>
-								<span class="text-base-content/50 text-center text-xs leading-tight"
-									>days this week</span
-								>
-							</div>
-						</div>
+						<a class="btn btn-ghost btn-sm" href={`/programs/${activeProgram.id}`}>View</a>
 					{/if}
 				</div>
-			{/if}
+			</div>
+		{/if}
 
-			<!-- Active program ──────────────────────────────────────────────────── -->
-			{#if effectiveUserData?.activeProgramId}
-				{@const activeProgram = ($programs ?? []).find(
-					(s) => s.id === effectiveUserData!.activeProgramId
-				)}
-				{#if activeProgram}
-					{@const todayDow = new Date().getDay()}
-					{@const todayEntry = getProgramSchedule(activeProgram).find((sd) => sd.day === todayDow)}
-					{@const todayItems = todayEntry ? getProgramItemsForDay(activeProgram, todayDow) : []}
-					{@const flatCount = todayItems.reduce((sum, item) => {
-						if (item.type === 'exercise') return sum + 1;
-						const r = ($routines ?? []).find((r) => r.id === item.routineId);
-						return sum + (r ? getRoutineExercises(r).length : 0);
-					}, 0)}
-					<div in:landingFly|global={{ y: 20, duration: 400, delay: 200, easing: cubicOut }}>
-						<p class="text-base-content/40 mb-2 text-xs font-semibold tracking-wider uppercase">
-							Active Program
-						</p>
-						<div
-							class="bg-primary/8 border-primary/20 rounded-box flex items-center gap-3 border px-4 py-3"
-						>
-							<div class="flex flex-1 flex-col gap-0.5 overflow-hidden">
-								<span class="font-semibold">{activeProgram.name}</span>
-								{#if todayEntry}
-									{#if todayEntry.label}
-										<span class="text-base-content/60 text-xs">{todayEntry.label}</span>
-									{/if}
-									<span class="text-base-content/40 text-xs"
-										>{flatCount} exercise{flatCount !== 1 ? 's' : ''} today</span
-									>
-								{:else}
-									<span class="text-base-content/40 text-xs">Rest day</span>
-								{/if}
-							</div>
-							{#if todayEntry && flatCount > 0}
-								<button
-									class="btn btn-primary btn-sm"
-									onclick={() => goto(`/programs/${activeProgram!.id}/run?day=${todayDow}`)}
-									>Start</button
+		<!-- Quick start -->
+		{#if session.routines?.length}
+			<div in:landingFly|global={{ y: 20, duration: 400, delay: 570, easing: cubicOut }}>
+				<p class="text-base-content/40 mb-2 text-xs font-semibold tracking-wider uppercase">
+					Quick start
+				</p>
+				<div class="flex flex-col gap-2">
+					{#each session.routines.slice(0, 3) as routine (routine.id)}
+						<div class="bg-base-200 rounded-box flex items-center gap-2 px-4 py-3">
+							<a href={'/routines/' + routine.id} class="flex min-w-0 flex-1 flex-col">
+								<span class="truncate text-sm font-semibold">{routine.name}</span>
+								<span class="text-base-content/40 text-xs"
+									>{routine.exercises.length} exercises</span
 								>
-							{:else}
-								<a class="btn btn-ghost btn-sm" href={`/programs/${activeProgram.id}`}>View</a>
+							</a>
+							{#if routine.exercises.length}
+								<button
+									class="btn btn-primary btn-sm shrink-0"
+									aria-label="Start {routine.name}"
+									onclick={() => goto(runRoutineHref(routine.id))}>Start</button
+								>
 							{/if}
 						</div>
-					</div>
-				{/if}
-			{/if}
-
-			<!-- Quick-start routines -->
-			{#if $routines?.length}
-				<div in:landingFly|global={{ y: 20, duration: 400, delay: 570, easing: cubicOut }}>
-					<p class="text-base-content/40 mb-2 text-xs font-semibold tracking-wider uppercase">
-						Quick start
-					</p>
-					<div class="flex flex-col gap-2">
-						{#each ($routines ?? []).slice(0, 3) as routine}
-							<a
-								class="bg-base-200 hover:bg-base-300 rounded-box flex items-center gap-3 px-4 py-3 transition-all active:scale-[0.98]"
-								href={'/routines/' + routine.id}
-							>
-								<span class="flex-1 text-sm font-semibold">{routine.name}</span>
-								<span class="text-base-content/40 text-xs"
-									>{getRoutineExercises(routine).length} exercises</span
-								>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="text-base-content/30 h-4 w-4 shrink-0"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									stroke-width="2.5"
-								>
-									<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-								</svg>
-							</a>
-						{/each}
-					</div>
+					{/each}
 				</div>
-			{/if}
+			</div>
+		{/if}
 
-			<!-- Last session -->
-			{#if lastWorkout}
-				<div in:landingFly|global={{ y: 20, duration: 400, delay: 640, easing: cubicOut }}>
-					<p class="text-base-content/40 mb-2 text-xs font-semibold tracking-wider uppercase">
-						Last session
-					</p>
-					<a
-						class="bg-base-200 hover:bg-base-300 rounded-box flex items-center gap-3 px-4 py-4 transition-all active:scale-[0.98]"
-						href={'/workout/' + lastWorkout.id}
-					>
-						<div class="flex-1 overflow-hidden">
-							<p class="truncate font-semibold">{lastWorkout.name}</p>
-							<p class="text-base-content/50 text-sm">
-								{lastSetLabel}{lastSetDetail ? ' · ' + lastSetDetail : ''}
-							</p>
-						</div>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="text-base-content/30 h-4 w-4 shrink-0"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-							stroke-width="2.5"
-						>
-							<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-						</svg>
-					</a>
-				</div>
-			{/if}
-
-			<!-- Needs attention -->
-			{#if overdueExercise}
-				<div in:landingFly|global={{ y: 20, duration: 400, delay: 700, easing: cubicOut }}>
-					<p class="text-base-content/40 mb-2 text-xs font-semibold tracking-wider uppercase">
-						Needs attention
-					</p>
-					<a
-						class="rounded-box border-warning/30 bg-warning/10 flex items-center gap-3 border px-4 py-3 transition-all active:scale-[0.98]"
-						href={'/workout/' + overdueExercise.id}
-					>
-						<div class="flex-1">
-							<p class="text-sm font-semibold">{overdueExercise.name}</p>
-							<p class="text-warning text-xs">{overdueDayCount} days since last session</p>
-						</div>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="text-base-content/30 h-4 w-4 shrink-0"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-							stroke-width="2.5"
-						>
-							<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-						</svg>
-					</a>
-				</div>
-			{/if}
-
-			<!-- Empty state: brand-new user / onboarding checklist -->
-			{#if !allSets.length}
-				{@const hasExercises = ($workouts?.length ?? 0) > 0}
-				{@const hasRoutines = ($routines?.length ?? 0) > 0}
-				{@const hasSet = allSets.length > 0}
-				{@const firstWorkout = $workouts?.[0]}
-				<div
-					class="flex flex-col gap-3 pt-2"
-					in:landingFly|global={{ y: 20, duration: 400, delay: 400, easing: cubicOut }}
+		<!-- Last session -->
+		{#if lastWorkout}
+			<div in:landingFly|global={{ y: 20, duration: 400, delay: 640, easing: cubicOut }}>
+				<p class="text-base-content/40 mb-2 text-xs font-semibold tracking-wider uppercase">
+					Last session
+				</p>
+				<a
+					class="bg-base-200 hover:bg-base-300 rounded-box flex items-center gap-3 px-4 py-4 transition-all active:scale-[0.98]"
+					href={'/workout/' + lastWorkout.id}
 				>
-					<p class="text-base-content/40 text-xs font-semibold tracking-wider uppercase">
-						Get started
-					</p>
+					<div class="flex-1 overflow-hidden">
+						<p class="truncate font-semibold">{lastWorkout.name}</p>
+						<p class="text-base-content/50 text-sm">
+							{lastSetLabel}{lastSetDetail ? ' · ' + lastSetDetail : ''}
+						</p>
+					</div>
+					<Chevron />
+				</a>
+			</div>
+		{/if}
 
-					<!-- Step 1: Add exercises -->
+		<!-- Needs attention -->
+		{#if overdue}
+			<div in:landingFly|global={{ y: 20, duration: 400, delay: 700, easing: cubicOut }}>
+				<p class="text-base-content/40 mb-2 text-xs font-semibold tracking-wider uppercase">
+					Needs attention
+				</p>
+				<a
+					class="rounded-box border-warning/30 bg-warning/10 flex items-center gap-3 border px-4 py-3 transition-all active:scale-[0.98]"
+					href={'/workout/' + overdue.workout.id}
+				>
+					<div class="flex-1">
+						<p class="text-sm font-semibold">{overdue.workout.name}</p>
+						<p class="text-warning text-xs">{overdue.days} days since last session</p>
+					</div>
+					<Chevron />
+				</a>
+			</div>
+		{/if}
+
+		<!-- Getting started -->
+		{#if !allSets.length}
+			<div
+				class="flex flex-col gap-3 pt-2"
+				in:landingFly|global={{ y: 20, duration: 400, delay: 400, easing: cubicOut }}
+			>
+				<p class="text-base-content/40 text-xs font-semibold tracking-wider uppercase">
+					Get started
+				</p>
+
+				{#each checklist as step}
 					<a
-						href="/exercises"
-						class="bg-base-200 hover:bg-base-300 rounded-box flex items-center gap-4 px-4 py-4 transition-all active:scale-[0.98]"
+						href={step.href}
+						class={[
+							'rounded-box flex items-center gap-4 px-4 py-4 transition-all active:scale-[0.98]',
+							step.enabled
+								? 'bg-base-200 hover:bg-base-300'
+								: 'bg-base-200/50 pointer-events-none opacity-40'
+						].join(' ')}
+						aria-disabled={!step.enabled}
 					>
 						<div
-							class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full {hasExercises
-								? 'bg-success/15'
-								: 'bg-primary/10'}"
+							class={[
+								'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
+								step.done ? 'bg-success/15' : step.enabled ? 'bg-primary/10' : 'bg-base-300'
+							].join(' ')}
 						>
-							{#if hasExercises}
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="text-success h-4 w-4"
-									fill="none"
-									style="fill: none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									stroke-width="2.5"
-								>
-									<path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-								</svg>
+							{#if step.done}
+								<CheckIcon class="text-success h-4 w-4" />
 							{:else}
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
-									class="text-primary h-4 w-4"
+									class={step.enabled ? 'text-primary h-4 w-4' : 'text-base-content/40 h-4 w-4'}
 									fill="none"
 									viewBox="0 0 24 24"
 									stroke="currentColor"
@@ -547,148 +444,17 @@
 							{/if}
 						</div>
 						<div class="flex-1">
-							<p class="text-sm font-semibold {hasExercises ? 'line-through opacity-40' : ''}">
-								Add exercises
+							<p class="text-sm font-semibold {step.done ? 'line-through opacity-40' : ''}">
+								{step.title}
 							</p>
-							<p class="text-base-content/40 text-xs">The building blocks of every workout</p>
+							<p class="text-base-content/40 text-xs">{step.blurb}</p>
 						</div>
-						{#if !hasExercises}
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="text-base-content/30 h-4 w-4 shrink-0"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-								stroke-width="2.5"
-							>
-								<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-							</svg>
+						{#if step.enabled && !step.done}
+							<Chevron />
 						{/if}
 					</a>
-
-					<!-- Step 2: Create a routine -->
-					<a
-						href="/routines"
-						class="rounded-box flex items-center gap-4 px-4 py-4 transition-all active:scale-[0.98] {hasExercises
-							? 'bg-base-200 hover:bg-base-300'
-							: 'bg-base-200/50 pointer-events-none opacity-40'}"
-					>
-						<div
-							class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full {hasRoutines
-								? 'bg-success/15'
-								: 'bg-base-300'}"
-						>
-							{#if hasRoutines}
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="text-success h-4 w-4"
-									fill="none"
-									style="fill: none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									stroke-width="2.5"
-								>
-									<path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-								</svg>
-							{:else}
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="text-base-content/40 h-4 w-4"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									stroke-width="2"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d="M4 6h16M4 10h16M4 14h10"
-									/>
-								</svg>
-							{/if}
-						</div>
-						<div class="flex-1">
-							<p class="text-sm font-semibold {hasRoutines ? 'line-through opacity-40' : ''}">
-								Create a routine
-							</p>
-							<p class="text-base-content/40 text-xs">Group exercises for quick-start sessions</p>
-						</div>
-						{#if hasExercises && !hasRoutines}
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="text-base-content/30 h-4 w-4 shrink-0"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-								stroke-width="2.5"
-							>
-								<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-							</svg>
-						{/if}
-					</a>
-
-					<!-- Step 3: Log your first set -->
-					<a
-						href={firstWorkout ? `/workout/${firstWorkout.id}` : '/exercises'}
-						class="rounded-box flex items-center gap-4 px-4 py-4 transition-all active:scale-[0.98] {hasRoutines
-							? 'bg-base-200 hover:bg-base-300'
-							: 'bg-base-200/50 pointer-events-none opacity-40'}"
-					>
-						<div
-							class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full {hasSet
-								? 'bg-success/15'
-								: 'bg-base-300'}"
-						>
-							{#if hasSet}
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="text-success h-4 w-4"
-									fill="none"
-									style="fill: none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									stroke-width="2.5"
-								>
-									<path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-								</svg>
-							{:else}
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="text-base-content/40 h-4 w-4"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									stroke-width="2"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d="M13 10V3L4 14h7v7l9-11h-7z"
-									/>
-								</svg>
-							{/if}
-						</div>
-						<div class="flex-1">
-							<p class="text-sm font-semibold {hasSet ? 'line-through opacity-40' : ''}">
-								Log your first set
-							</p>
-							<p class="text-base-content/40 text-xs">Tap an exercise and record a rep</p>
-						</div>
-						{#if hasRoutines && !hasSet}
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="text-base-content/30 h-4 w-4 shrink-0"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-								stroke-width="2.5"
-							>
-								<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-							</svg>
-						{/if}
-					</a>
-				</div>
-			{/if}
-		</div>
-	{/if}
-</PullToRefresh>
+				{/each}
+			</div>
+		{/if}
+	</div>
+{/if}

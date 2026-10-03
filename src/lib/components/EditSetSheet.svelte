@@ -1,42 +1,26 @@
 <script lang="ts">
 	import BottomSheet from '$lib/components/BottomSheet.svelte';
-	import { userData } from '$lib/firebase';
+	import SetEntry from '$lib/components/SetEntry.svelte';
+	import { session } from '$lib/session.svelte';
 	import DeleteIcon from '$lib/icons/delete.svg?raw';
+	import type { Set } from '$lib/types';
 
 	interface Props {
 		open?: boolean;
-		reps?: number;
-		weight?: number;
-		date?: string;
-		notes?: string;
-		onSave?: (reps: number, weight: number, date: string, notes: string) => void;
-		onDelete?: () => void;
-		onCancel?: () => void;
+		set: Set | undefined;
+		onSave: (reps: number, weight: number, date: string, notes: string) => void;
+		onDelete: () => void;
 	}
 
-	let {
-		open = $bindable(false),
-		reps = $bindable(0),
-		weight = $bindable(0),
-		date = $bindable(''),
-		notes = $bindable(''),
-		onSave,
-		onDelete,
-		onCancel
-	}: Props = $props();
+	let { open = $bindable(false), set, onSave, onDelete }: Props = $props();
 
-	let inputEle: HTMLInputElement = $state()!;
-	let weightUnit = $derived($userData?.preferences?.weightUnit ?? 'lbs');
-	let confirmingDelete = $state(false);
+	let unit = $derived(session.prefs.weightUnit);
 
-	// Local datetime-local string (YYYY-MM-DDTHH:MM in local time)
+	let reps = $state(0);
+	let weight = $state(0);
+	let notes = $state('');
 	let localDatetime = $state('');
-
-	$effect(() => {
-		if (open && date) {
-			localDatetime = toDatetimeLocal(date);
-		}
-	});
+	let confirmingDelete = $state(false);
 
 	function toDatetimeLocal(iso: string): string {
 		const d = new Date(iso);
@@ -44,45 +28,24 @@
 		return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 	}
 
-	function handleSave() {
-		const savedDate = localDatetime ? new Date(localDatetime).toISOString() : date;
-		onSave?.(reps, weight, savedDate, notes);
-		open = false;
-	}
-
-	function handleCancel() {
-		confirmingDelete = false;
-		open = false;
-		onCancel?.();
-	}
-
-	function handleDelete() {
-		onDelete?.();
-		open = false;
-		confirmingDelete = false;
-	}
-
-	function handleKeyDown(event: KeyboardEvent) {
-		if (event.key === 'Enter') {
-			event.preventDefault();
-			handleSave();
-		}
-	}
-
-	// Reset confirm state when sheet closes
+	// Seed from whichever set the sheet was opened for.
 	$effect(() => {
-		if (!open) confirmingDelete = false;
+		if (!open || !set) return;
+		reps = set.reps;
+		weight = set.weight ?? 0;
+		notes = set.notes ?? '';
+		localDatetime = toDatetimeLocal(set.date);
+		confirmingDelete = false;
 	});
 
-	// Auto-focus first input when opened
-	$effect(() => {
-		if (open && inputEle && !confirmingDelete) {
-			setTimeout(() => inputEle.focus(), 100);
-		}
-	});
+	function save() {
+		const date = localDatetime ? new Date(localDatetime).toISOString() : (set?.date ?? '');
+		onSave(reps, weight, date, notes);
+		open = false;
+	}
 </script>
 
-<BottomSheet bind:open size="medium" title="Edit Set" onClose={handleCancel}>
+<BottomSheet bind:open size="large" title="Edit Set">
 	<div class="flex flex-col gap-4">
 		{#if confirmingDelete}
 			<div class="flex flex-col items-center gap-3 py-2 text-center">
@@ -93,64 +56,52 @@
 				</div>
 				<div>
 					<p class="font-semibold">Delete this set?</p>
-					<p class="text-base-content/50 mt-1 text-sm">This can't be undone.</p>
+					<p class="text-base-content/50 mt-1 text-sm">
+						{reps} reps{weight > 0 ? ` · ${weight} ${unit}` : ''} — this can't be undone.
+					</p>
 				</div>
 			</div>
+
 			<div class="flex gap-2">
 				<button class="btn btn-ghost flex-1" onclick={() => (confirmingDelete = false)}
 					>Cancel</button
 				>
-				<button class="btn btn-error flex-1" onclick={handleDelete}>Delete</button>
+				<button
+					class="btn btn-error flex-1"
+					onclick={() => {
+						onDelete();
+						open = false;
+					}}>Delete</button
+				>
 			</div>
 		{:else}
-			<div class="grid grid-cols-2 gap-3">
-				<div class="flex flex-col gap-1">
-					<label class="text-sm font-medium" for="edit-reps">Reps</label>
-					<input
-						id="edit-reps"
-						bind:this={inputEle}
-						aria-label="Reps"
-						class="input input-bordered w-full"
-						type="number"
-						bind:value={reps}
-						onkeydown={handleKeyDown}
-					/>
-				</div>
+			<SetEntry bind:reps bind:weight size="md" fadeClass="from-base-100" />
 
-				<div class="flex flex-col gap-1">
-					<label class="text-sm font-medium" for="edit-weight">Weight ({weightUnit})</label>
-					<input
-						id="edit-weight"
-						aria-label="Weight"
-						class="input input-bordered w-full"
-						type="number"
-						placeholder="Optional"
-						bind:value={weight}
-						min="0"
-						onkeydown={handleKeyDown}
-					/>
-				</div>
-			</div>
-
-			<div class="flex flex-col gap-1">
-				<label class="text-sm font-medium" for="edit-datetime">Date &amp; Time</label>
+			<div class="flex flex-col gap-1.5">
+				<label
+					class="text-base-content/50 text-xs font-semibold tracking-widest uppercase"
+					for="edit-set-notes">Notes</label
+				>
 				<input
-					id="edit-datetime"
+					id="edit-set-notes"
+					type="text"
 					class="input input-bordered w-full"
-					type="datetime-local"
-					bind:value={localDatetime}
+					placeholder="e.g. felt heavy, form off, easy…"
+					bind:value={notes}
 				/>
 			</div>
 
-			<div class="flex flex-col gap-1">
-				<label class="text-sm font-medium" for="edit-set-notes">Notes</label>
-				<textarea
-					id="edit-set-notes"
-					class="textarea textarea-bordered w-full resize-none"
-					rows="2"
-					placeholder="Optional"
-					bind:value={notes}
-				></textarea>
+			<div class="flex flex-col gap-1.5">
+				<label
+					class="text-base-content/50 text-xs font-semibold tracking-widest uppercase"
+					for="edit-set-date">Date &amp; Time</label
+				>
+				<input
+					id="edit-set-date"
+					type="datetime-local"
+					class="input input-bordered w-full"
+					bind:value={localDatetime}
+				/>
 			</div>
 
 			<div class="flex gap-2">
@@ -161,7 +112,7 @@
 					<span class="[&>svg]:h-4 [&>svg]:w-4">{@html DeleteIcon}</span>
 					Delete
 				</button>
-				<button class="btn btn-primary flex-1" onclick={handleSave}>Save</button>
+				<button class="btn btn-primary flex-1" onclick={save}>Save</button>
 			</div>
 		{/if}
 	</div>

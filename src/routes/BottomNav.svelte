@@ -25,10 +25,23 @@
 	}
 
 	let path = $derived(page.url.pathname);
-	let isHome = $derived(path === '/');
-	let isExercises = $derived(path.startsWith('/exercises') || path.startsWith('/workout'));
-	let isRoutines = $derived(path.startsWith('/routines'));
-	let isSessions = $derived(path.startsWith('/programs'));
+
+	// Detail pages count as part of the tab they belong to, so the highlight
+	// never disappears while you're drilled in.
+	let current = $derived.by(() => {
+		if (path === '/') return 'home';
+		if (path.startsWith('/train')) return 'train';
+		if (
+			path.startsWith('/library') ||
+			path.startsWith('/workout') ||
+			path.startsWith('/exercises') ||
+			path.startsWith('/routines') ||
+			path.startsWith('/programs')
+		) {
+			return 'library';
+		}
+		return '';
+	});
 </script>
 
 <nav
@@ -37,85 +50,62 @@
 	in:launchSlide|global
 >
 	<div class="flex h-16 items-center">
-		<!-- Home -->
-		<a href="/" aria-label="Home" aria-current={isHome ? 'page' : undefined} class="nav-item">
+		<a
+			href="/"
+			aria-label="Home"
+			aria-current={current === 'home' ? 'page' : undefined}
+			class="nav-item"
+		>
 			<span class="h-6 w-6 [&>svg]:h-6 [&>svg]:w-6">{@html HomeIcon}</span>
 			<span class="text-xs font-medium">Home</span>
 		</a>
 
-		<!-- Exercises -->
 		<a
-			href="/exercises"
-			aria-label="Exercises"
-			aria-current={isExercises ? 'page' : undefined}
+			href="/train"
+			aria-label="Train"
+			aria-current={current === 'train' ? 'page' : undefined}
 			class="nav-item"
 		>
+			<!-- Dumbbell, built from rects so it is exactly symmetric about x=12. -->
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6"
 				viewBox="0 0 24 24"
 				fill="currentColor"
+				aria-hidden="true"
 			>
-				<path
-					fill-rule="evenodd"
-					d="M7.502 6h7.128A3.375 3.375 0 0 1 18 9.375v9.375a3 3 0 0 0 3-3V6.108c0-1.505-1.125-2.811-2.664-2.94a48.972 48.972 0 0 0-.673-.05A3 3 0 0 0 15 1.5h-1.5a3 3 0 0 0-2.663 1.618c-.225.015-.45.032-.673.05C8.662 3.295 7.554 4.542 7.502 6ZM13.5 3A1.5 1.5 0 0 0 12 4.5h4.5A1.5 1.5 0 0 0 15 3h-1.5Z"
-					clip-rule="evenodd"
-				/>
-				<path
-					fill-rule="evenodd"
-					d="M3 9.375C3 8.339 3.84 7.5 4.875 7.5h9.75c1.036 0 1.875.84 1.875 1.875v11.25c0 1.035-.84 1.875-1.875 1.875h-9.75A1.875 1.875 0 0 1 3 20.625V9.375Zm9.586 4.594a.75.75 0 0 0-1.172-.938l-2.476 3.096-.908-.907a.75.75 0 0 0-1.06 1.06l1.5 1.5a.75.75 0 0 0 1.116-.062l3-3.75Z"
-					clip-rule="evenodd"
-				/>
+				<rect x="1.5" y="7.5" width="3" height="9" rx="1.5" />
+				<rect x="5.5" y="5" width="3.5" height="14" rx="1.75" />
+				<rect x="9" y="10" width="6" height="4" rx="1" />
+				<rect x="15" y="5" width="3.5" height="14" rx="1.75" />
+				<rect x="19.5" y="7.5" width="3" height="9" rx="1.5" />
 			</svg>
-			<span class="text-xs font-medium">Exercises</span>
+			<span class="text-xs font-medium">Train</span>
 		</a>
 
-		<!-- Routines -->
 		<a
-			href="/routines"
-			aria-label="Routines"
-			aria-current={isRoutines ? 'page' : undefined}
+			href="/library"
+			aria-label="Library"
+			aria-current={current === 'library' ? 'page' : undefined}
 			class="nav-item"
 		>
+			<!-- Open book: two mirrored halves, symmetric about x=12 and the same
+			     visual weight as the solid house. -->
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6"
 				viewBox="0 0 24 24"
 				fill="currentColor"
+				aria-hidden="true"
 			>
 				<path
-					fill-rule="evenodd"
-					d="M2.625 6.75a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0Zm4.875 0A.75.75 0 0 1 8.25 6h12a.75.75 0 0 1 0 1.5h-12a.75.75 0 0 1-.75-.75ZM2.625 12a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0ZM7.5 12a.75.75 0 0 1 .75-.75h12a.75.75 0 0 1 0 1.5h-12A.75.75 0 0 1 7.5 12Zm-4.875 5.25a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0Zm4.875 0a.75.75 0 0 1 .75-.75h12a.75.75 0 0 1 0 1.5h-12a.75.75 0 0 1-.75-.75Z"
-					clip-rule="evenodd"
+					d="M11.25 4.533A9.707 9.707 0 0 0 6 3a9.735 9.735 0 0 0-3.25.555.75.75 0 0 0-.5.707v14.25a.75.75 0 0 0 1 .707A8.237 8.237 0 0 1 6 18.75c1.995 0 3.823.707 5.25 1.886V4.533Z"
+				/>
+				<path
+					d="M12.75 20.636A8.214 8.214 0 0 1 18 18.75c.966 0 1.89.166 2.75.47a.75.75 0 0 0 1-.708V4.262a.75.75 0 0 0-.5-.707A9.735 9.735 0 0 0 18 3a9.707 9.707 0 0 0-5.25 1.533v16.103Z"
 				/>
 			</svg>
-			<span class="text-xs font-medium">Routines</span>
-		</a>
-
-		<!-- Programs -->
-		<a
-			href="/programs"
-			aria-label="Programs"
-			aria-current={isSessions ? 'page' : undefined}
-			class="nav-item"
-		>
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="h-6 w-6"
-				viewBox="0 0 24 24"
-				fill="currentColor"
-			>
-				<path
-					d="M11.644 1.59a.75.75 0 0 1 .712 0l9.75 5.25a.75.75 0 0 1 0 1.32l-9.75 5.25a.75.75 0 0 1-.712 0l-9.75-5.25a.75.75 0 0 1 0-1.32l9.75-5.25Z"
-				/>
-				<path
-					d="m3.265 10.602 7.668 4.129a2.25 2.25 0 0 0 2.134 0l7.668-4.13 1.37.739a.75.75 0 0 1 0 1.32l-9.75 5.25a.75.75 0 0 1-.71 0l-9.75-5.25a.75.75 0 0 1 0-1.32l1.37-.738Z"
-				/>
-				<path
-					d="m10.933 19.231-7.668-4.13-1.37.739a.75.75 0 0 0 0 1.32l9.75 5.25c.221.12.489.12.71 0l9.75-5.25a.75.75 0 0 0 0-1.32l-1.37-.738-7.668 4.13a2.25 2.25 0 0 1-2.134-.001Z"
-				/>
-			</svg>
-			<span class="text-xs font-medium">Programs</span>
+			<span class="text-xs font-medium">Library</span>
 		</a>
 	</div>
 </nav>
@@ -128,7 +118,7 @@
 		gap: 0.125rem;
 		padding-top: 0.5rem;
 		padding-bottom: 0.5rem;
-		width: 25%;
+		width: 33.3333%;
 		opacity: 0.35;
 	}
 

@@ -1,373 +1,204 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { db, userData, user, workouts, routines } from '$lib/firebase';
-	import { doc, updateDoc, writeBatch } from 'firebase/firestore';
-	import { v4 as uuidv4 } from 'uuid';
+	import { goto } from '$app/navigation';
 	import { formatDistanceToNow } from 'date-fns';
-	import { flip } from 'svelte/animate';
-	import { fade, fly } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
-	import { HAPTIC } from '$lib/haptic';
+	import { routines } from '$lib/data';
+	import { session } from '$lib/session.svelte';
+	import { setPageNav } from '$lib/nav.svelte';
+	import { libraryHref, runRoutineHref } from '$lib/routes';
+	import ActionSheet, { type SheetAction } from '$lib/components/ActionSheet.svelte';
+	import AddToPlanSheet from '$lib/components/AddToPlanSheet.svelte';
+	import Chevron from '$lib/components/Chevron.svelte';
 	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
-	import ExerciseSearch from '$lib/components/ExerciseSearch.svelte';
+	import EditRoutineSheet from '$lib/components/EditRoutineSheet.svelte';
+	import SortableList from '$lib/components/SortableList.svelte';
+	import TargetsSheet from '$lib/components/TargetsSheet.svelte';
+	import RowMenuButton from '../../library/RowMenuButton.svelte';
 	import AddIcon from '$lib/icons/add.svg?raw';
-	import CloseIcon from '$lib/icons/close.svg?raw';
-	import RemoveIcon from '$lib/icons/remove.svg?raw';
-	import MoreVertIcon from '$lib/icons/more_vert.svg?raw';
+	import EditIcon from '$lib/icons/edit.svg?raw';
+	import DeleteIcon from '$lib/icons/delete.svg?raw';
 	import DragIndicatorIcon from '$lib/icons/drag_indicator.svg?raw';
 	import CheckIcon from '$lib/icons/check.svg?raw';
-	import EditIcon from '$lib/icons/edit.svg?raw';
-	import type { Workout, RoutineExercise } from '$lib/state.svelte';
-	import { getRoutineExercises, navState, toaster } from '$lib/state.svelte';
-	import { getWorkoutNameValidationMsg } from '$lib/utils';
+	import type { RoutineExercise, Workout } from '$lib/types';
 
-	let routine = $derived($routines?.find((r) => r.id === page.params.routineId));
+	let routine = $derived(session.routine(page.params.routineId));
+	let unit = $derived(session.prefs.weightUnit);
 
-	// Source of truth: exercises array
-	let routineExercises = $derived(
-		routine ? getRoutineExercises(routine) : ([] as RoutineExercise[])
+	setPageNav(
+		() => routine?.name ?? '',
+		() => libraryHref('routines')
 	);
 
-	let workoutsInRoutine = $derived(
-		routineExercises
-			.map((ex) => ({
-				ex,
-				workout: $workouts?.find((w) => w.id === ex.workoutId)
-			}))
-			.filter((item) => item.workout !== undefined) as { ex: RoutineExercise; workout: Workout }[]
+	type Row = { ex: RoutineExercise; workout: Workout };
+
+	/** Routine entries paired with their exercise doc; drops dangling references. */
+	let rows = $derived<Row[]>(
+		(routine?.exercises ?? [])
+			.map((ex) => ({ ex, workout: session.workout(ex.workoutId) }))
+			.filter((row): row is Row => row.workout !== null)
 	);
 
-	let workoutsNotInRoutine = $derived(
-		($workouts ?? []).filter((w) => !routineExercises.some((ex) => ex.workoutId === w.id))
+	let available = $derived(
+		(session.workouts ?? []).filter(
+			(w) => !(routine?.exercises ?? []).some((ex) => ex.workoutId === w.id)
+		)
 	);
 
-	let weightUnit = $derived($userData?.preferences?.weightUnit ?? 'lbs');
-
-	$effect(() => {
-		navState.title = routine?.name ?? '';
-		navState.backHref = '/routines';
-		return () => {
-			navState.title = '';
-		};
-	});
-
+	const todayStr = new Date().toDateString();
 	let doneToday = $derived(
-		workoutsInRoutine.filter(({ workout }) =>
-			workout.sets.some((s) => new Date(s.date).toDateString() === new Date().toDateString())
+		rows.filter(({ workout }) =>
+			workout.sets.some((s) => new Date(s.date).toDateString() === todayStr)
 		).length
 	);
+	let totalSets = $derived(rows.reduce((sum, { workout }) => sum + workout.sets.length, 0));
+	let lastSession = $derived.by(() => {
+		const times = rows.flatMap(({ workout }) =>
+			workout.sets.map((s) => new Date(s.date).getTime())
+		);
+		return times.length ? new Date(Math.max(...times)) : null;
+	});
 
-	let totalSets = $derived(
-		workoutsInRoutine.reduce((sum, { workout }) => sum + workout.sets.length, 0)
-	);
-
-	let lastRoutineDate = $derived(
-		(() => {
-			const times = workoutsInRoutine.flatMap(({ workout }) =>
-				workout.sets.map((s) => new Date(s.date).getTime())
-			);
-			return times.length ? new Date(Math.max(...times)) : null;
-		})()
-	);
-
-	function getLastSet(workout: Workout) {
+	function lastSet(workout: Workout) {
 		if (!workout.sets.length) return undefined;
 		return workout.sets.reduce((latest, s) =>
 			new Date(s.date) > new Date(latest.date) ? s : latest
 		);
 	}
 
-	let selectedWorkoutId = $state('');
-	let isEditing = $state(false);
-	let showMenu = $state(false);
-	let showReorderSheet = $state(false);
+	// ── Sheets ──────────────────────────────────────────────────────────────────
+	let reordering = $state(false);
+	let showRoutineMenu = $state(false);
+	let showRowMenu = $state(false);
+	let showAdd = $state(false);
+	let showEditRoutine = $state(false);
+	let showTargets = $state(false);
+	let deleteRoutineDialog = $state<HTMLDialogElement>()!;
+	let removeExerciseDialog = $state<HTMLDialogElement>()!;
+	let selectedRow = $state<Row | undefined>(undefined);
 
-	// Confirmation dialog for removing workout from routine
-	let removeConfirmDialog: HTMLDialogElement = $state()!;
-	let workoutIdToRemove = $state<string | null>(null);
-
-	// Reorder mode state
-	let reorderList = $state<{ ex: RoutineExercise; workout: Workout }[]>([]);
-	let draggedIndex = $state<number | null>(null);
-
-	// Swipe to delete in reorder mode
-	let swipeX: Record<string, number> = $state({});
-	let swipeTouchStartX: Record<string, number> = {};
-	const SWIPE_DELETE_THRESHOLD = 80;
-	const SWIPE_REVEAL_THRESHOLD = 40;
-
-	// New exercise inline creation
-	let showNewExerciseInput = $state(false);
-	let newExerciseName = $state('');
-	let newExerciseError = $state('');
-	let newExerciseInput: HTMLInputElement | undefined = $state();
-	let exerciseSearch = $state('');
-
-	$effect(() => {
-		if (showNewExerciseInput) {
-			queueMicrotask(() => newExerciseInput?.focus());
-		} else {
-			newExerciseName = '';
-			newExerciseError = '';
-		}
-	});
-
-	$effect(() => {
-		// Prevent body scroll when reorder sheet or menu is open
-		if (showReorderSheet || showMenu) {
-			document.body.style.overflow = 'hidden';
-		} else {
-			document.body.style.overflow = '';
-		}
-
-		// Cleanup on unmount
-		return () => {
-			document.body.style.overflow = '';
-		};
-	});
-
-	// ── Reorder Mode Functions ─────────────────────────────────────────────────
-
-	function openReorderMode() {
-		reorderList = [...workoutsInRoutine];
-		showReorderSheet = true;
-		showMenu = false;
-	}
-
-	function closeReorderMode() {
-		showReorderSheet = false;
-		draggedIndex = null;
-		swipeX = {};
-		reorderList = [];
-	}
-
-	async function saveReorder() {
-		const newExercises = reorderList.map((item) => ({ ...item.ex, workoutId: item.workout.id }));
-		try {
-			await saveRoutines(newExercises);
-			closeReorderMode();
-		} catch (error) {
-			toaster.addToast({
-				type: 'error',
-				message: "Couldn't save order — try again",
-				dismissible: true
-			});
-		}
-	}
-
-	// Touch-based drag and drop for reordering
-	let isDragging = false;
-	let lastHoveredIndex: number | null = null;
-
-	function handleDragStart(index: number) {
-		// Prevent if swiping to delete
-		if (swipeX[reorderList[index].workout.id]) return;
-
-		draggedIndex = index;
-		lastHoveredIndex = index;
-		isDragging = true;
-		HAPTIC.tap();
-	}
-
-	function handleDragMove(e: TouchEvent) {
-		if (!isDragging || draggedIndex === null) return;
-
-		const touch = e.touches[0];
-		const elements = document.querySelectorAll('.reorder-item');
-
-		// Find which element the touch is over
-		let overIndex = -1;
-		elements.forEach((el, idx) => {
-			const rect = el.getBoundingClientRect();
-			if (touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
-				overIndex = idx;
+	let routineActions = $derived<SheetAction[]>(
+		[
+			rows.length
+				? {
+						label: 'Start routine',
+						icon: CheckIcon,
+						onSelect: () => goto(runRoutineHref(routine!.id))
+					}
+				: null,
+			{ label: 'Add exercises', icon: AddIcon, onSelect: () => (showAdd = true) },
+			rows.length > 1
+				? {
+						label: reordering ? 'Done reordering' : 'Reorder exercises',
+						icon: DragIndicatorIcon,
+						onSelect: () => (reordering = !reordering)
+					}
+				: null,
+			{ label: 'Edit routine', icon: EditIcon, onSelect: () => (showEditRoutine = true) },
+			{
+				label: 'Delete routine',
+				icon: DeleteIcon,
+				destructive: true,
+				onSelect: () => deleteRoutineDialog?.showModal()
 			}
-		});
+		].filter((a) => a !== null)
+	);
 
-		// If we found an element and it's different from last hover
-		if (overIndex !== -1 && overIndex !== lastHoveredIndex && overIndex !== draggedIndex) {
-			// Swap in array
-			const newList = [...reorderList];
-			const [draggedItem] = newList.splice(draggedIndex, 1);
-			newList.splice(overIndex, 0, draggedItem);
-
-			reorderList = newList;
-			draggedIndex = overIndex;
-			lastHoveredIndex = overIndex;
-			HAPTIC.tap();
+	let rowActions = $derived<SheetAction[]>([
+		{
+			label: 'Open exercise',
+			icon: EditIcon,
+			onSelect: () => goto(`/workout/${selectedRow!.workout.id}?from=/routines/${routine!.id}`)
+		},
+		{ label: 'Set targets', icon: CheckIcon, onSelect: () => (showTargets = true) },
+		{
+			label: 'Remove from routine',
+			icon: DeleteIcon,
+			destructive: true,
+			onSelect: () => removeExerciseDialog?.showModal()
 		}
-	}
+	]);
 
-	function handleDragEnd() {
-		if (!isDragging) {
-			isDragging = false;
-			draggedIndex = null;
-			lastHoveredIndex = null;
-			return;
-		}
-
-		isDragging = false;
-		draggedIndex = null;
-		lastHoveredIndex = null;
-		HAPTIC.tap();
-	}
-
-	// Swipe to delete in reorder mode
-	function onSwipeTouchStart(workoutId: string, e: TouchEvent) {
-		swipeTouchStartX[workoutId] = e.touches[0].clientX;
-	}
-
-	function onSwipeTouchMove(workoutId: string, e: TouchEvent) {
-		const dx = swipeTouchStartX[workoutId] - e.touches[0].clientX;
-		if (dx > 0) {
-			swipeX[workoutId] = Math.min(dx, SWIPE_DELETE_THRESHOLD + 20);
-			if (Math.round(dx) === SWIPE_REVEAL_THRESHOLD) HAPTIC.tap();
-		}
-	}
-
-	function onSwipeTouchEnd(workoutId: string) {
-		const dx = swipeX[workoutId] ?? 0;
-		if (dx >= SWIPE_DELETE_THRESHOLD) {
-			swipeX[workoutId] = 0;
-			workoutIdToRemove = workoutId;
-			removeConfirmDialog.showModal();
-		} else {
-			swipeX[workoutId] = 0;
-		}
-	}
-
-	// ── End Reorder Mode Functions ─────────────────────────────────────────────
-
-	/** Writes only the exercises array of this one routine document. */
-	async function saveRoutines(exercises: RoutineExercise[]) {
-		if (!routine || !$user) return;
-		await updateDoc(doc(db, 'users', $user.uid, 'routines', routine.id), { exercises });
-	}
-
-	async function handleCreateAndAddExercise() {
-		const trimmed = newExerciseName.trim();
-		const validationError = getWorkoutNameValidationMsg(trimmed, $workouts ?? undefined);
-		if (validationError) {
-			newExerciseError = validationError;
-			return;
-		}
-		if (!routine || !$user) return;
-
-		const newWorkout: Workout = { id: uuidv4(), name: trimmed, sets: [], createdAt: Date.now() };
-		const newExercises = [...routineExercises, { workoutId: newWorkout.id }];
-
-		try {
-			// Batched so the exercise and its routine entry land together.
-			const batch = writeBatch(db);
-			batch.set(doc(db, 'users', $user.uid, 'workouts', newWorkout.id), newWorkout);
-			batch.update(doc(db, 'users', $user.uid, 'routines', routine.id), {
-				exercises: newExercises
-			});
-			await batch.commit();
-			showNewExerciseInput = false;
-		} catch (error) {
-			newExerciseError = 'Failed to save. Try again.';
-		}
-	}
-
-	async function handleRemoveWorkout(workoutId: string) {
-		// If in reorder mode, just update the reorder list
-		if (showReorderSheet) {
-			reorderList = reorderList.filter((item) => item.workout.id !== workoutId);
-			return;
-		}
-
-		// Otherwise, remove from routine
-		const updated = routineExercises.filter((ex) => ex.workoutId !== workoutId);
-		try {
-			await saveRoutines(updated);
-		} catch {
-			toaster.addToast({
-				type: 'error',
-				message: "Couldn't remove exercise — try again",
-				dismissible: true
-			});
-		}
-	}
-
-	async function handleAddWorkout() {
-		if (!routine || !selectedWorkoutId) return;
-		const updated = [...routineExercises, { workoutId: selectedWorkoutId }];
-		selectedWorkoutId = '';
-		try {
-			await saveRoutines(updated);
-		} catch {
-			toaster.addToast({
-				type: 'error',
-				message: "Couldn't add exercise — try again",
-				dismissible: true
-			});
-		}
-	}
-
-	async function handleUpdateTargetSets(workoutId: string, delta: number) {
+	// ── Mutations ───────────────────────────────────────────────────────────────
+	function save(exercises: RoutineExercise[]) {
 		if (!routine) return;
-		const exercises = routineExercises.map((ex) => {
-			if (ex.workoutId !== workoutId) return ex;
-			const current = ex.targetSets;
-			if (delta < 0 && current === undefined) return ex; // already free-form
-			const next = current === undefined ? 1 : Math.max(1, Math.min(99, current + delta));
-			return { ...ex, targetSets: next };
-		});
-		try {
-			await saveRoutines(exercises);
-		} catch {
-			/* leave optimistic state */
-			toaster.addToast({
-				id: 'routine-save-failed',
-				type: 'error',
-				message: "Couldn't save changes — try again",
-				dismissible: true
-			});
-		}
+		return routines.setExercises(routine.id, exercises);
 	}
 
-	async function handleUpdateRepRange(
-		workoutId: string,
-		field: 'minReps' | 'maxReps',
-		delta: number
-	) {
+	function addExercise(workoutId: string) {
+		save([...(routine?.exercises ?? []), { workoutId }]);
+	}
+
+	async function createExercise(name: string) {
 		if (!routine) return;
-		const exercises = routineExercises.map((ex) => {
-			if (ex.workoutId !== workoutId) return ex;
-			const current = ex[field] ?? (field === 'minReps' ? 1 : 12);
-			const next = Math.max(1, Math.min(99, current + delta));
-			// Ensure min <= max
-			if (field === 'minReps' && ex.maxReps !== undefined && next > ex.maxReps) {
-				return { ...ex, minReps: next, maxReps: next };
-			}
-			if (field === 'maxReps' && ex.minReps !== undefined && next < ex.minReps) {
-				return { ...ex, minReps: next, maxReps: next };
-			}
-			return { ...ex, [field]: next };
-		});
-		try {
-			await saveRoutines(exercises);
-		} catch {
-			/* leave optimistic state */
-			toaster.addToast({
-				id: 'routine-save-failed',
-				type: 'error',
-				message: "Couldn't save changes — try again",
-				dismissible: true
-			});
-		}
+		await routines.createExerciseAndAdd(routine.id, name, routine.exercises);
+	}
+
+	function removeExercise(workoutId: string) {
+		save((routine?.exercises ?? []).filter((ex) => ex.workoutId !== workoutId));
+	}
+
+	function saveTargets(targets: Partial<RoutineExercise>) {
+		const id = selectedRow?.workout.id;
+		if (!id) return;
+		save(
+			(routine?.exercises ?? []).map((ex) =>
+				ex.workoutId === id ? { workoutId: ex.workoutId, ...targets } : ex
+			)
+		);
+	}
+
+	function openRowMenu(row: Row) {
+		selectedRow = row;
+		showRowMenu = true;
 	}
 </script>
 
-{#if !$routines}
-	<!-- Skeleton -->
-	<div class="mx-auto flex w-full max-w-lg flex-col gap-4">
-		<div class="flex w-full items-center justify-between">
-			<div class="skeleton h-10 w-10 rounded-full"></div>
-			<div class="skeleton h-7 w-40 rounded-lg"></div>
-			<div class="skeleton h-10 w-10 rounded-full"></div>
+{#snippet rowBody(row: Row, index: number)}
+	{@const last = lastSet(row.workout)}
+	{@const doneNow = row.workout.sets.some((s) => new Date(s.date).toDateString() === todayStr)}
+	<div class="flex min-w-0 flex-1 items-center gap-3">
+		<span class="text-base-content/40 w-5 shrink-0 text-right text-xs font-medium">{index + 1}</span
+		>
+		<div class="flex min-w-0 flex-1 flex-col gap-1">
+			<div class="flex items-center gap-2">
+				<span class="truncate text-sm font-semibold">{row.workout.name}</span>
+				{#if doneNow}
+					<span class="badge badge-success badge-xs shrink-0">Today</span>
+				{/if}
+			</div>
+			{#if row.ex.targetSets || row.ex.minReps || row.ex.maxReps}
+				<div class="flex flex-wrap items-center gap-1.5">
+					{#if row.ex.targetSets}
+						<span class="badge badge-sm badge-outline font-medium"
+							>{row.ex.targetSets} set{row.ex.targetSets > 1 ? 's' : ''}</span
+						>
+					{/if}
+					{#if row.ex.minReps || row.ex.maxReps}
+						<span class="badge badge-sm badge-outline font-medium">
+							{row.ex.minReps ?? '?'}–{row.ex.maxReps ?? '?'} reps
+						</span>
+					{/if}
+				</div>
+			{/if}
+			{#if last}
+				<div class="flex flex-wrap items-center gap-1.5">
+					<span class="text-base-content/50 text-xs"
+						>{formatDistanceToNow(new Date(last.date), { addSuffix: true })}</span
+					>
+					<span class="badge badge-sm badge-ghost font-medium">{last.reps} reps</span>
+					{#if last.weight && last.weight > 0}
+						<span class="badge badge-sm badge-ghost font-medium">{last.weight} {unit}</span>
+					{/if}
+				</div>
+			{:else}
+				<span class="text-base-content/35 text-xs">Not done yet</span>
+			{/if}
 		</div>
+	</div>
+{/snippet}
+
+{#if session.routines === null}
+	<div class="mx-auto flex w-full max-w-lg flex-col gap-4">
 		<div class="skeleton h-10 w-full rounded-xl"></div>
 		<div class="skeleton h-14 w-full rounded-2xl"></div>
 		{#each { length: 3 } as _}
@@ -376,35 +207,31 @@
 	</div>
 {:else if routine}
 	<div class="mx-auto flex w-full max-w-lg flex-col gap-4">
-		<!-- Header -->
-		<div class="flex items-center justify-between">
+		<div class="flex items-center justify-between gap-2">
 			<p class="text-base-content/50 text-xs">
-				{workoutsInRoutine.length} exercise{workoutsInRoutine.length !== 1 ? 's' : ''}
+				{rows.length} exercise{rows.length !== 1 ? 's' : ''}
 			</p>
-			<button
-				class="btn btn-circle btn-ghost btn-sm"
-				onclick={() => {
-					isEditing = false;
-					showMenu = !showMenu;
-				}}
-				aria-label="More options"
-			>
-				{@html MoreVertIcon}
-			</button>
+			<div class="flex items-center gap-1">
+				{#if rows.length}
+					<button class="btn btn-primary btn-sm" onclick={() => goto(runRoutineHref(routine.id))}
+						>Start</button
+					>
+				{/if}
+				<RowMenuButton label="Routine options" onclick={() => (showRoutineMenu = true)} />
+			</div>
 		</div>
 
-		{#if !isEditing && workoutsInRoutine.length > 0}
-			<!-- Context strip -->
-			<div class="scrollbar-none context-strip -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+		{#if !reordering && rows.length > 0}
+			<div class="-mx-1 flex scrollbar-none gap-2 overflow-x-auto px-1 pb-1">
 				<div class="bg-base-200 flex-none rounded-xl px-4 py-2.5 text-center">
 					<p class="text-base-content/50 text-xs">Today</p>
-					<p class="text-sm font-semibold">{doneToday}/{workoutsInRoutine.length}</p>
+					<p class="text-sm font-semibold">{doneToday}/{rows.length}</p>
 				</div>
-				{#if lastRoutineDate}
+				{#if lastSession}
 					<div class="bg-base-200 flex-none rounded-xl px-4 py-2.5 text-center">
 						<p class="text-base-content/50 text-xs">Last session</p>
 						<p class="text-sm font-semibold">
-							{formatDistanceToNow(lastRoutineDate, { addSuffix: true })}
+							{formatDistanceToNow(lastSession, { addSuffix: true })}
 						</p>
 					</div>
 				{/if}
@@ -425,192 +252,46 @@
 			</div>
 		{/if}
 
-		<!-- Notes -->
-		{#if routine.notes && !isEditing}
+		{#if routine.notes && !reordering}
 			<p class="text-base-content/50 text-sm">{routine.notes}</p>
 		{/if}
 
-		<!-- Workout list -->
-		{#if workoutsInRoutine.length}
+		{#if reordering}
+			<div class="bg-primary/10 text-primary rounded-xl px-4 py-2.5 text-sm font-medium">
+				Drag the handles to reorder, then tap Done.
+			</div>
+			<SortableList
+				items={rows}
+				key={(row) => row.workout.id}
+				onReorder={(next) => save(next.map((row) => row.ex))}
+			>
+				{#snippet children(row, i)}
+					<div class="bg-base-200 rounded-2xl px-4 py-3.5">
+						{@render rowBody(row, i)}
+					</div>
+				{/snippet}
+			</SortableList>
+			<button class="btn btn-primary w-full" onclick={() => (reordering = false)}>Done</button>
+		{:else if rows.length}
 			<div class="flex flex-col gap-2">
-				{#each workoutsInRoutine as item, i (item.workout.id)}
-					{@const ex = item.ex}
-					{@const workout = item.workout}
-					<div animate:flip={{ duration: 250, easing: cubicOut }}>
-						{#if isEditing}
-							{#key workout.id}
-								<div
-									class="bg-base-200 item-card fade-in flex flex-col gap-3 rounded-2xl px-4 py-3"
-								>
-									<!-- Row 1: number + name + controls -->
-									<div class="flex items-center gap-2">
-										<span class="text-base-content/40 w-5 shrink-0 text-right text-xs">{i + 1}</span
-										>
-										<span class="min-w-0 flex-1 text-sm leading-snug font-semibold"
-											>{workout.name}</span
-										>
-										<button
-											class="btn btn-circle btn-ghost btn-sm text-error smooth-hover"
-											onclick={() => {
-												workoutIdToRemove = workout.id;
-												removeConfirmDialog.showModal();
-											}}
-											aria-label="Remove from routine">{@html CloseIcon}</button
-										>
-									</div>
-									<!-- Row 2: sets + rep range -->
-									<div class="mx-auto grid max-w-md grid-cols-2 gap-2">
-										<!-- Sets -->
-										<div class="bg-base-300 flex flex-col rounded-xl py-2.5">
-											<span
-												class="text-base-content/40 text-center text-[9px] font-semibold tracking-widest uppercase"
-												>Sets</span
-											>
-											<div class="flex flex-1 items-center justify-center gap-2">
-												<button
-													class="btn btn-circle btn-ghost btn-xs smooth-hover"
-													onclick={() => handleUpdateTargetSets(workout.id, -1)}
-													aria-label="Decrease target sets">{@html RemoveIcon}</button
-												>
-												<span
-													class="text-base-content w-8 text-center text-base font-bold tabular-nums"
-												>
-													{ex.targetSets ?? '—'}
-												</span>
-												<button
-													class="btn btn-circle btn-ghost btn-xs smooth-hover"
-													onclick={() => handleUpdateTargetSets(workout.id, 1)}
-													aria-label="Increase target sets">{@html AddIcon}</button
-												>
-											</div>
-										</div>
-										<!-- Rep range -->
-										<div class="bg-base-300 flex flex-col rounded-xl px-3 py-2">
-											<span
-												class="text-base-content/40 text-center text-[9px] font-semibold tracking-widest uppercase"
-												>Rep range</span
-											>
-											<div class="flex flex-1 flex-col justify-center gap-1.5">
-												<div class="flex items-center gap-1.5">
-													<span
-														class="text-base-content/40 w-6 shrink-0 text-right text-[9px] font-semibold uppercase"
-														>Min</span
-													>
-													<button
-														class="btn btn-circle btn-ghost btn-xs smooth-hover"
-														onclick={() => handleUpdateRepRange(workout.id, 'minReps', -1)}
-														aria-label="Decrease min reps">{@html RemoveIcon}</button
-													>
-													<span
-														class="text-base-content w-6 text-center text-sm font-bold tabular-nums"
-													>
-														{ex.minReps ?? '—'}
-													</span>
-													<button
-														class="btn btn-circle btn-ghost btn-xs smooth-hover"
-														onclick={() => handleUpdateRepRange(workout.id, 'minReps', 1)}
-														aria-label="Increase min reps">{@html AddIcon}</button
-													>
-												</div>
-												<div class="flex items-center gap-1.5">
-													<span
-														class="text-base-content/40 w-6 shrink-0 text-right text-[9px] font-semibold uppercase"
-														>Max</span
-													>
-													<button
-														class="btn btn-circle btn-ghost btn-xs smooth-hover"
-														onclick={() => handleUpdateRepRange(workout.id, 'maxReps', -1)}
-														aria-label="Decrease max reps">{@html RemoveIcon}</button
-													>
-													<span
-														class="text-base-content w-6 text-center text-sm font-bold tabular-nums"
-													>
-														{ex.maxReps ?? '—'}
-													</span>
-													<button
-														class="btn btn-circle btn-ghost btn-xs smooth-hover"
-														onclick={() => handleUpdateRepRange(workout.id, 'maxReps', 1)}
-														aria-label="Increase max reps">{@html AddIcon}</button
-													>
-												</div>
-											</div>
-										</div>
-									</div>
-								</div>
-							{/key}
-						{:else}
-							{@const lastSet = getLastSet(workout)}
-							{@const doneNow = workout.sets.some(
-								(s) => new Date(s.date).toDateString() === new Date().toDateString()
-							)}
-							{#key workout.id}
-								<a
-									class="bg-base-200 workout-link fade-in flex w-full items-center gap-3 rounded-2xl px-4 py-3.5"
-									href={`/workout/${workout.id}?from=/routines/${routine.id}`}
-								>
-									<span class="text-base-content/40 w-5 shrink-0 text-right text-xs font-medium"
-										>{i + 1}</span
-									>
-									<div class="flex min-w-0 flex-1 flex-col gap-1">
-										<div class="flex items-center gap-2">
-											<span class="truncate text-sm font-semibold">{workout.name}</span>
-											{#if doneNow}
-												<span class="badge badge-success badge-xs shrink-0">Today</span>
-											{/if}
-										</div>
-										<!-- Target sets and rep range -->
-										{#if ex.targetSets || ex.minReps || ex.maxReps}
-											<div class="flex flex-wrap items-center gap-1.5">
-												{#if ex.targetSets}
-													<span class="badge badge-sm badge-outline font-medium"
-														>{ex.targetSets} set{ex.targetSets > 1 ? 's' : ''}</span
-													>
-												{/if}
-												{#if ex.minReps || ex.maxReps}
-													<span class="badge badge-sm badge-outline font-medium">
-														{ex.minReps ?? '?'}–{ex.maxReps ?? '?'} reps
-													</span>
-												{/if}
-											</div>
-										{/if}
-										{#if lastSet}
-											<div class="flex flex-wrap items-center gap-1.5">
-												<span class="text-base-content/50 text-xs">
-													{formatDistanceToNow(new Date(lastSet.date), { addSuffix: true })}
-												</span>
-												<span class="badge badge-sm badge-ghost font-medium"
-													>{lastSet.reps} reps</span
-												>
-												{#if lastSet.weight && lastSet.weight > 0}
-													<span class="badge badge-sm badge-ghost font-medium">
-														{lastSet.weight}
-														{weightUnit}
-													</span>
-												{/if}
-											</div>
-										{:else}
-											<span class="text-base-content/35 text-xs">Not done yet</span>
-										{/if}
-									</div>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="text-base-content/30 h-4 w-4 shrink-0"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-										stroke-width="2.5"
-									>
-										<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-									</svg>
-								</a>
-							{/key}
-						{/if}
+				{#each rows as row, i (row.workout.id)}
+					<div class="bg-base-200 flex items-center gap-1 rounded-2xl pr-1.5">
+						<a
+							class="hover:bg-base-300 flex min-w-0 flex-1 items-center gap-3 rounded-2xl px-4 py-3.5 transition-colors active:scale-[0.99]"
+							href={`/workout/${row.workout.id}?from=/routines/${routine.id}`}
+						>
+							{@render rowBody(row, i)}
+							<Chevron />
+						</a>
+						<RowMenuButton
+							label="Options for {row.workout.name}"
+							onclick={() => openRowMenu(row)}
+						/>
 					</div>
 				{/each}
 			</div>
-		{:else if !isEditing}
-			<!-- Empty state -->
-			<div class="fade-in flex flex-col items-center gap-3 py-16 text-center">
+		{:else}
+			<div class="flex flex-col items-center gap-3 py-16 text-center">
 				<div class="bg-base-200 rounded-full p-6">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -629,385 +310,68 @@
 				</div>
 				<p class="font-semibold">No exercises yet</p>
 				<p class="text-base-content/50 max-w-xs text-sm">
-					Tap the Edit button above to add exercises to this routine.
+					Add a few exercises and you'll be able to run this routine start to finish.
 				</p>
-				<button class="btn btn-primary btn-sm mt-1" onclick={() => (isEditing = true)}>
+				<button class="btn btn-primary btn-sm mt-1" onclick={() => (showAdd = true)}>
 					{@html AddIcon} Add exercises
 				</button>
 			</div>
 		{/if}
+	</div>
+{:else}
+	<div class="mx-auto flex max-w-lg flex-col items-center gap-4 py-16 text-center">
+		<p class="font-semibold">That routine isn't available</p>
+		<p class="text-base-content/50 text-sm">It may have been deleted on another device.</p>
+		<a class="btn btn-primary btn-sm" href={libraryHref('routines')}>Back to Library</a>
+	</div>
+{/if}
 
-		<!-- Add workout panel (edit mode) -->
-		{#if isEditing}
-			<div class="bg-base-200 add-panel flex flex-col gap-3 rounded-2xl p-4">
-				<p class="text-base-content/50 text-xs font-semibold tracking-widest uppercase">
-					Add exercise
-				</p>
+<ActionSheet bind:open={showRoutineMenu} title={routine?.name} actions={routineActions} />
+<ActionSheet bind:open={showRowMenu} title={selectedRow?.workout.name} actions={rowActions} />
 
-				{#if !showNewExerciseInput}
-					<ExerciseSearch
-						exercises={workoutsNotInRoutine}
-						bind:searchValue={exerciseSearch}
-						onSelect={(workoutId) => {
-							selectedWorkoutId = workoutId;
-							handleAddWorkout();
-						}}
-						showCreateNew={true}
-						onCreateNew={() => (showNewExerciseInput = true)}
-					/>
-				{/if}
+<AddToPlanSheet
+	bind:open={showAdd}
+	exercises={available}
+	onAddExercise={addExercise}
+	onCreateExercise={createExercise}
+/>
 
-				{#if showNewExerciseInput}
-					<div class="fade-in-fast flex flex-col gap-2">
-						<div class="flex gap-2">
-							<input
-								bind:this={newExerciseInput}
-								bind:value={newExerciseName}
-								type="text"
-								placeholder="Exercise name"
-								class="input input-bordered input-sm search-input flex-1"
-								class:input-error={!!newExerciseError}
-								onkeydown={(e) => {
-									if (e.key === 'Enter') handleCreateAndAddExercise();
-									if (e.key === 'Escape') showNewExerciseInput = false;
-								}}
-								oninput={() => (newExerciseError = '')}
-							/>
-							<button
-								class="btn btn-primary btn-sm smooth-hover"
-								onclick={handleCreateAndAddExercise}>Add</button
-							>
-							<button
-								class="btn btn-ghost btn-sm smooth-hover"
-								onclick={() => (showNewExerciseInput = false)}>Cancel</button
-							>
-						</div>
-						{#if newExerciseError}
-							<p class="text-error fade-in-fast text-xs">
-								{newExerciseError}
-							</p>
-						{/if}
-					</div>
-				{/if}
-			</div>
-		{/if}
-	</div>{/if}
+<TargetsSheet
+	bind:open={showTargets}
+	exerciseName={selectedRow?.workout.name}
+	exercise={selectedRow?.ex}
+	onSave={saveTargets}
+/>
+
+<EditRoutineSheet
+	bind:open={showEditRoutine}
+	{routine}
+	onSave={(name, timer, notes) => routine && routines.update(routine.id, { name, timer, notes })}
+/>
 
 <ConfirmationDialog
-	bind:dialog={removeConfirmDialog}
+	bind:dialog={removeExerciseDialog}
 	header="Remove from routine?"
-	content="This will only remove the exercise from this routine. The exercise itself won't be deleted."
+	content="This only removes it from this routine. The exercise and its history stay put."
 	actionLabel="Remove"
-	destructive={true}
+	destructive
 	onclose={(e) => {
-		const dialog = e.target as HTMLDialogElement;
-		if (dialog.returnValue === 'default' && workoutIdToRemove) {
-			handleRemoveWorkout(workoutIdToRemove);
+		if ((e.target as HTMLDialogElement).returnValue === 'default' && selectedRow) {
+			removeExercise(selectedRow.workout.id);
 		}
-		workoutIdToRemove = null;
 	}}
 />
 
-<!-- Simple Dropdown Menu -->
-{#if showMenu}
-	<!-- Backdrop -->
-	<div
-		class="fixed inset-0 z-40"
-		onclick={() => (showMenu = false)}
-		onkeydown={(e) => e.key === 'Escape' && (showMenu = false)}
-		role="button"
-		tabindex="-1"
-		aria-label="Close menu"
-		transition:fade={{ duration: 150 }}
-	></div>
-
-	<!-- Dropdown Menu -->
-	<div
-		class="bg-base-100 fixed top-20 right-4 z-50 min-w-[200px] rounded-xl p-2 shadow-2xl"
-		transition:fly={{ y: -10, duration: 200, easing: cubicOut }}
-		role="menu"
-	>
-		<button
-			class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left transition-colors"
-			onclick={() => {
-				showMenu = false;
-				isEditing = true;
-				HAPTIC.tap();
-			}}
-			role="menuitem"
-		>
-			<div class="text-base-content/60">{@html EditIcon}</div>
-			<span>Edit exercises</span>
-		</button>
-
-		<button
-			class="hover:bg-base-200 flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left transition-colors"
-			onclick={openReorderMode}
-			role="menuitem"
-		>
-			<div class="text-base-content/60">{@html DragIndicatorIcon}</div>
-			<span>Reorder</span>
-		</button>
-	</div>
-{/if}
-
-<!-- Reorder Bottom Sheet -->
-{#if showReorderSheet}
-	<div class="fixed inset-0 z-50 flex items-end p-2">
-		<!-- Backdrop -->
-		<div
-			class="absolute inset-0 bg-black/40 backdrop-blur-sm"
-			transition:fade={{ duration: 200 }}
-			onclick={closeReorderMode}
-			role="presentation"
-		></div>
-
-		<!-- Sheet -->
-		<div
-			class="bg-base-100 relative flex w-full flex-col overflow-hidden rounded-3xl shadow-2xl"
-			style="height: 90vh; padding-bottom: env(safe-area-inset-bottom, 0px)"
-			transition:fly={{ y: 500, duration: 350, easing: cubicOut }}
-			ontouchmove={handleDragMove}
-			ontouchend={handleDragEnd}
-			role="dialog"
-			aria-label="Reorder exercises"
-			tabindex="-1"
-		>
-			<!-- Drag Handle -->
-			<div class="flex justify-center pt-3 pb-2">
-				<div class="bg-base-content/20 h-1 w-10 rounded-full"></div>
-			</div>
-
-			<!-- Header -->
-			<div
-				class="border-base-300 relative z-10 flex items-center justify-between border-b px-4 py-3"
-			>
-				<button
-					class="btn btn-circle btn-ghost btn-sm"
-					onclick={closeReorderMode}
-					aria-label="Cancel"
-				>
-					{@html CloseIcon}
-				</button>
-				<h2 class="text-lg font-bold">Reorder</h2>
-				<button
-					class="btn btn-circle btn-ghost btn-sm text-success"
-					onclick={saveReorder}
-					aria-label="Save"
-				>
-					{@html CheckIcon}
-				</button>
-			</div>
-
-			<!-- Reorderable List -->
-			<div class="flex flex-1 flex-col gap-2 overflow-y-auto p-4">
-				{#each reorderList as item, i (item.workout.id)}
-					{@const workout = item.workout}
-					{@const swipeAmount = swipeX[workout.id] ?? 0}
-					<div
-						class="relative overflow-hidden rounded-2xl"
-						style="transform: translateX(-{swipeAmount}px); transition: transform 0.1s ease-out;"
-						data-workout-id={workout.id}
-					>
-						<!-- Delete background -->
-						{#if swipeAmount > 0}
-							<div
-								class="bg-error absolute top-0 right-0 bottom-0 flex items-center justify-end pr-6"
-								style="width: {swipeAmount}px"
-							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="h-6 w-6 text-white"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									stroke-width="2"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-									/>
-								</svg>
-							</div>
-						{/if}
-
-						<!-- Item -->
-						<div
-							class="bg-base-200 reorder-item flex items-center gap-3 rounded-2xl px-4 py-4 transition-opacity"
-							class:dragging={draggedIndex === i}
-							role="button"
-							tabindex="0"
-							aria-label="Drag to reorder {workout.name}"
-							data-workout-id={workout.id}
-							ontouchstart={(e) => {
-								// Check if touch started on drag handle
-								const target = e.target as HTMLElement;
-								if (target.closest('.drag-handle')) {
-									handleDragStart(i);
-								} else {
-									onSwipeTouchStart(workout.id, e);
-								}
-							}}
-							ontouchmove={(e) => {
-								if (isDragging && draggedIndex === i) {
-									onSwipeTouchMove(workout.id, e);
-								}
-							}}
-							ontouchend={() => {
-								if (!isDragging) {
-									onSwipeTouchEnd(workout.id);
-								}
-							}}
-						>
-							<span class="text-base-content/40 w-6 shrink-0 text-right text-sm font-medium"
-								>{i + 1}</span
-							>
-							<span class="min-w-0 flex-1 text-base font-semibold">{workout.name}</span>
-							<div
-								class="drag-handle text-base-content/40 -mr-2 cursor-grab p-2 active:cursor-grabbing"
-							>
-								{@html DragIndicatorIcon}
-							</div>
-						</div>
-					</div>
-				{/each}
-			</div>
-		</div>
-	</div>
-{/if}
-
-<style>
-	/* Pure CSS GPU-accelerated animations - 60fps guaranteed */
-	/* All animations use only transform and opacity for maximum performance */
-
-	.context-strip {
-		animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-	}
-
-	.fade-in {
-		animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-	}
-
-	.fade-in-fast {
-		animation: fadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
-	}
-
-	.item-card,
-	.workout-link {
-		will-change: auto; /* Only use will-change during animation */
-		backface-visibility: hidden;
-		-webkit-font-smoothing: antialiased;
-		transform: translateZ(0); /* Force GPU layer */
-	}
-
-	.workout-link {
-		transition:
-			background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-			transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-	}
-
-	.workout-link:hover {
-		background-color: oklch(var(--b3) / 1);
-	}
-
-	.workout-link:active {
-		transform: scale(0.985) translateZ(0);
-	}
-
-	.smooth-hover {
-		backface-visibility: hidden;
-		transform: translateZ(0);
-		transition:
-			background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
-			color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
-			transform 0.12s cubic-bezier(0.4, 0, 0.2, 1);
-	}
-
-	.smooth-hover:not(:disabled):hover {
-		background-color: oklch(var(--b3) / 1);
-	}
-
-	.smooth-hover.text-error:not(:disabled):hover {
-		background-color: oklch(var(--er) / 0.1);
-	}
-
-	.add-panel {
-		animation: slideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-	}
-
-	.search-input {
-		transition:
-			border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-			box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-	}
-
-	.search-input:focus {
-		box-shadow: 0 0 0 3px oklch(var(--p) / 0.2);
-	}
-
-	/* Reorder mode styles */
-	.reorder-item {
-		backface-visibility: hidden;
-		transform: translateZ(0);
-		transition:
-			transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-			box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-			opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-		user-select: none;
-		-webkit-user-select: none;
-		touch-action: none;
-	}
-
-	.reorder-item.dragging {
-		opacity: 0.5;
-		transform: scale(1.02) translateZ(0);
-		box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
-	}
-
-	.drag-handle {
-		touch-action: none;
-	}
-
-	@keyframes slideIn {
-		from {
-			opacity: 0;
-			transform: translateY(-8px) translateZ(0);
+<ConfirmationDialog
+	bind:dialog={deleteRoutineDialog}
+	header="Delete “{routine?.name ?? ''}”?"
+	content="Your exercises and their history won't be affected."
+	actionLabel="Delete"
+	destructive
+	onclose={async (e) => {
+		if ((e.target as HTMLDialogElement).returnValue === 'default' && routine) {
+			await routines.remove(routine.id);
+			goto(libraryHref('routines'));
 		}
-		to {
-			opacity: 1;
-			transform: translateY(0) translateZ(0);
-		}
-	}
-
-	@keyframes fadeIn {
-		from {
-			opacity: 0;
-		}
-		to {
-			opacity: 1;
-		}
-	}
-
-	/* Containment for better performance */
-	.item-card,
-	.workout-link,
-	.add-panel {
-		contain: layout style paint;
-	}
-
-	/* Respect user's motion preferences */
-	@media (prefers-reduced-motion: reduce) {
-		*,
-		*::before,
-		*::after {
-			animation-duration: 0.01ms !important;
-			animation-iteration-count: 1 !important;
-			transition-duration: 0.01ms !important;
-		}
-
-		.workout-link:active {
-			transform: none;
-		}
-	}
-</style>
+	}}
+/>

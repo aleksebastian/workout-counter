@@ -1,7 +1,7 @@
 <script lang="ts">
 	import CloseButton from './Buttons/CloseButton.svelte';
 	import { fade } from 'svelte/transition';
-	import { type Toast } from '$lib/state.svelte';
+	import type { Toast } from '$lib/types';
 
 	interface Props {
 		type?: Toast['type'];

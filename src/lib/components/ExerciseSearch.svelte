@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Workout } from '$lib/state.svelte';
+	import type { Workout } from '$lib/types';
 
 	interface Props {
 		exercises: Workout[];
@@ -67,7 +67,7 @@
 			{/if}
 		</div>
 	{:else}
-		<p class="text-base-content/40 text-sm">All exercises are already in this routine.</p>
+		<p class="text-base-content/40 text-sm">Every exercise has already been added.</p>
 	{/if}
 
 	<!-- Create new exercise button -->
