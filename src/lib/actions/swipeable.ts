@@ -98,6 +98,11 @@ export function swipeable(node: HTMLElement, options: SwipeOptions = {}) {
 		e.stopPropagation();
 	}
 
+	// The action panels are positioned siblings, so an unpositioned row paints
+	// underneath them — covering its content — until a first swipe gives it a
+	// transform. Positioning it keeps it on top from the first render.
+	if (getComputedStyle(node).position === 'static') node.style.position = 'relative';
+
 	node.addEventListener('touchstart', onTouchStart, { passive: true });
 	node.addEventListener('touchmove', onTouchMove, { passive: true });
 	node.addEventListener('touchend', onTouchEnd);

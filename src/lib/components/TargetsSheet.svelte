@@ -1,6 +1,19 @@
 <script lang="ts">
 	import BottomSheet from '$lib/components/BottomSheet.svelte';
 	import { holdRepeat } from '$lib/actions/holdRepeat';
+	import {
+		TARGET_MAX,
+		TARGET_MIN,
+		commitSets,
+		initialDraft,
+		parseTarget,
+		setMax,
+		setMin,
+		stepSets,
+		toSaved,
+		typingMin,
+		type TargetsDraft
+	} from '$lib/logic/targets';
 	import type { RoutineExercise } from '$lib/types';
 
 	/**
@@ -18,59 +31,69 @@
 
 	let { open = $bindable(false), exerciseName = '', exercise, onSave }: Props = $props();
 
-	// `null` means "not set" — free-form sets, or no rep range.
-	let targetSets = $state<number | null>(null);
-	let minReps = $state<number | null>(null);
-	let maxReps = $state<number | null>(null);
+	let draft = $state<TargetsDraft>(initialDraft(undefined));
 
 	$effect(() => {
 		if (!open || !exercise) return;
-		targetSets = exercise.targetSets ?? null;
-		minReps = exercise.minReps ?? null;
-		maxReps = exercise.maxReps ?? null;
+		draft = initialDraft(exercise);
 	});
 
-	const clamp = (n: number) => Math.max(1, Math.min(99, n));
-
-	function stepSets(delta: number) {
-		if (targetSets === null) {
-			// Stepping up from free-form starts at 1; stepping down stays free-form.
-			targetSets = delta > 0 ? 1 : null;
-			return;
-		}
-		const next = targetSets + delta;
-		targetSets = next < 1 ? null : clamp(next);
+	/**
+	 * Values are checked when the field is left, not per keystroke. A rejected or
+	 * clamped entry can leave state unchanged, so the field is rewritten to match.
+	 */
+	function commit(input: HTMLInputElement, apply: (text: string) => number | null) {
+		input.value = String(apply(input.value) ?? '');
 	}
 
-	function stepMin(delta: number) {
-		const next = clamp((minReps ?? 8) + delta);
-		minReps = next;
-		if (maxReps !== null && next > maxReps) maxReps = next;
-	}
-
-	function stepMax(delta: number) {
-		const next = clamp((maxReps ?? 12) + delta);
-		maxReps = next;
-		if (minReps !== null && next < minReps) minReps = next;
+	/**
+	 * Steppers fire on pointerdown, before focus leaves a field being typed in —
+	 * so the step would run on the stale value and then overwrite the typing.
+	 * Blurring first commits it (blur fires `change` synchronously).
+	 */
+	function stepping(action: () => void) {
+		return () => {
+			if (document.activeElement instanceof HTMLInputElement) document.activeElement.blur();
+			action();
+		};
 	}
 
 	function save() {
-		onSave({
-			targetSets: targetSets ?? undefined,
-			minReps: minReps ?? undefined,
-			maxReps: maxReps ?? undefined
-		});
+		onSave(toSaved(draft));
 		open = false;
 	}
 </script>
 
-{#snippet stepper(label: string, value: number | null, down: () => void, up: () => void)}
+<!-- The value sits left of both buttons: a thumb on − would otherwise cover it. -->
+{#snippet field(
+	label: string,
+	value: number | null,
+	down: () => void,
+	up: () => void,
+	apply: (text: string) => number | null,
+	onTyping?: (text: string) => void
+)}
 	<div class="bg-base-200 flex items-center justify-between gap-3 rounded-xl px-4 py-3">
 		<span class="text-sm font-medium">{label}</span>
-		<div class="flex items-center gap-2">
+		<div class="flex items-center gap-1">
+			<input
+				type="number"
+				inputmode="numeric"
+				pattern="[0-9]*"
+				min={TARGET_MIN}
+				max={TARGET_MAX}
+				placeholder="—"
+				aria-label={label}
+				class="w-12 [appearance:textfield] bg-transparent text-center text-lg font-bold tabular-nums outline-none placeholder:text-current [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+				value={value ?? ''}
+				onfocus={(e) => e.currentTarget.select()}
+				oninput={(e) => onTyping?.(e.currentTarget.value)}
+				onchange={(e) => commit(e.currentTarget, apply)}
+				onkeydown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+			/>
 			<button
 				class="btn btn-circle btn-ghost btn-sm"
-				use:holdRepeat={down}
+				use:holdRepeat={stepping(down)}
 				aria-label="Decrease {label}"
 			>
 				<svg
@@ -82,10 +105,9 @@
 					stroke-width="2.5"><path stroke-linecap="round" d="M5 12h14" /></svg
 				>
 			</button>
-			<span class="w-10 text-center text-lg font-bold tabular-nums">{value ?? '—'}</span>
 			<button
 				class="btn btn-circle btn-ghost btn-sm"
-				use:holdRepeat={up}
+				use:holdRepeat={stepping(up)}
 				aria-label="Increase {label}"
 			>
 				<svg
@@ -101,32 +123,62 @@
 	</div>
 {/snippet}
 
-<BottomSheet bind:open size="medium" title={exerciseName || 'Targets'}>
+<BottomSheet bind:open size="medium" title={exerciseName || 'Targets'} autofocus={false}>
 	<div class="flex flex-col gap-3">
-		{@render stepper(
+		{@render field(
 			'Target sets',
-			targetSets,
-			() => stepSets(-1),
-			() => stepSets(1)
+			draft.targetSets,
+			() => (draft.targetSets = stepSets(draft.targetSets, -1)),
+			() => (draft.targetSets = stepSets(draft.targetSets, 1)),
+			(text) => (draft.targetSets = commitSets(text))
 		)}
 		<p class="text-base-content/40 -mt-1 px-1 text-xs">
-			{targetSets === null
+			{draft.targetSets === null
 				? 'Free-form — you decide when to move on during a session.'
-				: `The session advances after ${targetSets} set${targetSets === 1 ? '' : 's'}.`}
+				: `The session advances after ${draft.targetSets} set${draft.targetSets === 1 ? '' : 's'}.`}
 		</p>
 
-		{@render stepper(
-			'Min reps',
-			minReps,
-			() => stepMin(-1),
-			() => stepMin(1)
-		)}
-		{@render stepper(
-			'Max reps',
-			maxReps,
-			() => stepMax(-1),
-			() => stepMax(1)
-		)}
+		<div class="flex items-center justify-between px-1 pt-1">
+			<div>
+				<p class="text-sm font-medium">Rep range</p>
+				<p class="text-base-content/40 text-xs">
+					{draft.rangeOn ? 'Shown on the routine as a goal' : 'No rep range'}
+				</p>
+			</div>
+			<input
+				type="checkbox"
+				class="toggle toggle-primary toggle-sm"
+				aria-label="Set a rep range"
+				bind:checked={draft.rangeOn}
+			/>
+		</div>
+
+		{#if draft.rangeOn}
+			{@render field(
+				'Min reps',
+				draft.range.min,
+				() => (draft = setMin(draft, draft.range.min - 1)),
+				() => (draft = setMin(draft, draft.range.min + 1)),
+				(text) => {
+					// Re-applying the old min on a rejected entry also undoes any max the
+					// typing dragged along with it.
+					draft = setMin(draft, parseTarget(text) ?? draft.range.min);
+					return draft.range.min;
+				},
+				(text) => (draft = typingMin(draft, text))
+			)}
+			{@render field(
+				'Max reps',
+				draft.range.max,
+				() => (draft = setMax(draft, draft.range.max - 1)),
+				() => (draft = setMax(draft, draft.range.max + 1)),
+				(text) => {
+					const n = parseTarget(text);
+					if (n !== null) draft = setMax(draft, n);
+					return draft.range.max;
+				}
+			)}
+		{/if}
 
 		<button class="btn btn-primary w-full" onclick={save}>Save</button>
 	</div>
