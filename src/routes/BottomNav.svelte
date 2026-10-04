@@ -40,6 +40,7 @@
 		) {
 			return 'library';
 		}
+		if (path.startsWith('/discover')) return 'discover';
 		return '';
 	});
 </script>
@@ -107,6 +108,29 @@
 			</svg>
 			<span class="text-[10px] font-medium">Library</span>
 		</a>
+
+		<a
+			href="/discover"
+			aria-label="Discover"
+			aria-current={current === 'discover' ? 'page' : undefined}
+			class="nav-item"
+		>
+			<!-- Compass: a disc with the needle cut out, point-symmetric about the
+			     centre so it carries the same visual weight as its neighbours. -->
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="h-6 w-6"
+				viewBox="0 0 24 24"
+				fill="currentColor"
+				aria-hidden="true"
+			>
+				<path
+					fill-rule="evenodd"
+					d="M12 2a10 10 0 1 0 0 20a10 10 0 1 0 0-20Zm4.2 5.8-2.9 5.5-5.5 2.9 2.9-5.5 5.5-2.9Z"
+				/>
+			</svg>
+			<span class="text-[10px] font-medium">Discover</span>
+		</a>
 	</div>
 </nav>
 
@@ -117,7 +141,7 @@
 		align-items: center;
 		gap: 0.125rem;
 		padding-top: 0.375rem;
-		width: 33.3333%;
+		width: 25%;
 		opacity: 0.35;
 	}
 

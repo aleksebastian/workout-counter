@@ -241,6 +241,18 @@ export function planImport(
 	};
 }
 
+/**
+ * Whether the item can be shown as already added. An unconfirmed alias match
+ * doesn't count: until the user agrees their "Row" is this Barbell Row, the
+ * add isn't settled, even though the plan would reuse it.
+ */
+export function isInLibrary(plan: ImportPlan): boolean {
+	return (
+		plan.alreadyInLibrary &&
+		!plan.exercises.some((e) => e.action === 'reuse' && e.match?.confidence === 'alias')
+	);
+}
+
 /** Firestore writes in a plan — a batch is capped at 500. */
 export function planSize(plan: ImportPlan): number {
 	const { workouts, routines, programs } = plan.create;

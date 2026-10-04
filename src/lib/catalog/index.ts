@@ -2,7 +2,14 @@ import { createCatalog, type Catalog } from './catalog';
 
 export type { Catalog } from './catalog';
 export type * from './types';
-export { planImport, type ImportPlan, type ExerciseMatch, type Library } from './plan';
+export {
+	planImport,
+	isInLibrary,
+	type AliasChoice,
+	type ImportPlan,
+	type ExerciseMatch,
+	type Library
+} from './plan';
 
 let pending: Promise<Catalog> | null = null;
 

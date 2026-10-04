@@ -6,7 +6,7 @@
 	import { formatDistanceToNow } from 'date-fns';
 	import { session } from '$lib/session.svelte';
 	import { pwa } from '$lib/logic/pwa.svelte';
-	import { libraryHref, runProgramHref, runRoutineHref } from '$lib/routes';
+	import { discoverHref, libraryHref, runProgramHref, runRoutineHref } from '$lib/routes';
 	import { itemsForDay } from '$lib/types';
 	import Chevron from '$lib/components/Chevron.svelte';
 	import CheckIcon from '$lib/components/CheckIcon.svelte';
@@ -229,8 +229,8 @@
 		{
 			done: hasExercises,
 			title: 'Add exercises',
-			blurb: 'The building blocks of every workout',
-			href: libraryHref('exercises'),
+			blurb: 'Start from a ready-made routine in Discover, or add your own',
+			href: discoverHref('routines'),
 			enabled: true
 		},
 		{

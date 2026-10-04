@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createCatalog } from './catalog';
-import { planImport, type Library, type PlanOptions } from './plan';
+import { isInLibrary, planImport, type Library, type PlanOptions } from './plan';
 import type { CatalogData, CatalogExercise } from './types';
 import type { Program, Routine, Workout } from '$lib/types';
 
@@ -324,5 +324,17 @@ describe('planImport — programs', () => {
 		const plan = planImport(bundle('program', 'split'), lib, opts());
 		expect(plan.create.programs[0].name).toBe('Split (2)');
 		expect(plan.create.routines).toEqual([]);
+	});
+});
+
+describe('isInLibrary', () => {
+	it('waits for the user to confirm an alias match', () => {
+		const lib = library({ workouts: [workout('w1', 'Row')] });
+		const plan = planImport(bundle('exercise', 'row'), lib, opts());
+		expect(plan.alreadyInLibrary).toBe(true);
+		expect(isInLibrary(plan)).toBe(false);
+
+		// Confirming stamps it, after which it's a certain match.
+		expect(isInLibrary(planImport(bundle('exercise', 'row'), apply(lib, plan), opts()))).toBe(true);
 	});
 });

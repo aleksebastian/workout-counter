@@ -4,7 +4,7 @@
 	import { routines } from '$lib/data';
 	import { session } from '$lib/session.svelte';
 	import { getRoutineNameValidationMsg } from '$lib/utils';
-	import { runRoutineHref } from '$lib/routes';
+	import { discoverHref, runRoutineHref } from '$lib/routes';
 	import Async from '$lib/components/Async.svelte';
 	import Chevron from '$lib/components/Chevron.svelte';
 	import ActionSheet, { type SheetAction } from '$lib/components/ActionSheet.svelte';
@@ -90,9 +90,14 @@
 					Group exercises into a routine, then run the whole thing start to finish.
 				</p>
 			</div>
-			<button class="btn btn-primary" onclick={() => (showNew = true)}>
-				{@html AddIcon} Create your first routine
-			</button>
+			<div class="flex flex-col items-center gap-1">
+				<button class="btn btn-primary" onclick={() => (showNew = true)}>
+					{@html AddIcon} Create your first routine
+				</button>
+				<a class="btn btn-ghost btn-sm" href={discoverHref('routines')}
+					>Browse ready-made routines</a
+				>
+			</div>
 		</div>
 	{/snippet}
 

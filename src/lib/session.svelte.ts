@@ -104,5 +104,11 @@ export const session = {
 	},
 	get activeProgram() {
 		return this.program(this.activeProgramId ?? undefined);
+	},
+
+	/** All three collections together, or `null` until every one has loaded. */
+	get library() {
+		if (!workoutList || !routineList || !programList) return null;
+		return { workouts: workoutList, routines: routineList, programs: programList };
 	}
 };

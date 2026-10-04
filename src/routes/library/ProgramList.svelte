@@ -4,7 +4,7 @@
 	import { session } from '$lib/session.svelte';
 	import { getProgramNameValidationMsg } from '$lib/utils';
 	import { DAY_NAMES, DAY_SHORT } from '$lib/constants';
-	import { runProgramHref } from '$lib/routes';
+	import { discoverHref, runProgramHref } from '$lib/routes';
 	import { itemsForDay, programDays, type Program } from '$lib/types';
 	import Async from '$lib/components/Async.svelte';
 	import Chevron from '$lib/components/Chevron.svelte';
@@ -113,9 +113,14 @@
 					day.
 				</p>
 			</div>
-			<button class="btn btn-primary" onclick={() => (showNew = true)}>
-				Create your first program
-			</button>
+			<div class="flex flex-col items-center gap-1">
+				<button class="btn btn-primary" onclick={() => (showNew = true)}>
+					Create your first program
+				</button>
+				<a class="btn btn-ghost btn-sm" href={discoverHref('programs')}
+					>Browse ready-made programs</a
+				>
+			</div>
 		</div>
 	{/snippet}
 

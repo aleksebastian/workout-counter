@@ -24,7 +24,8 @@
 
 	const TAB_TITLES: Record<string, string> = {
 		'/train': 'Train',
-		'/library': 'Library'
+		'/library': 'Library',
+		'/discover': 'Discover'
 	};
 
 	let pathname = $derived(page.url.pathname);
