@@ -54,7 +54,14 @@ body {
 	overscroll-behavior-inline: none;
 }
 
-svg {
+/*
+ * Icons without a fill of their own take the text colour — that's what makes
+ * the raw icon files in $lib/icons tintable. An SVG that sets `fill` itself
+ * (usually `fill="none"` on a stroke-only outline icon) keeps it: applying
+ * currentColor to those too filled in every open path, turning checkmarks
+ * into wedges and chevrons into solid triangles.
+ */
+svg:not([fill]) {
 	fill: currentColor;
 }
 
