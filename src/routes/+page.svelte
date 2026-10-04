@@ -267,8 +267,8 @@
 		},
 		{
 			done: hasExercises,
-			title: 'Add exercises',
-			blurb: 'Start from a ready-made routine in Discover, or add your own',
+			title: 'Pick a starting routine',
+			blurb: 'Browse ready-made routines in Discover, or build your own',
 			href: discoverHref('routines'),
 			enabled: true
 		},
