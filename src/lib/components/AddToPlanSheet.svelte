@@ -110,6 +110,7 @@
 						bind:this={newInput}
 						bind:value={newName}
 						type="text"
+						autocomplete="off"
 						placeholder="Exercise name"
 						aria-label="New exercise name"
 						class="input input-bordered input-sm flex-1"
