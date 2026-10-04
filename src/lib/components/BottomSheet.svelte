@@ -144,7 +144,9 @@
 		};
 	});
 
-	// Visual viewport tracking: lift sheet above the software keyboard
+	// Visual viewport tracking: lift sheet above the software keyboard. While it's
+	// up the keyboard covers the home indicator, so the sheet drops its own
+	// safe-area padding — keeping it left a blank band above the keyboard.
 	$effect(() => {
 		if (!open || typeof window === 'undefined' || !window.visualViewport) return;
 
@@ -217,7 +219,9 @@
 		<div
 			bind:this={sheetElement}
 			class="bg-base-100 relative flex w-full flex-col rounded-t-3xl shadow-2xl {sizeClasses[size]}"
-			style="padding-bottom: env(safe-area-inset-bottom, 0px); touch-action: pan-y;"
+			style="padding-bottom: {keyboardOffset > 0
+				? '0px'
+				: 'env(safe-area-inset-bottom, 0px)'}; touch-action: pan-y;"
 			in:slideUp={{ duration: 350 }}
 			onintroend={focusFirst}
 			out:slideUp={{ duration: 300 }}
