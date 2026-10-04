@@ -80,7 +80,10 @@ export function itemsForDay(program: Program, day: number): ProgramItem[] {
 }
 
 export type Preferences = {
+	/** The global rest timer's duration. Used only when `timerEnabled`. */
 	timer: Duration;
+	/** Whether the global rest timer runs. Routine timers apply regardless. */
+	timerEnabled: boolean;
 	theme: 'light' | 'dark' | 'system';
 	weightUnit: 'lbs' | 'kg';
 	weekStart: 0 | 1;

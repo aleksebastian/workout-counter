@@ -10,6 +10,7 @@
 	import { session } from '$lib/session.svelte';
 	import { setPageNav } from '$lib/nav.svelte';
 	import { restTimer } from '$lib/logic/restTimer.svelte';
+	import { routineIdFromHref } from '$lib/logic/rest';
 	import { pwa } from '$lib/logic/pwa.svelte';
 	import { HAPTIC } from '$lib/haptic';
 	import type { Set } from '$lib/types';
@@ -20,6 +21,7 @@
 	// `from` lets a routine or program hand us a back target; default to Train,
 	// which is where an ad-hoc log usually starts.
 	let backHref = $derived(page.url.searchParams.get('from') ?? '/train');
+	let routineId = $derived(routineIdFromHref(page.url.searchParams.get('from')));
 
 	setPageNav(
 		() => workout?.name ?? '',
@@ -152,9 +154,8 @@
 		};
 
 		HAPTIC.medium();
-		// Picks up a routine's custom rest timer when this exercise belongs to one.
-		restTimer.start({ workoutId: workout.id });
-		pwa.noteSetRecorded();
+		// Opened from a routine: that routine's timer applies. Otherwise the global one.
+		pwa.noteSetRecorded(restTimer.start({ routineId }));
 
 		const ok = await exercises.addSet(workout.id, set);
 		if (ok && pr) {
@@ -200,7 +201,7 @@
 			</div>
 		{/if}
 
-		<SetsHistoryTable {workout} hideFirstHeader={comparisonStats.length > 0} />
+		<SetsHistoryTable {workout} {routineId} hideFirstHeader={comparisonStats.length > 0} />
 	</div>
 
 	<FAB onclick={() => (showRecordSheet = true)} label="Record a set" />

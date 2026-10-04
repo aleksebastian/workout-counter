@@ -1,9 +1,58 @@
 <script lang="ts">
 	import { fly } from 'svelte/transition';
 	import { restTimer } from '$lib/logic/restTimer.svelte';
+	import { formatDuration } from '$lib/logic/rest';
+	import { session } from '$lib/session.svelte';
 </script>
 
-{#if restTimer.active}
+{#snippet dismissIcon()}
+	<svg
+		xmlns="http://www.w3.org/2000/svg"
+		class="h-4 w-4"
+		fill="none"
+		viewBox="0 0 24 24"
+		stroke="currentColor"
+		stroke-width="2.5"
+	>
+		<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+	</svg>
+{/snippet}
+
+{#if restTimer.offering}
+	<!-- Asked in the moment a set is logged with no timer, in the timer's own
+	     slot: new accounts start with it off, and the getting-started checklist
+	     is gone by the time anyone logs a set from a program. -->
+	<div
+		class="fixed right-0 left-0 z-[550] px-3"
+		style="bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 0.375rem)"
+		role="region"
+		aria-label="Rest timer suggestion"
+		in:fly={{ y: 72, duration: 280 }}
+		out:fly={{ y: 72, duration: 200 }}
+	>
+		<div
+			class="bg-base-200 border-base-300 flex items-center gap-3 rounded-2xl border px-4 py-3 shadow-xl"
+		>
+			<div class="min-w-0 flex-1">
+				<p class="text-sm font-semibold">Want a rest timer?</p>
+				<p class="text-base-content/55 mt-0.5 text-xs">
+					Counts down after each set. Change it anytime in
+					<a href="/preferences" class="link">Preferences</a>.
+				</p>
+			</div>
+			<button class="btn btn-primary btn-sm shrink-0" onclick={() => restTimer.acceptOffer()}>
+				Turn on · {formatDuration(session.prefs.timer)}
+			</button>
+			<button
+				class="btn btn-circle btn-ghost btn-sm text-base-content/30 -mr-1 shrink-0"
+				onclick={() => restTimer.dismissOffer()}
+				aria-label="No thanks"
+			>
+				{@render dismissIcon()}
+			</button>
+		</div>
+	</div>
+{:else if restTimer.active}
 	<div
 		class="fixed right-0 left-0 z-[550] px-3"
 		style="bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 0.375rem); view-transition-name: rest-timer"
@@ -28,16 +77,7 @@
 					onclick={() => restTimer.stop()}
 					aria-label="Dismiss rest timer"
 				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-4 w-4"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="2.5"
-					>
-						<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-					</svg>
+					{@render dismissIcon()}
 				</button>
 			</div>
 

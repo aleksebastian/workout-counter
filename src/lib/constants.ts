@@ -51,6 +51,9 @@ export const TIMER_PRESETS = [
  */
 export const DEFAULT_PREFERENCES: Preferences = {
 	timer: { minutes: 1, seconds: 30 },
+	// Off until asked: the first set logged without a timer offers to turn it
+	// on (see restTimer), at the moment it's actually useful.
+	timerEnabled: false,
 	theme: 'system',
 	weightUnit: 'lbs',
 	weekStart: 0,

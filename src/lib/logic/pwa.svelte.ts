@@ -151,14 +151,15 @@ export const pwa = {
 
 	/**
 	 * Called after every recorded set. Drives the "add to home screen" nudge and,
-	 * on the first rest timer, the notification permission nudge.
+	 * on the first rest timer, the notification permission nudge — which only
+	 * makes sense once a rest countdown has actually run.
 	 */
-	noteSetRecorded() {
+	noteSetRecorded(restStarted: boolean) {
 		recordedSets++;
 		if (recordedSets === SETS_BEFORE_INSTALL_PROMPT && deferredPrompt) {
 			showInstall = true;
 		}
-		if (notifStatus === 'default' && !notifPromptShown) {
+		if (restStarted && notifStatus === 'default' && !notifPromptShown) {
 			showNotifPrompt = true;
 			notifPromptShown = true;
 			localStorage.setItem(NOTIF_PROMPTED_KEY, 'true');

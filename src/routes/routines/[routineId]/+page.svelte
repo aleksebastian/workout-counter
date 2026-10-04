@@ -6,6 +6,7 @@
 	import { session } from '$lib/session.svelte';
 	import { setPageNav } from '$lib/nav.svelte';
 	import { libraryHref, runRoutineHref } from '$lib/routes';
+	import { formatDuration } from '$lib/logic/rest';
 	import ActionSheet, { type SheetAction } from '$lib/components/ActionSheet.svelte';
 	import AddToPlanSheet from '$lib/components/AddToPlanSheet.svelte';
 	import Chevron from '$lib/components/Chevron.svelte';
@@ -241,14 +242,25 @@
 						<p class="text-sm font-semibold">{totalSets}</p>
 					</div>
 				{/if}
-				{#if routine.timer}
-					<div class="bg-base-200 flex-none rounded-xl px-4 py-2.5 text-center">
-						<p class="text-base-content/50 text-xs">Rest timer</p>
+				<!-- Always shown, and tappable: it's where people look to change rest. -->
+				<button
+					class="bg-base-200 hover:bg-base-300 flex-none rounded-xl px-4 py-2.5 text-center transition-colors"
+					aria-label="Edit rest timer"
+					onclick={() => (showEditRoutine = true)}
+				>
+					<p class="text-base-content/50 text-xs">Rest timer</p>
+					{#if routine.timer}
 						<p class="text-primary text-sm font-semibold tabular-nums">
-							{routine.timer.minutes}:{routine.timer.seconds < 10 ? '0' : ''}{routine.timer.seconds}
+							{formatDuration(routine.timer)}
 						</p>
-					</div>
-				{/if}
+					{:else if session.prefs.timerEnabled}
+						<p class="text-sm font-semibold tabular-nums">
+							Global · {formatDuration(session.prefs.timer)}
+						</p>
+					{:else}
+						<p class="text-base-content/50 text-sm font-semibold">Off</p>
+					{/if}
+				</button>
 			</div>
 		{/if}
 

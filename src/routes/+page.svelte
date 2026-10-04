@@ -248,7 +248,9 @@
 						: undefined,
 			note:
 				notifStatus === 'granted'
-					? `Your rest timer is ${timerLabel}. Change it anytime in Preferences (top-left icon).`
+					? session.prefs.timerEnabled
+						? `Your rest timer is ${timerLabel}. Change it anytime in Preferences (top-left icon).`
+						: 'Turn on a rest timer anytime in Preferences (top-left icon).'
 					: notifStatus === 'denied'
 						? 'Notifications are off. You can turn them on later in your device settings.'
 						: notifStatus === 'needs-install' && showInstallSteps

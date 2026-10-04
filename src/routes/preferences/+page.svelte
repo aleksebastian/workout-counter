@@ -6,7 +6,7 @@
 	import { applyTheme } from '$lib/logic/theme';
 	import { pwa } from '$lib/logic/pwa.svelte';
 	import { TIMER_PRESETS } from '$lib/constants';
-	import type { Preferences } from '$lib/types';
+	import type { Duration, Preferences } from '$lib/types';
 
 	/**
 	 * Plain settings — no longer an onboarding gate. New accounts get sensible
@@ -39,17 +39,36 @@
 	let saveState = $state<'idle' | 'saving' | 'saved'>('idle');
 	let debounce: ReturnType<typeof setTimeout> | undefined;
 
-	function clamp(n: number, min: number, max: number, fallback: number): number {
-		return Number.isNaN(n) ? fallback : Math.min(max, Math.max(min, n));
+	// A cleared number input binds as null, not NaN — which used to slip through
+	// as 0 and could silently save a 0:00 timer.
+	function clamp(n: unknown, min: number, max: number, fallback: number): number {
+		return typeof n === 'number' && Number.isFinite(n)
+			? Math.min(max, Math.max(min, Math.round(n)))
+			: fallback;
+	}
+
+	/** The typed duration, or the saved one when it's blank or 0:00 — the switch turns it off. */
+	function cleanTimer(): Duration {
+		const saved = session.prefs.timer;
+		const minutes = clamp(draft.timer.minutes, 0, 59, saved.minutes);
+		const seconds = clamp(draft.timer.seconds, 0, 59, saved.seconds);
+		return minutes * 60 + seconds > 0 ? { minutes, seconds } : saved;
+	}
+
+	/** Puts the saved value back into a field left blank, so it never shows empty. */
+	function fillBlanks() {
+		const saved = session.prefs.timer;
+		draft.timer = {
+			minutes: clamp(draft.timer.minutes, 0, 59, saved.minutes),
+			seconds: clamp(draft.timer.seconds, 0, 59, saved.seconds)
+		};
 	}
 
 	async function save() {
 		saveState = 'saving';
 		const ok = await user.setPreferences({
-			timer: {
-				minutes: clamp(draft.timer.minutes, 0, 59, 1),
-				seconds: clamp(draft.timer.seconds, 0, 59, 30)
-			},
+			timer: cleanTimer(),
+			timerEnabled: draft.timerEnabled,
 			theme: draft.theme,
 			weightUnit: draft.weightUnit,
 			weekStart: draft.weekStart,
@@ -134,58 +153,73 @@
 		</div>
 
 		<div class="bg-base-200 flex flex-col gap-4 rounded-2xl px-4 py-4">
-			<div class="flex items-center justify-between">
-				{@render row('Rest Timer', 'Default rest after each recorded set')}
-				<span class="text-primary text-2xl font-black tabular-nums">{timerPreview}</span>
+			<div class="flex items-center justify-between gap-3">
+				{@render row('Global rest timer', 'Counts down after each set you record')}
+				<div class="flex shrink-0 items-center gap-3">
+					{#if draft.timerEnabled}
+						<span class="text-primary text-2xl font-black tabular-nums">{timerPreview}</span>
+					{/if}
+					<input
+						type="checkbox"
+						class="toggle toggle-primary"
+						aria-label="Global rest timer"
+						bind:checked={draft.timerEnabled}
+						onchange={autoSave}
+					/>
+				</div>
 			</div>
 			<p class="text-base-content/40 -mt-2 text-xs">
-				A routine with its own timer overrides this while you're training it.
+				Routines with their own rest timer use that instead.
 			</p>
-			<div class="-mx-4 flex scrollbar-none gap-2 overflow-x-auto px-4 pb-1">
-				{#each TIMER_PRESETS as preset}
-					<button
-						type="button"
-						class="btn btn-sm flex-none transition-colors"
-						class:btn-primary={draft.timer.minutes === preset.minutes &&
-							draft.timer.seconds === preset.seconds}
-						class:btn-ghost={draft.timer.minutes !== preset.minutes ||
-							draft.timer.seconds !== preset.seconds}
-						onclick={() => {
-							draft.timer = { minutes: preset.minutes, seconds: preset.seconds };
-							autoSave();
-						}}>{preset.label}</button
-					>
-				{/each}
-			</div>
-			<div class="flex items-center gap-3">
-				<div class="flex flex-1 items-center gap-2">
-					<input
-						type="number"
-						aria-label="Rest minutes"
-						class="input input-bordered w-full text-center"
-						bind:value={draft.timer.minutes}
-						min="0"
-						max="59"
-						oninput={autoSave}
-						onfocus={(e) => (e.currentTarget as HTMLInputElement).select()}
-					/>
-					<span class="text-base-content/50 text-sm">min</span>
+			{#if draft.timerEnabled}
+				<div class="-mx-4 flex scrollbar-none gap-2 overflow-x-auto px-4 pb-1">
+					{#each TIMER_PRESETS as preset}
+						<button
+							type="button"
+							class="btn btn-sm flex-none transition-colors"
+							class:btn-primary={draft.timer.minutes === preset.minutes &&
+								draft.timer.seconds === preset.seconds}
+							class:btn-ghost={draft.timer.minutes !== preset.minutes ||
+								draft.timer.seconds !== preset.seconds}
+							onclick={() => {
+								draft.timer = { minutes: preset.minutes, seconds: preset.seconds };
+								autoSave();
+							}}>{preset.label}</button
+						>
+					{/each}
 				</div>
-				<span class="text-base-content/30 text-xl font-bold">:</span>
-				<div class="flex flex-1 items-center gap-2">
-					<input
-						type="number"
-						aria-label="Rest seconds"
-						class="input input-bordered w-full text-center"
-						bind:value={draft.timer.seconds}
-						min={draft.timer.minutes === 0 ? 1 : 0}
-						max="59"
-						oninput={autoSave}
-						onfocus={(e) => (e.currentTarget as HTMLInputElement).select()}
-					/>
-					<span class="text-base-content/50 text-sm">sec</span>
+				<div class="flex items-center gap-3">
+					<div class="flex flex-1 items-center gap-2">
+						<input
+							type="number"
+							aria-label="Rest minutes"
+							class="input input-bordered w-full text-center"
+							bind:value={draft.timer.minutes}
+							min="0"
+							max="59"
+							oninput={autoSave}
+							onblur={fillBlanks}
+							onfocus={(e) => (e.currentTarget as HTMLInputElement).select()}
+						/>
+						<span class="text-base-content/50 text-sm">min</span>
+					</div>
+					<span class="text-base-content/30 text-xl font-bold">:</span>
+					<div class="flex flex-1 items-center gap-2">
+						<input
+							type="number"
+							aria-label="Rest seconds"
+							class="input input-bordered w-full text-center"
+							bind:value={draft.timer.seconds}
+							min={draft.timer.minutes === 0 ? 1 : 0}
+							max="59"
+							oninput={autoSave}
+							onblur={fillBlanks}
+							onfocus={(e) => (e.currentTarget as HTMLInputElement).select()}
+						/>
+						<span class="text-base-content/50 text-sm">sec</span>
+					</div>
 				</div>
-			</div>
+			{/if}
 		</div>
 	</section>
 
