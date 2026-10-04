@@ -56,6 +56,7 @@
 	}
 
 	let sheetElement = $state<HTMLElement>();
+	let contentElement = $state<HTMLElement>();
 	let startY = 0;
 	let currentY = 0;
 	let isDragging = false;
@@ -74,8 +75,15 @@
 		onClose?.();
 	}
 
+	// Pulling down closes the sheet only when its content is already scrolled to
+	// the top, or the touch starts outside the scrolling area (handle, title).
+	// Otherwise the same gesture is the user scrolling the list back up — treating
+	// it as a dismiss dragged the whole sheet down mid-scroll.
 	function handleTouchStart(e: TouchEvent) {
+		const inContent = contentElement?.contains(e.target as Node) ?? false;
+		if (inContent && (contentElement?.scrollTop ?? 0) > 0) return;
 		startY = e.touches[0].clientY;
+		currentY = startY;
 		isDragging = true;
 	}
 
@@ -267,7 +275,11 @@
 				<div class="shrink-0 px-6 pt-4">{@render toolbar()}</div>
 			{/if}
 			<!-- Content -->
-			<div class="flex-1 overflow-y-auto px-6 py-4" style="min-height: 0">
+			<div
+				bind:this={contentElement}
+				class="flex-1 overflow-y-auto overscroll-contain px-6 py-4"
+				style="min-height: 0"
+			>
 				{@render children?.()}
 			</div>
 			{#if footer}

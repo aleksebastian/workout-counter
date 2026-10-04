@@ -71,15 +71,10 @@
 	let removeExerciseDialog = $state<HTMLDialogElement>()!;
 	let selectedRow = $state<Row | undefined>(undefined);
 
+	// No "Start routine" here: the page's own Start button sits right beside
+	// this menu.
 	let routineActions = $derived<SheetAction[]>(
 		[
-			rows.length
-				? {
-						label: 'Start routine',
-						icon: CheckIcon,
-						onSelect: () => goto(runRoutineHref(routine!.id))
-					}
-				: null,
 			{ label: 'Add exercises', icon: AddIcon, onSelect: () => (showAdd = true) },
 			rows.length > 1
 				? {

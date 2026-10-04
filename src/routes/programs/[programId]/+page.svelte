@@ -120,15 +120,10 @@
 				: (session.workout(selectedItem.workoutId)?.name ?? 'Exercise')
 	);
 
+	// No "Start workout" here: the page's own Start button shows under the same
+	// condition. Destructive actions come last, set apart by the sheet.
 	let programActions = $derived<SheetAction[]>(
 		[
-			totalToday > 0
-				? {
-						label: `Start ${DAY_NAMES[selectedDay]} workout`,
-						icon: CheckIcon,
-						onSelect: () => goto(runProgramHref(program!.id, selectedDay))
-					}
-				: null,
 			{
 				label: isActive ? 'Deactivate program' : 'Set as active program',
 				icon: CheckIcon,
@@ -154,6 +149,7 @@
 					showLabelSheet = true;
 				}
 			},
+			{ label: 'Edit program', icon: EditIcon, onSelect: () => (showEditProgram = true) },
 			dayItems.length
 				? {
 						label: `Clear ${DAY_NAMES[selectedDay]}`,
@@ -162,7 +158,6 @@
 						onSelect: () => clearDayDialog?.showModal()
 					}
 				: null,
-			{ label: 'Edit program', icon: EditIcon, onSelect: () => (showEditProgram = true) },
 			{
 				label: 'Delete program',
 				icon: DeleteIcon,

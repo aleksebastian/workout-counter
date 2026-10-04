@@ -28,12 +28,18 @@
 	}
 </script>
 
-<BottomSheet bind:open size="small" {title}>
+<!-- Sized to its content: a menu that scrolls hides choices people don't know
+     to look for. The large size's cap is only a safety net for a long menu. -->
+<BottomSheet bind:open size="large" {title}>
 	<div class="flex flex-col gap-1">
 		{#if subtitle}
 			<p class="text-base-content/50 mb-2 text-sm">{subtitle}</p>
 		{/if}
-		{#each actions as action}
+		{#each actions as action, i}
+			{#if action.destructive && i > 0 && !actions[i - 1].destructive}
+				<!-- Destructive actions sit apart, so they're harder to hit by accident. -->
+				<hr class="border-base-300 mx-3 my-1" />
+			{/if}
 			<button
 				class="hover:bg-base-200 flex w-full items-center gap-3 rounded-xl px-3 py-3.5 text-left transition-colors"
 				class:text-error={action.destructive}
