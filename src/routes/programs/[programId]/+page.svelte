@@ -8,7 +8,7 @@
 	import { libraryHref, runProgramHref } from '$lib/routes';
 	import { itemsForDay, type ProgramDay, type ProgramItem } from '$lib/types';
 	import ActionSheet, { type SheetAction } from '$lib/components/ActionSheet.svelte';
-	import AddToPlanSheet from '$lib/components/AddToPlanSheet.svelte';
+	import AddToPlanSheet, { type PlanChange } from '$lib/components/AddToPlanSheet.svelte';
 	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
 	import EditProgramSheet from '$lib/components/EditProgramSheet.svelte';
 	import NameSheet from '$lib/components/NameSheet.svelte';
@@ -38,22 +38,29 @@
 	let dayEntry = $derived(schedule.find((d) => d.day === selectedDay) ?? null);
 	let dayItems = $derived(program ? itemsForDay(program, selectedDay) : []);
 
-	/** Exercises already on this day, including those inside scheduled routines. */
-	let usedWorkoutIds = $derived(
-		dayItems.flatMap((item) =>
-			item.type === 'exercise'
-				? [item.workoutId]
-				: (session.routine(item.routineId)?.exercises.map((ex) => ex.workoutId) ?? [])
-		)
-	);
-	let usedRoutineIds = $derived(
+	/**
+	 * What the add sheet shows as already on this day: exercises scheduled
+	 * directly (removable there), then those that come with a scheduled routine
+	 * (shown for context — removing one means removing the routine).
+	 */
+	let presentExercises = $derived.by(() => {
+		const direct = dayItems.flatMap((item) =>
+			item.type === 'exercise' ? [{ workoutId: item.workoutId, removable: true }] : []
+		);
+		const seen = new Set(direct.map((p) => p.workoutId));
+		const viaRoutines = dayItems.flatMap((item) => {
+			if (item.type !== 'routine') return [];
+			const routine = session.routine(item.routineId);
+			return (routine?.exercises ?? []).flatMap((ex) => {
+				if (seen.has(ex.workoutId)) return [];
+				seen.add(ex.workoutId);
+				return [{ workoutId: ex.workoutId, removable: false, note: `In ${routine!.name}` }];
+			});
+		});
+		return [...direct, ...viaRoutines];
+	});
+	let presentRoutineIds = $derived(
 		dayItems.filter((i) => i.type === 'routine').map((i) => i.routineId)
-	);
-	let availableExercises = $derived(
-		(session.workouts ?? []).filter((w) => !usedWorkoutIds.includes(w.id))
-	);
-	let availableRoutines = $derived(
-		(session.routines ?? []).filter((r) => !usedRoutineIds.includes(r.id))
 	);
 
 	function setsToday(workoutId: string): number {
@@ -219,21 +226,23 @@
 		return programs.setSchedule(program.id, withDay(selectedDay, items, label));
 	}
 
-	function addExercise(workoutId: string) {
-		saveDay([...dayItems, { type: 'exercise', workoutId, targetSets: 3 }]);
-	}
-
-	function addRoutine(routineId: string) {
-		saveDay([...dayItems, { type: 'routine', routineId }]);
-	}
-
-	async function createExercise(name: string) {
+	/**
+	 * One batch: new exercise documents and the day that points at them land
+	 * together, so the day can never reference a missing exercise.
+	 */
+	function applyChange(change: PlanChange) {
 		if (!program) return;
-		// One batch: the exercise document and the schedule entry pointing at it
-		// land together, so the day can never reference a missing exercise.
-		await programs.createExerciseAndAddToDay(program.id, name, (workoutId) =>
-			withDay(selectedDay, [...dayItems, { type: 'exercise', workoutId, targetSets: 3 }])
+		const kept = dayItems.filter((i) =>
+			i.type === 'routine'
+				? !change.remove.routines.includes(i.routineId)
+				: !change.remove.exercises.includes(i.workoutId)
 		);
+		const added = change.add.map((a): ProgramItem =>
+			a.type === 'routine'
+				? { type: 'routine', routineId: a.routineId }
+				: { type: 'exercise', workoutId: a.workoutId, targetSets: 3 }
+		);
+		programs.saveSchedule(program.id, withDay(selectedDay, [...kept, ...added]), change.create);
 	}
 
 	function removeItem(index: number) {
@@ -441,11 +450,10 @@
 <AddToPlanSheet
 	bind:open={showAdd}
 	title="Add to {DAY_FULL[selectedDay]}"
-	exercises={availableExercises}
-	routines={availableRoutines}
-	onAddExercise={addExercise}
-	onAddRoutine={addRoutine}
-	onCreateExercise={createExercise}
+	presentLabel="On {DAY_FULL[selectedDay]}"
+	{presentExercises}
+	routines={{ all: session.routines ?? [], present: presentRoutineIds }}
+	onSave={applyChange}
 />
 
 <EditProgramSheet

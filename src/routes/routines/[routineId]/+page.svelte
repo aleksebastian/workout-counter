@@ -8,7 +8,7 @@
 	import { libraryHref, runRoutineHref } from '$lib/routes';
 	import { formatDuration } from '$lib/logic/rest';
 	import ActionSheet, { type SheetAction } from '$lib/components/ActionSheet.svelte';
-	import AddToPlanSheet from '$lib/components/AddToPlanSheet.svelte';
+	import AddToPlanSheet, { type PlanChange } from '$lib/components/AddToPlanSheet.svelte';
 	import Chevron from '$lib/components/Chevron.svelte';
 	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
 	import EditRoutineSheet from '$lib/components/EditRoutineSheet.svelte';
@@ -37,12 +37,6 @@
 		(routine?.exercises ?? [])
 			.map((ex) => ({ ex, workout: session.workout(ex.workoutId) }))
 			.filter((row): row is Row => row.workout !== null)
-	);
-
-	let available = $derived(
-		(session.workouts ?? []).filter(
-			(w) => !(routine?.exercises ?? []).some((ex) => ex.workoutId === w.id)
-		)
 	);
 
 	const todayStr = new Date().toDateString();
@@ -125,13 +119,16 @@
 		return routines.setExercises(routine.id, exercises);
 	}
 
-	function addExercise(workoutId: string) {
-		save([...(routine?.exercises ?? []), { workoutId }]);
-	}
-
-	async function createExercise(name: string) {
+	/** Removals keep everything else's order and targets; additions go on the end. */
+	function applyChange(change: PlanChange) {
 		if (!routine) return;
-		await routines.createExerciseAndAdd(routine.id, name, routine.exercises);
+		const kept = routine.exercises.filter((ex) => !change.remove.exercises.includes(ex.workoutId));
+		const added = change.add.flatMap((a) =>
+			a.type === 'exercise' && !kept.some((ex) => ex.workoutId === a.workoutId)
+				? [{ workoutId: a.workoutId }]
+				: []
+		);
+		routines.saveExercises(routine.id, [...kept, ...added], change.create);
 	}
 
 	function removeExercise(workoutId: string) {
@@ -343,9 +340,13 @@
 
 <AddToPlanSheet
 	bind:open={showAdd}
-	exercises={available}
-	onAddExercise={addExercise}
-	onCreateExercise={createExercise}
+	presentLabel="In this routine"
+	presentExercises={(routine?.exercises ?? []).map((ex) => ({
+		workoutId: ex.workoutId,
+		removable: true,
+		hasTargets: ex.targetSets !== undefined || ex.minReps !== undefined || ex.maxReps !== undefined
+	}))}
+	onSave={applyChange}
 />
 
 <TargetsSheet

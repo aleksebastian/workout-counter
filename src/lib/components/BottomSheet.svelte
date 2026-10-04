@@ -11,12 +11,22 @@
 		onClose?: () => void;
 		children?: any;
 		headerAction?: Snippet;
+		/** Pinned under the header, outside the scrolling content (e.g. a search field). */
+		toolbar?: Snippet;
+		/** Pinned at the bottom, outside the scrolling content (e.g. a confirm button). */
+		footer?: Snippet;
 		/**
 		 * Focus the first focusable control on open. Turn off for sheets whose first
 		 * control is an input that shouldn't summon the keyboard by itself; the
 		 * sheet itself takes focus instead.
 		 */
 		autofocus?: boolean;
+		/**
+		 * Hold the sheet at its full size instead of sizing to the content, for
+		 * pickers whose list filters as you type — otherwise the sheet jumps with
+		 * every keystroke. Shrinks by the keyboard so the content stays visible.
+		 */
+		fill?: boolean;
 	}
 
 	let {
@@ -26,7 +36,10 @@
 		onClose,
 		children,
 		headerAction,
-		autofocus = true
+		toolbar,
+		footer,
+		autofocus = true,
+		fill = false
 	}: Props = $props();
 
 	// Custom slide transition that uses element's actual height to prevent overshoot
@@ -54,6 +67,7 @@
 		large: 'max-h-[85svh]',
 		full: 'max-h-[95svh]'
 	};
+	const fillHeights = { small: '40svh', medium: '60svh', large: '85svh', full: '95svh' };
 
 	function close() {
 		open = false;
@@ -221,7 +235,9 @@
 			class="bg-base-100 relative flex w-full flex-col rounded-t-3xl shadow-2xl {sizeClasses[size]}"
 			style="padding-bottom: {keyboardOffset > 0
 				? '0px'
-				: 'env(safe-area-inset-bottom, 0px)'}; touch-action: pan-y;"
+				: 'env(safe-area-inset-bottom, 0px)'}; touch-action: pan-y;{fill
+				? ` height: calc(${fillHeights[size]} - ${keyboardOffset}px);`
+				: ''}"
 			in:slideUp={{ duration: 350 }}
 			onintroend={focusFirst}
 			out:slideUp={{ duration: 300 }}
@@ -247,10 +263,16 @@
 					</div>
 				</div>
 			{/if}
+			{#if toolbar}
+				<div class="shrink-0 px-6 pt-4">{@render toolbar()}</div>
+			{/if}
 			<!-- Content -->
 			<div class="flex-1 overflow-y-auto px-6 py-4" style="min-height: 0">
 				{@render children?.()}
 			</div>
+			{#if footer}
+				<div class="border-base-300 shrink-0 border-t px-6 py-3">{@render footer()}</div>
+			{/if}
 		</div>
 	</div>
 {/if}
