@@ -7,7 +7,13 @@
 	import { session } from '$lib/session.svelte';
 	import { user } from '$lib/data';
 	import { pwa } from '$lib/logic/pwa.svelte';
-	import { discoverHref, libraryHref, runProgramHref, runRoutineHref } from '$lib/routes';
+	import {
+		discoverHref,
+		libraryHref,
+		newRoutineHref,
+		runProgramHref,
+		runRoutineHref
+	} from '$lib/routes';
 	import { itemsForDay } from '$lib/types';
 	import Chevron from '$lib/components/Chevron.svelte';
 	import CheckIcon from '$lib/components/CheckIcon.svelte';
@@ -203,8 +209,9 @@
 	// hard gate in front of it, which it isn't.
 	let hasExercises = $derived((session.workouts?.length ?? 0) > 0);
 	let hasSet = $derived(allSets.length > 0);
-	let hasRoutines = $derived((session.routines?.length ?? 0) > 0);
 	let firstWorkout = $derived(session.workouts?.[0]);
+	// An empty routine doesn't count: there'd be nothing to start.
+	let startingRoutine = $derived(session.routines?.find((r) => r.exercises.length > 0));
 
 	// Rest timer and its alerts, as one step and the first one: the checklist is
 	// gone after the first set, and the likely path (Discover → program → log a
@@ -237,6 +244,8 @@
 		href?: string;
 		onclick?: () => void;
 		note?: string;
+		/** Choices shown under the step instead of making the whole card a link. */
+		actions?: { label: string; href: string }[];
 		enabled: boolean;
 	};
 
@@ -266,24 +275,28 @@
 			enabled: true
 		},
 		{
-			done: hasExercises,
+			// Covers both ways of getting a routine, so there's no separate
+			// "Create a routine" step after it.
+			done: !!startingRoutine,
 			title: 'Pick a starting routine',
-			blurb: 'Browse ready-made routines in Discover, or build your own',
-			href: discoverHref('routines'),
+			blurb: 'Use a ready-made one, or build your own',
+			actions: [
+				{ label: 'Browse routines', href: discoverHref('routines') },
+				{ label: 'Create your own', href: newRoutineHref() }
+			],
 			enabled: true
 		},
 		{
 			done: hasSet,
 			title: 'Log your first set',
-			blurb: 'Tap an exercise and record a rep',
-			href: firstWorkout ? `/workout/${firstWorkout.id}` : libraryHref('exercises'),
-			enabled: hasExercises
-		},
-		{
-			done: hasRoutines,
-			title: 'Create a routine',
-			blurb: 'Group exercises so you can run them start to finish',
-			href: libraryHref('routines'),
+			blurb: startingRoutine
+				? 'Start your routine and record a rep'
+				: 'Tap an exercise and record a rep',
+			href: startingRoutine
+				? runRoutineHref(startingRoutine.id)
+				: firstWorkout
+					? `/workout/${firstWorkout.id}`
+					: libraryHref('exercises'),
 			enabled: hasExercises
 		}
 	]);
@@ -320,7 +333,7 @@
 			<p class="text-base-content/70 mt-1.5 text-xs">{step.note}</p>
 		{/if}
 	</div>
-	{#if step.enabled && !step.done}
+	{#if step.enabled && !step.done && !step.actions}
 		<Chevron />
 	{/if}
 {/snippet}
@@ -516,7 +529,22 @@
 								? 'bg-base-200 hover:bg-base-300 active:scale-[0.98]'
 								: 'bg-base-200'
 					].join(' ')}
-					{#if step.onclick}
+					{#if step.actions && !step.done}
+						<div class="bg-base-200 rounded-box flex flex-col gap-3 px-4 py-4">
+							<div class="flex items-center gap-4">
+								{@render stepBody(step)}
+							</div>
+							<div class="flex gap-2 pl-13">
+								{#each step.actions as action, i (action.href)}
+									<a
+										href={action.href}
+										class="btn btn-sm flex-1 {i === 0 ? 'btn-primary' : 'btn-outline'}"
+										>{action.label}</a
+									>
+								{/each}
+							</div>
+						</div>
+					{:else if step.onclick}
 						<button type="button" class={cls} onclick={step.onclick}>
 							{@render stepBody(step)}
 						</button>

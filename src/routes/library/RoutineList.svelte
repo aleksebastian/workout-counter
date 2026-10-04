@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
+	import { onMount } from 'svelte';
 	import { formatDistanceToNow } from 'date-fns';
 	import { routines } from '$lib/data';
 	import { session } from '$lib/session.svelte';
@@ -23,6 +25,18 @@
 	let showActions = $state(false);
 	let selected = $state<Routine | undefined>(undefined);
 	let deleteDialog = $state<HTMLDialogElement>()!;
+
+	// `?new=1` (Home's "Create your own") opens the New routine sheet directly.
+	// The flag is removed with a real navigation rather than replaceState:
+	// shallow routing leaves `page.url` as it was, so the tab switcher would
+	// copy the flag straight back into the address bar.
+	onMount(() => {
+		if (page.url.searchParams.get('new') !== '1') return;
+		showNew = true;
+		const url = new URL(page.url);
+		url.searchParams.delete('new');
+		goto(url, { replaceState: true, noScroll: true, keepFocus: true });
+	});
 
 	function stats(routine: Routine) {
 		const list = routine.exercises

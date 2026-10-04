@@ -24,6 +24,11 @@ export function libraryHref(tab: LibraryTab): string {
 	return `/library?tab=${tab}`;
 }
 
+/** Library's routines with the "New routine" sheet already open. */
+export function newRoutineHref(): string {
+	return `${libraryHref('routines')}&new=1`;
+}
+
 export function isLibraryTab(value: string | null | undefined): value is LibraryTab {
 	return value === 'exercises' || value === 'routines' || value === 'programs';
 }
