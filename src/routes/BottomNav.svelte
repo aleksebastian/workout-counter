@@ -115,8 +115,9 @@
 			aria-current={current === 'discover' ? 'page' : undefined}
 			class="nav-item"
 		>
-			<!-- Compass: a disc with the needle cut out, point-symmetric about the
-			     centre so it carries the same visual weight as its neighbours. -->
+			<!-- Compass: a ring around a solid needle with a pivot hole. The needle
+			     is point-symmetric about the centre, and the ring carries roughly the
+			     visual weight of the solid icons beside it. -->
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6"
@@ -126,7 +127,11 @@
 			>
 				<path
 					fill-rule="evenodd"
-					d="M12 2a10 10 0 1 0 0 20a10 10 0 1 0 0-20Zm4.2 5.8-2.9 5.5-5.5 2.9 2.9-5.5 5.5-2.9Z"
+					d="M12 1.75a10.25 10.25 0 1 0 0 20.5a10.25 10.25 0 1 0 0-20.5Zm0 2.5a7.75 7.75 0 1 1 0 15.5a7.75 7.75 0 1 1 0-15.5Z"
+				/>
+				<path
+					fill-rule="evenodd"
+					d="M16.9 7.1 13.9 13.9 7.1 16.9 10.1 10.1Zm-4.9 3.8a1.1 1.1 0 1 0 0 2.2a1.1 1.1 0 1 0 0-2.2Z"
 				/>
 			</svg>
 			<span class="text-[10px] font-medium">Discover</span>
