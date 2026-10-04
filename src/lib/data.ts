@@ -13,6 +13,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { db } from '$lib/firebase';
 import { session } from '$lib/session.svelte';
 import { toaster } from '$lib/toast.svelte';
+import { planSize, type ImportPlan } from '$lib/catalog/plan';
 import type {
 	Duration,
 	Preferences,
@@ -233,6 +234,31 @@ export const programs = {
 			return batch.commit();
 		});
 		return ok ? workout : null;
+	}
+};
+
+// ── Library additions ────────────────────────────────────────────────────────
+
+export const library = {
+	/**
+	 * Writes an import plan (see `$lib/catalog/plan`) in one batch, so a routine
+	 * never lands without the exercises it points at and a failed add leaves
+	 * nothing half-written.
+	 */
+	add(plan: ImportPlan) {
+		if (planSize(plan) === 0) return Promise.resolve(true);
+		const uid = requireUid();
+		return mutate('add to library', () => {
+			const batch = writeBatch(db);
+			const at = (collection: Collection, id: string) => doc(db, 'users', uid, collection, id);
+			for (const w of plan.create.workouts) batch.set(at('workouts', w.id), w);
+			for (const r of plan.create.routines) batch.set(at('routines', r.id), r);
+			for (const p of plan.create.programs) batch.set(at('programs', p.id), p);
+			for (const s of plan.stamps) {
+				batch.update(at('workouts', s.workoutId), { source: { catalogId: s.catalogId } });
+			}
+			return batch.commit();
+		});
 	}
 };
 

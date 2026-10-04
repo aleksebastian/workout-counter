@@ -12,11 +12,19 @@ export type Set = {
 	notes?: string;
 };
 
+/**
+ * Where a library item came from, when it wasn't built from scratch. Stamped
+ * when something is added from the Explore catalog, so a later add can match
+ * it by id instead of guessing from its (editable) name.
+ */
+export type Source = { catalogId: string };
+
 export type Workout = {
 	id: string;
 	name: string;
 	sets: Set[];
 	notes?: string;
+	source?: Source;
 	/** Epoch ms — gives the subcollection a stable insertion order. */
 	createdAt: number;
 };
@@ -36,6 +44,7 @@ export type Routine = {
 	exercises: RoutineExercise[];
 	timer?: Duration;
 	notes?: string;
+	source?: Source;
 	/** Epoch ms — gives the subcollection a stable insertion order. */
 	createdAt: number;
 };
@@ -55,6 +64,7 @@ export type Program = {
 	name: string;
 	notes?: string;
 	schedule: ProgramDay[];
+	source?: Source;
 	/** Epoch ms — gives the subcollection a stable insertion order. */
 	createdAt: number;
 };
@@ -127,11 +137,18 @@ function num(value: unknown, fallback = 0): number {
 	return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }
 
+/** A malformed provenance stamp is dropped rather than trusted. */
+function source(value: unknown): Source | undefined {
+	const id = (value as RawDoc | null | undefined)?.catalogId;
+	return typeof id === 'string' && id ? { catalogId: id } : undefined;
+}
+
 export const parseWorkout: Parse<Workout> = (raw, id) => ({
 	...(raw as Workout),
 	id: str(raw.id, id),
 	name: str(raw.name),
 	sets: arrayOf<Set>(raw.sets),
+	source: source(raw.source),
 	createdAt: num(raw.createdAt)
 });
 
@@ -140,6 +157,7 @@ export const parseRoutine: Parse<Routine> = (raw, id) => ({
 	id: str(raw.id, id),
 	name: str(raw.name),
 	exercises: arrayOf<RoutineExercise>(raw.exercises),
+	source: source(raw.source),
 	createdAt: num(raw.createdAt)
 });
 
@@ -154,6 +172,7 @@ export const parseProgram: Parse<Program> = (raw, id) => ({
 		day: num(day?.day),
 		items: arrayOf<ProgramItem>(day?.items)
 	})),
+	source: source(raw.source),
 	createdAt: num(raw.createdAt)
 });
 
