@@ -194,9 +194,9 @@
 		};
 
 		HAPTIC.medium();
-		// Routine timer beats the global default — resolved inside restTimer.
-		restTimer.start({ routineId: currentEntry.routineId, workoutId: currentEntry.workoutId });
-		pwa.noteSetRecorded();
+		// Routine timer beats the global default — resolved inside restTimer. A
+		// program-day exercise outside any routine gets the global timer.
+		pwa.noteSetRecorded(restTimer.start({ routineId: currentEntry.routineId }));
 
 		const ok = await exercises.addSet(currentWorkout.id, set);
 		if (ok) {

@@ -40,6 +40,7 @@
 		) {
 			return 'library';
 		}
+		if (path.startsWith('/discover')) return 'discover';
 		return '';
 	});
 </script>
@@ -107,6 +108,34 @@
 			</svg>
 			<span class="text-[10px] font-medium">Library</span>
 		</a>
+
+		<a
+			href="/discover"
+			aria-label="Discover"
+			aria-current={current === 'discover' ? 'page' : undefined}
+			class="nav-item"
+		>
+			<!-- Compass: a ring around a solid needle with a pivot hole. The needle
+			     is point-symmetric about the centre, and the ring carries roughly the
+			     visual weight of the solid icons beside it. -->
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="h-6 w-6"
+				viewBox="0 0 24 24"
+				fill="currentColor"
+				aria-hidden="true"
+			>
+				<path
+					fill-rule="evenodd"
+					d="M12 1.75a10.25 10.25 0 1 0 0 20.5a10.25 10.25 0 1 0 0-20.5Zm0 2.5a7.75 7.75 0 1 1 0 15.5a7.75 7.75 0 1 1 0-15.5Z"
+				/>
+				<path
+					fill-rule="evenodd"
+					d="M16.9 7.1 13.9 13.9 7.1 16.9 10.1 10.1Zm-4.9 3.8a1.1 1.1 0 1 0 0 2.2a1.1 1.1 0 1 0 0-2.2Z"
+				/>
+			</svg>
+			<span class="text-[10px] font-medium">Discover</span>
+		</a>
 	</div>
 </nav>
 
@@ -117,7 +146,7 @@
 		align-items: center;
 		gap: 0.125rem;
 		padding-top: 0.375rem;
-		width: 33.3333%;
+		width: 25%;
 		opacity: 0.35;
 	}
 

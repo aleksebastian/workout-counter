@@ -13,10 +13,12 @@
 
 	interface Props {
 		workout: Workout;
+		/** The routine this exercise was opened from, whose rest timer applies. */
+		routineId?: string;
 		hideFirstHeader?: boolean;
 	}
 
-	let { workout, hideFirstHeader = false }: Props = $props();
+	let { workout, routineId, hideFirstHeader = false }: Props = $props();
 
 	let unit = $derived(session.prefs.weightUnit);
 
@@ -62,8 +64,7 @@
 		};
 		const ok = await exercises.addSet(workout.id, copy);
 		if (ok) {
-			restTimer.start({ workoutId: workout.id });
-			pwa.noteSetRecorded();
+			pwa.noteSetRecorded(restTimer.start({ routineId }));
 		}
 	}
 

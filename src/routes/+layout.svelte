@@ -193,7 +193,7 @@
 <div
 	class="mx-auto p-4 transition-[padding] duration-200"
 	style={hasUser
-		? `padding-bottom: calc(var(--bottom-nav-height) + ${restTimer.active ? '7rem' : '2rem'} + env(safe-area-inset-bottom, 0px))`
+		? `padding-bottom: calc(var(--bottom-nav-height) + ${restTimer.barVisible ? '7rem' : '2rem'} + env(safe-area-inset-bottom, 0px))`
 		: 'padding-bottom: 2rem;'}
 >
 	{#if showLoadError}

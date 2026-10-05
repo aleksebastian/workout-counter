@@ -1,6 +1,8 @@
 import { add } from 'date-fns';
 import { HAPTIC } from '$lib/haptic';
 import { session } from '$lib/session.svelte';
+import { user } from '$lib/data';
+import { durationMs, pickRest, type Rest } from '$lib/logic/rest';
 import type { Duration } from '$lib/types';
 
 /**
@@ -11,12 +13,16 @@ import type { Duration } from '$lib/types';
  */
 
 const STORAGE_KEY = 'workout-counter-rest-timer';
+/** Set once the user has answered the "turn on a rest timer?" offer either way. */
+const OFFER_ANSWERED_KEY = 'sc-rest-offer-answered';
 
 let display = $state<string | undefined>(undefined);
 let remainingMs = $state(0);
 let totalMs = $state(0);
 /** Where the running duration came from, so the UI can say so. */
 let sourceLabel = $state<string | null>(null);
+/** Showing the one-time offer to turn the global timer on. */
+let offering = $state(false);
 
 let handle: ReturnType<typeof setInterval> | undefined;
 let expiresAt: Date | undefined;
@@ -29,28 +35,27 @@ function format(ms: number): string {
 	return `${m}:${s < 10 ? '0' : ''}${s}`;
 }
 
-function toMs(d: Duration): number {
-	return (d.minutes * 60 + d.seconds) * 1000;
+/** An explicit duration wins; otherwise see `pickRest`. */
+function resolve(opts: StartOptions): Rest | null {
+	if (opts.duration) return { duration: opts.duration, label: opts.label ?? null };
+	return pickRest(session.routine(opts.routineId), session.prefs);
 }
 
-/**
- * Duration precedence: an explicit duration wins, then the timer on the routine
- * this exercise is being trained under, then the user's global preference.
- */
-function resolve(opts: StartOptions = {}): { duration: Duration; label: string | null } {
-	if (opts.duration) return { duration: opts.duration, label: opts.label ?? null };
+function offerAnswered(): boolean {
+	try {
+		return localStorage.getItem(OFFER_ANSWERED_KEY) === 'true';
+	} catch {
+		return false;
+	}
+}
 
-	const routine =
-		session.routine(opts.routineId) ??
-		// Fall back to any routine that contains this exercise and overrides the timer.
-		(opts.workoutId
-			? (session.routines?.find(
-					(r) => r.timer && r.exercises.some((ex) => ex.workoutId === opts.workoutId)
-				) ?? null)
-			: null);
-
-	if (routine?.timer) return { duration: routine.timer, label: routine.name };
-	return { duration: session.prefs.timer, label: null };
+function answerOffer() {
+	offering = false;
+	try {
+		localStorage.setItem(OFFER_ANSWERED_KEY, 'true');
+	} catch {
+		// Private mode: the offer may come back next session, which is harmless.
+	}
 }
 
 function tick() {
@@ -105,10 +110,8 @@ function cancelPush() {
 export type StartOptions = {
 	/** Overrides everything else. */
 	duration?: Duration;
-	/** Prefer this routine's timer, if it has one. */
+	/** The routine being trained right now, whose timer wins if it has one. */
 	routineId?: string;
-	/** Prefer the timer of a routine containing this exercise, if any. */
-	workoutId?: string;
 	label?: string;
 };
 
@@ -116,8 +119,20 @@ export const restTimer = {
 	get display() {
 		return display;
 	},
+	/** A countdown is running. */
 	get active() {
 		return display !== undefined;
+	},
+	/** Something occupies the bar's slot — a countdown or the offer — for layout to clear. */
+	get barVisible() {
+		return display !== undefined || this.offering;
+	},
+	/**
+	 * The global timer is off and the user hasn't been asked about it yet. Gone
+	 * as soon as it's on, however it got turned on (e.g. via the Preferences link).
+	 */
+	get offering() {
+		return offering && !session.prefs.timerEnabled;
 	},
 	/** 0–100, drains toward 0. */
 	get progress() {
@@ -128,14 +143,25 @@ export const restTimer = {
 		return sourceLabel;
 	},
 
-	start(opts: StartOptions = {}) {
-		const { duration, label } = resolve(opts);
+	/**
+	 * Starts the rest after a recorded set. Returns whether a countdown started,
+	 * so callers can tie follow-up nudges (rest-end notifications) to a real one.
+	 */
+	start(opts: StartOptions = {}): boolean {
+		const rest = resolve(opts);
+		if (!rest || durationMs(rest.duration) <= 0) {
+			// A countdown left over from an earlier set no longer applies.
+			restTimer.stop();
+			if (!offerAnswered()) offering = true;
+			return false;
+		}
+
+		const { duration, label } = rest;
 		clearHandle();
 		cancelPush();
+		offering = false;
 
-		totalMs = toMs(duration);
-		if (totalMs <= 0) return;
-
+		totalMs = durationMs(duration);
 		sourceLabel = label;
 		expiresAt = add(new Date(), { minutes: duration.minutes, seconds: duration.seconds });
 		localStorage.setItem(STORAGE_KEY, expiresAt.toISOString());
@@ -145,6 +171,22 @@ export const restTimer = {
 
 		schedulePush(expiresAt.getTime());
 		handle = setInterval(tick, 1000);
+		return true;
+	},
+
+	/**
+	 * Accepts the offer: turns the global timer on and starts it right away,
+	 * since the user has just finished a set.
+	 */
+	async acceptOffer() {
+		answerOffer();
+		const prefs = session.prefs;
+		restTimer.start({ duration: prefs.timer });
+		await user.setPreferences({ ...prefs, timerEnabled: true });
+	},
+
+	dismissOffer() {
+		answerOffer();
 	},
 
 	stop() {

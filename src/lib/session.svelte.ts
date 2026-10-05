@@ -1,7 +1,7 @@
 import type { User } from 'firebase/auth';
 import { browser } from '$app/environment';
 import { user, userData, workouts, routines, programs, storeErrors } from '$lib/firebase';
-import { DEFAULT_PREFERENCES } from '$lib/constants';
+import { resolvePreferences } from '$lib/logic/rest';
 import type { Preferences, Program, Routine, UserData, Workout } from '$lib/types';
 
 /**
@@ -69,12 +69,7 @@ export const session = {
 
 	/** Preferences with defaults applied, so callers never handle `undefined`. */
 	get prefs(): Preferences {
-		const stored = data?.preferences;
-		return {
-			...DEFAULT_PREFERENCES,
-			...stored,
-			timer: { ...DEFAULT_PREFERENCES.timer, ...stored?.timer }
-		};
+		return resolvePreferences(data?.preferences);
 	},
 
 	get activeProgramId() {
@@ -104,5 +99,11 @@ export const session = {
 	},
 	get activeProgram() {
 		return this.program(this.activeProgramId ?? undefined);
+	},
+
+	/** All three collections together, or `null` until every one has loaded. */
+	get library() {
+		if (!workoutList || !routineList || !programList) return null;
+		return { workouts: workoutList, routines: routineList, programs: programList };
 	}
 };

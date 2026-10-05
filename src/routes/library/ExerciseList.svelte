@@ -4,6 +4,7 @@
 	import { exercises } from '$lib/data';
 	import { session } from '$lib/session.svelte';
 	import { getWorkoutNameValidationMsg } from '$lib/utils';
+	import { discoverHref } from '$lib/routes';
 	import Async from '$lib/components/Async.svelte';
 	import Chevron from '$lib/components/Chevron.svelte';
 	import ActionSheet, { type SheetAction } from '$lib/components/ActionSheet.svelte';
@@ -128,6 +129,7 @@
 				<button class="btn btn-primary btn-sm" onclick={() => (showNew = true)}>
 					{@html AddIcon} Add your first exercise
 				</button>
+				<a class="btn btn-ghost btn-sm" href={discoverHref('exercises')}>Browse exercises</a>
 			</div>
 		{/snippet}
 

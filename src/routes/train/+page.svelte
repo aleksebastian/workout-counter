@@ -3,7 +3,7 @@
 	import { formatDistanceToNow } from 'date-fns';
 	import { session } from '$lib/session.svelte';
 	import { DAY_NAMES } from '$lib/constants';
-	import { libraryHref, runProgramHref, runRoutineHref } from '$lib/routes';
+	import { discoverHref, libraryHref, runProgramHref, runRoutineHref } from '$lib/routes';
 	import { itemsForDay, type Program } from '$lib/types';
 	import Chevron from '$lib/components/Chevron.svelte';
 
@@ -75,10 +75,13 @@
 			<div>
 				<p class="font-semibold">Nothing to train yet</p>
 				<p class="text-base-content/50 mt-1 max-w-xs text-sm">
-					Add a few exercises and they'll show up here, ready to log.
+					Pick a ready-made routine, or add your own exercises, and they'll show up here.
 				</p>
 			</div>
-			<a class="btn btn-primary" href={libraryHref('exercises')}>Go to Library</a>
+			<div class="flex flex-col items-center gap-1">
+				<a class="btn btn-primary" href={discoverHref('routines')}>Find a routine</a>
+				<a class="btn btn-ghost btn-sm" href={libraryHref('exercises')}>Go to Library</a>
+			</div>
 		</div>
 	{:else}
 		{#if activeProgram && todayCount > 0}

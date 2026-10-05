@@ -11,12 +11,22 @@
 		onClose?: () => void;
 		children?: any;
 		headerAction?: Snippet;
+		/** Pinned under the header, outside the scrolling content (e.g. a search field). */
+		toolbar?: Snippet;
+		/** Pinned at the bottom, outside the scrolling content (e.g. a confirm button). */
+		footer?: Snippet;
 		/**
 		 * Focus the first focusable control on open. Turn off for sheets whose first
 		 * control is an input that shouldn't summon the keyboard by itself; the
 		 * sheet itself takes focus instead.
 		 */
 		autofocus?: boolean;
+		/**
+		 * Hold the sheet at its full size instead of sizing to the content, for
+		 * pickers whose list filters as you type — otherwise the sheet jumps with
+		 * every keystroke. Shrinks by the keyboard so the content stays visible.
+		 */
+		fill?: boolean;
 	}
 
 	let {
@@ -26,7 +36,10 @@
 		onClose,
 		children,
 		headerAction,
-		autofocus = true
+		toolbar,
+		footer,
+		autofocus = true,
+		fill = false
 	}: Props = $props();
 
 	// Custom slide transition that uses element's actual height to prevent overshoot
@@ -43,6 +56,7 @@
 	}
 
 	let sheetElement = $state<HTMLElement>();
+	let contentElement = $state<HTMLElement>();
 	let startY = 0;
 	let currentY = 0;
 	let isDragging = false;
@@ -54,14 +68,22 @@
 		large: 'max-h-[85svh]',
 		full: 'max-h-[95svh]'
 	};
+	const fillHeights = { small: '40svh', medium: '60svh', large: '85svh', full: '95svh' };
 
 	function close() {
 		open = false;
 		onClose?.();
 	}
 
+	// Pulling down closes the sheet only when its content is already scrolled to
+	// the top, or the touch starts outside the scrolling area (handle, title).
+	// Otherwise the same gesture is the user scrolling the list back up — treating
+	// it as a dismiss dragged the whole sheet down mid-scroll.
 	function handleTouchStart(e: TouchEvent) {
+		const inContent = contentElement?.contains(e.target as Node) ?? false;
+		if (inContent && (contentElement?.scrollTop ?? 0) > 0) return;
 		startY = e.touches[0].clientY;
+		currentY = startY;
 		isDragging = true;
 	}
 
@@ -144,7 +166,9 @@
 		};
 	});
 
-	// Visual viewport tracking: lift sheet above the software keyboard
+	// Visual viewport tracking: lift sheet above the software keyboard. While it's
+	// up the keyboard covers the home indicator, so the sheet drops its own
+	// safe-area padding — keeping it left a blank band above the keyboard.
 	$effect(() => {
 		if (!open || typeof window === 'undefined' || !window.visualViewport) return;
 
@@ -217,7 +241,11 @@
 		<div
 			bind:this={sheetElement}
 			class="bg-base-100 relative flex w-full flex-col rounded-t-3xl shadow-2xl {sizeClasses[size]}"
-			style="padding-bottom: env(safe-area-inset-bottom, 0px); touch-action: pan-y;"
+			style="padding-bottom: {keyboardOffset > 0
+				? '0px'
+				: 'env(safe-area-inset-bottom, 0px)'}; touch-action: pan-y;{fill
+				? ` height: calc(${fillHeights[size]} - ${keyboardOffset}px);`
+				: ''}"
 			in:slideUp={{ duration: 350 }}
 			onintroend={focusFirst}
 			out:slideUp={{ duration: 300 }}
@@ -243,10 +271,20 @@
 					</div>
 				</div>
 			{/if}
+			{#if toolbar}
+				<div class="shrink-0 px-6 pt-4">{@render toolbar()}</div>
+			{/if}
 			<!-- Content -->
-			<div class="flex-1 overflow-y-auto px-6 py-4" style="min-height: 0">
+			<div
+				bind:this={contentElement}
+				class="flex-1 overflow-y-auto overscroll-contain px-6 py-4"
+				style="min-height: 0"
+			>
 				{@render children?.()}
 			</div>
+			{#if footer}
+				<div class="border-base-300 shrink-0 border-t px-6 py-3">{@render footer()}</div>
+			{/if}
 		</div>
 	</div>
 {/if}

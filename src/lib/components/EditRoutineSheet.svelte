@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { formatDuration } from '$lib/logic/rest';
 	import BottomSheet from '$lib/components/BottomSheet.svelte';
 	import { session } from '$lib/session.svelte';
 	import { getRoutineNameValidationMsg } from '$lib/utils';
@@ -89,8 +90,10 @@
 					<p class="text-base-content/60 text-sm font-medium">Rest Timer</p>
 					<p class="text-base-content/40 text-xs">
 						{useCustomTimer
-							? 'Overrides your default during this routine'
-							: `Uses your default (${session.prefs.timer.minutes}:${session.prefs.timer.seconds < 10 ? '0' : ''}${session.prefs.timer.seconds})`}
+							? 'Used instead of your global timer during this routine'
+							: session.prefs.timerEnabled
+								? `Uses your global timer (${formatDuration(session.prefs.timer)})`
+								: 'No timer — your global timer is off'}
 					</p>
 				</div>
 				<div class="flex items-center gap-2">

@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
+	import { onMount } from 'svelte';
 	import { formatDistanceToNow } from 'date-fns';
 	import { routines } from '$lib/data';
 	import { session } from '$lib/session.svelte';
 	import { getRoutineNameValidationMsg } from '$lib/utils';
-	import { runRoutineHref } from '$lib/routes';
+	import { discoverHref, runRoutineHref } from '$lib/routes';
 	import Async from '$lib/components/Async.svelte';
 	import Chevron from '$lib/components/Chevron.svelte';
 	import ActionSheet, { type SheetAction } from '$lib/components/ActionSheet.svelte';
@@ -23,6 +25,18 @@
 	let showActions = $state(false);
 	let selected = $state<Routine | undefined>(undefined);
 	let deleteDialog = $state<HTMLDialogElement>()!;
+
+	// `?new=1` (Home's "Create your own") opens the New routine sheet directly.
+	// The flag is removed with a real navigation rather than replaceState:
+	// shallow routing leaves `page.url` as it was, so the tab switcher would
+	// copy the flag straight back into the address bar.
+	onMount(() => {
+		if (page.url.searchParams.get('new') !== '1') return;
+		showNew = true;
+		const url = new URL(page.url);
+		url.searchParams.delete('new');
+		goto(url, { replaceState: true, noScroll: true, keepFocus: true });
+	});
 
 	function stats(routine: Routine) {
 		const list = routine.exercises
@@ -90,9 +104,14 @@
 					Group exercises into a routine, then run the whole thing start to finish.
 				</p>
 			</div>
-			<button class="btn btn-primary" onclick={() => (showNew = true)}>
-				{@html AddIcon} Create your first routine
-			</button>
+			<div class="flex flex-col items-center gap-1">
+				<button class="btn btn-primary" onclick={() => (showNew = true)}>
+					{@html AddIcon} Create your first routine
+				</button>
+				<a class="btn btn-ghost btn-sm" href={discoverHref('routines')}
+					>Browse ready-made routines</a
+				>
+			</div>
 		</div>
 	{/snippet}
 

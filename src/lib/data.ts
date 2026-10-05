@@ -13,6 +13,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { db } from '$lib/firebase';
 import { session } from '$lib/session.svelte';
 import { toaster } from '$lib/toast.svelte';
+import { planSize, type ImportPlan } from '$lib/catalog/plan';
 import type {
 	Duration,
 	Preferences,
@@ -62,6 +63,27 @@ async function mutate(label: string, run: () => Promise<unknown>): Promise<boole
 		toaster.error(`Couldn't ${label} — try again`, `data-error-${label}`);
 		return false;
 	}
+}
+
+/**
+ * Creates `newWorkouts` and applies one update in a single batch, so a routine
+ * or program day never references an exercise that doesn't exist yet. With no
+ * new exercises it is just the update.
+ */
+function saveWithNewWorkouts(
+	label: string,
+	newWorkouts: Workout[],
+	collection: 'routines' | 'programs',
+	id: string,
+	fields: Record<string, unknown>
+) {
+	const uid = requireUid();
+	return mutate(label, () => {
+		const batch = writeBatch(db);
+		for (const w of newWorkouts) batch.set(doc(db, 'users', uid, 'workouts', w.id), w);
+		batch.update(doc(db, 'users', uid, collection, id), fields);
+		return batch.commit();
+	});
 }
 
 // ── Exercises ────────────────────────────────────────────────────────────────
@@ -143,31 +165,9 @@ export const routines = {
 		return mutate('save routine', () => updateDoc(ref('routines', id), { exercises: list }));
 	},
 
-	/**
-	 * Creates an exercise and adds it to a routine in one batch, so the routine
-	 * never holds a reference to a document that doesn't exist yet.
-	 */
-	async createExerciseAndAdd(
-		routineId: string,
-		name: string,
-		current: RoutineExercise[]
-	): Promise<Workout | null> {
-		const workout: Workout = {
-			id: uuidv4(),
-			name: name.trim(),
-			sets: [],
-			createdAt: Date.now()
-		};
-		const uid = requireUid();
-		const ok = await mutate('create exercise', () => {
-			const batch = writeBatch(db);
-			batch.set(doc(db, 'users', uid, 'workouts', workout.id), workout);
-			batch.update(doc(db, 'users', uid, 'routines', routineId), {
-				exercises: [...current, { workoutId: workout.id }]
-			});
-			return batch.commit();
-		});
-		return ok ? workout : null;
+	/** Saves the routine's exercise list, creating any exercises it introduces. */
+	saveExercises(id: string, list: RoutineExercise[], newWorkouts: Workout[] = []) {
+		return saveWithNewWorkouts('save routine', newWorkouts, 'routines', id, { exercises: list });
 	}
 };
 
@@ -207,32 +207,34 @@ export const programs = {
 		return mutate('save program', () => updateDoc(ref('programs', id), { schedule }));
 	},
 
+	/** Saves the schedule, creating any exercises it introduces. */
+	saveSchedule(id: string, schedule: ProgramDay[], newWorkouts: Workout[] = []) {
+		return saveWithNewWorkouts('save program', newWorkouts, 'programs', id, { schedule });
+	}
+};
+
+// ── Library additions ────────────────────────────────────────────────────────
+
+export const library = {
 	/**
-	 * See `routines.createExerciseAndAdd` — same batching rationale. The caller
-	 * gets the freshly minted exercise id so it can place the new item wherever
-	 * it belongs in the schedule.
+	 * Writes an import plan (see `$lib/catalog/plan`) in one batch, so a routine
+	 * never lands without the exercises it points at and a failed add leaves
+	 * nothing half-written.
 	 */
-	async createExerciseAndAddToDay(
-		programId: string,
-		name: string,
-		buildSchedule: (workoutId: string) => ProgramDay[]
-	): Promise<Workout | null> {
-		const workout: Workout = {
-			id: uuidv4(),
-			name: name.trim(),
-			sets: [],
-			createdAt: Date.now()
-		};
+	add(plan: ImportPlan) {
+		if (planSize(plan) === 0) return Promise.resolve(true);
 		const uid = requireUid();
-		const ok = await mutate('create exercise', () => {
+		return mutate('add to library', () => {
 			const batch = writeBatch(db);
-			batch.set(doc(db, 'users', uid, 'workouts', workout.id), workout);
-			batch.update(doc(db, 'users', uid, 'programs', programId), {
-				schedule: buildSchedule(workout.id)
-			});
+			const at = (collection: Collection, id: string) => doc(db, 'users', uid, collection, id);
+			for (const w of plan.create.workouts) batch.set(at('workouts', w.id), w);
+			for (const r of plan.create.routines) batch.set(at('routines', r.id), r);
+			for (const p of plan.create.programs) batch.set(at('programs', p.id), p);
+			for (const s of plan.stamps) {
+				batch.update(at('workouts', s.workoutId), { source: { catalogId: s.catalogId } });
+			}
 			return batch.commit();
 		});
-		return ok ? workout : null;
 	}
 };
 

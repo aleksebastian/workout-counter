@@ -6,8 +6,9 @@
 	import { session } from '$lib/session.svelte';
 	import { setPageNav } from '$lib/nav.svelte';
 	import { libraryHref, runRoutineHref } from '$lib/routes';
+	import { formatDuration } from '$lib/logic/rest';
 	import ActionSheet, { type SheetAction } from '$lib/components/ActionSheet.svelte';
-	import AddToPlanSheet from '$lib/components/AddToPlanSheet.svelte';
+	import AddToPlanSheet, { type PlanChange } from '$lib/components/AddToPlanSheet.svelte';
 	import Chevron from '$lib/components/Chevron.svelte';
 	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
 	import EditRoutineSheet from '$lib/components/EditRoutineSheet.svelte';
@@ -36,12 +37,6 @@
 		(routine?.exercises ?? [])
 			.map((ex) => ({ ex, workout: session.workout(ex.workoutId) }))
 			.filter((row): row is Row => row.workout !== null)
-	);
-
-	let available = $derived(
-		(session.workouts ?? []).filter(
-			(w) => !(routine?.exercises ?? []).some((ex) => ex.workoutId === w.id)
-		)
 	);
 
 	const todayStr = new Date().toDateString();
@@ -76,15 +71,10 @@
 	let removeExerciseDialog = $state<HTMLDialogElement>()!;
 	let selectedRow = $state<Row | undefined>(undefined);
 
+	// No "Start routine" here: the page's own Start button sits right beside
+	// this menu.
 	let routineActions = $derived<SheetAction[]>(
 		[
-			rows.length
-				? {
-						label: 'Start routine',
-						icon: CheckIcon,
-						onSelect: () => goto(runRoutineHref(routine!.id))
-					}
-				: null,
 			{ label: 'Add exercises', icon: AddIcon, onSelect: () => (showAdd = true) },
 			rows.length > 1
 				? {
@@ -124,13 +114,16 @@
 		return routines.setExercises(routine.id, exercises);
 	}
 
-	function addExercise(workoutId: string) {
-		save([...(routine?.exercises ?? []), { workoutId }]);
-	}
-
-	async function createExercise(name: string) {
+	/** Removals keep everything else's order and targets; additions go on the end. */
+	function applyChange(change: PlanChange) {
 		if (!routine) return;
-		await routines.createExerciseAndAdd(routine.id, name, routine.exercises);
+		const kept = routine.exercises.filter((ex) => !change.remove.exercises.includes(ex.workoutId));
+		const added = change.add.flatMap((a) =>
+			a.type === 'exercise' && !kept.some((ex) => ex.workoutId === a.workoutId)
+				? [{ workoutId: a.workoutId }]
+				: []
+		);
+		routines.saveExercises(routine.id, [...kept, ...added], change.create);
 	}
 
 	function removeExercise(workoutId: string) {
@@ -241,14 +234,25 @@
 						<p class="text-sm font-semibold">{totalSets}</p>
 					</div>
 				{/if}
-				{#if routine.timer}
-					<div class="bg-base-200 flex-none rounded-xl px-4 py-2.5 text-center">
-						<p class="text-base-content/50 text-xs">Rest timer</p>
+				<!-- Always shown, and tappable: it's where people look to change rest. -->
+				<button
+					class="bg-base-200 hover:bg-base-300 flex-none rounded-xl px-4 py-2.5 text-center transition-colors"
+					aria-label="Edit rest timer"
+					onclick={() => (showEditRoutine = true)}
+				>
+					<p class="text-base-content/50 text-xs">Rest timer</p>
+					{#if routine.timer}
 						<p class="text-primary text-sm font-semibold tabular-nums">
-							{routine.timer.minutes}:{routine.timer.seconds < 10 ? '0' : ''}{routine.timer.seconds}
+							{formatDuration(routine.timer)}
 						</p>
-					</div>
-				{/if}
+					{:else if session.prefs.timerEnabled}
+						<p class="text-sm font-semibold tabular-nums">
+							Global · {formatDuration(session.prefs.timer)}
+						</p>
+					{:else}
+						<p class="text-base-content/50 text-sm font-semibold">Off</p>
+					{/if}
+				</button>
 			</div>
 		{/if}
 
@@ -331,9 +335,13 @@
 
 <AddToPlanSheet
 	bind:open={showAdd}
-	exercises={available}
-	onAddExercise={addExercise}
-	onCreateExercise={createExercise}
+	presentLabel="In this routine"
+	presentExercises={(routine?.exercises ?? []).map((ex) => ({
+		workoutId: ex.workoutId,
+		removable: true,
+		hasTargets: ex.targetSets !== undefined || ex.minReps !== undefined || ex.maxReps !== undefined
+	}))}
+	onSave={applyChange}
 />
 
 <TargetsSheet
