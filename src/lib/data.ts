@@ -15,6 +15,8 @@ import { session } from '$lib/session.svelte';
 import { toaster } from '$lib/toast.svelte';
 import { planSize, type ImportPlan } from '$lib/catalog/plan';
 import type {
+	ActiveSession,
+	SessionLog,
 	Duration,
 	Preferences,
 	Program,
@@ -33,7 +35,7 @@ import type {
  * site inventing its own try/catch and toast.
  */
 
-type Collection = 'workouts' | 'routines' | 'programs';
+type Collection = 'workouts' | 'routines' | 'programs' | 'sessions';
 
 function requireUid(): string {
 	const uid = session.uid;
@@ -233,6 +235,44 @@ export const library = {
 			for (const s of plan.stamps) {
 				batch.update(at('workouts', s.workoutId), { source: { catalogId: s.catalogId } });
 			}
+			return batch.commit();
+		});
+	}
+};
+
+// ── Training sessions ────────────────────────────────────────────────────────
+
+/**
+ * The workout in progress lives on the user document; finished ones become
+ * documents in `sessions`. See `$lib/logic/training.svelte`.
+ */
+export const sessions = {
+	start(session: ActiveSession) {
+		return mutate('start workout', () => updateDoc(userRef(), { activeSession: session }));
+	},
+
+	/** Records moving to another exercise — field paths, so nothing else is rewritten. */
+	move(fields: Pick<ActiveSession, 'currentWorkoutId' | 'currentIndex' | 'lastActiveAt'>) {
+		return mutate('save workout', () =>
+			updateDoc(userRef(), {
+				'activeSession.currentWorkoutId': fields.currentWorkoutId,
+				'activeSession.currentIndex': fields.currentIndex,
+				'activeSession.lastActiveAt': fields.lastActiveAt
+			})
+		);
+	},
+
+	/**
+	 * Ends the workout in progress, saving its log in the same batch — so a
+	 * session is never both still "in progress" and in the history. `null`
+	 * when there's nothing worth keeping (no sets logged).
+	 */
+	close(log: SessionLog | null) {
+		const uid = requireUid();
+		return mutate('end workout', () => {
+			const batch = writeBatch(db);
+			if (log) batch.set(doc(db, 'users', uid, 'sessions', log.id), log);
+			batch.update(doc(db, 'users', uid), { activeSession: deleteField() });
 			return batch.commit();
 		});
 	}

@@ -2,48 +2,97 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import confetti from 'canvas-confetti';
+	import { formatDistanceToNow } from 'date-fns';
 	import { v4 as uuidv4 } from 'uuid';
 	import { exercises } from '$lib/data';
 	import { session } from '$lib/session.svelte';
 	import { setPageNav } from '$lib/nav.svelte';
 	import { restTimer } from '$lib/logic/restTimer.svelte';
+	import { training, type SessionSummary } from '$lib/logic/training.svelte';
+	import { sameSource, setsSince, sourceFromParams } from '$lib/logic/training';
 	import { pwa } from '$lib/logic/pwa.svelte';
 	import { HAPTIC } from '$lib/haptic';
 	import { libraryHref } from '$lib/routes';
-	import { itemsForDay } from '$lib/types';
 	import SetEntry from '$lib/components/SetEntry.svelte';
+	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
 	import NotesIcon from '$lib/icons/notes.svg?raw';
 
 	/**
 	 * One guided session flow, whether the plan came from a program day or a
-	 * single routine. Both used to be different code paths — a program had this
-	 * screen and a routine had "tap each exercise, go back, repeat".
+	 * single routine.
+	 *
+	 * The workout in progress is `training.session`, stored on the user
+	 * document, so this screen can be left and reopened — even after the app
+	 * restarts — and pick up exactly where it was. Start buttons link here with
+	 * `?routine=` or `?program=&day=`; that request becomes the session (or a
+	 * choice, if a different one is running) and is then dropped from the URL,
+	 * so a reload resumes rather than restarting.
 	 */
 
-	type PlanEntry = {
-		workoutId: string;
-		/** undefined = free-form: the user decides when to move on. */
-		targetSets?: number;
-		groupLabel?: string;
-		groupProgress?: { current: number; total: number };
-		routineId?: string;
-	};
+	const requested = sourceFromParams(page.url.searchParams, new Date().getDay());
 
-	let programId = $derived(page.url.searchParams.get('program'));
-	let routineId = $derived(page.url.searchParams.get('routine'));
+	let ready = $derived(session.ready && session.library !== null);
+	let active = $derived(training.session);
+	/** The done screen, kept locally: the session itself is gone once finished. */
+	let summary = $state<SessionSummary | null>(null);
+	/** A Start link for a different workout arrived while one was in progress. */
+	let conflict = $state(false);
+	/** Whether this screen has seen its session, so its disappearing means it ended. */
+	let seenActive = false;
 
-	let program = $derived(session.program(programId ?? undefined));
-	let routine = $derived(session.routine(routineId ?? undefined));
+	function dropRequest() {
+		goto('/train/run', { replaceState: true, noScroll: true, keepFocus: true });
+	}
 
-	let day = $derived.by(() => {
-		const raw = page.url.searchParams.get('day');
-		const parsed = raw === null ? NaN : parseInt(raw, 10);
-		return Number.isInteger(parsed) ? parsed : new Date().getDay();
+	let handled = false;
+	$effect(() => {
+		if (!ready || handled) return;
+		handled = true;
+		if (!requested) return;
+		if (!active) {
+			training.start(requested);
+			dropRequest();
+		} else if (sameSource(active.source, requested)) {
+			dropRequest();
+		} else {
+			conflict = true;
+		}
 	});
 
-	let sourceName = $derived(program?.name ?? routine?.name ?? '');
+	// Nothing in progress — never asked for, or it ended elsewhere (another
+	// device, or closed after inactivity): there's nothing to show here. A
+	// request alone doesn't count until its session has appeared, since starting
+	// one takes a moment to show up in the store.
+	$effect(() => {
+		if (active) seenActive = true;
+		if (ready && !active && !summary && (!requested || seenActive)) {
+			goto('/train', { replaceState: true });
+		}
+	});
+
+	function resumeCurrent() {
+		conflict = false;
+		dropRequest();
+	}
+
+	function replaceCurrent() {
+		if (!requested) return;
+		// The old session disappears a beat before the new one appears; don't
+		// read that gap as "ended elsewhere".
+		seenActive = false;
+		training.finish();
+		training.start(requested);
+		conflict = false;
+		dropRequest();
+	}
+
+	let sourceName = $derived(summary?.name ?? training.name);
 	let backHref = $derived(
-		program ? `/programs/${program.id}` : routine ? `/routines/${routine.id}` : '/train'
+		active?.source.type === 'program'
+			? `/programs/${active.source.programId}`
+			: active?.source.type === 'routine'
+				? `/routines/${active.source.routineId}`
+				: '/train'
 	);
 
 	setPageNav(
@@ -51,75 +100,31 @@
 		() => backHref
 	);
 
-	let loading = $derived(session.programs === null || session.routines === null);
-	let sourceMissing = $derived(!loading && !program && !routine);
+	// ── Plan and position ───────────────────────────────────────────────────────
+	/** `null` when the routine or program behind the session was deleted. */
+	let planEntries = $derived(training.plan);
+	let entries = $derived(planEntries ?? []);
+	let startedAt = $derived(active?.startedAt ?? 0);
 
-	function expandRoutine(id: string, includeGroupLabel: boolean): PlanEntry[] {
-		const r = session.routine(id);
-		if (!r) return [];
-		return r.exercises.map((ex, idx) => ({
-			workoutId: ex.workoutId,
-			targetSets: ex.targetSets,
-			routineId: r.id,
-			...(includeGroupLabel
-				? {
-						groupLabel: r.name,
-						groupProgress: { current: idx + 1, total: r.exercises.length }
-					}
-				: {})
-		}));
+	/** This session's sets for an exercise — not "today's", see `setsSince`. */
+	function setsDoneFor(workoutId: string): number {
+		return setsSince(session.workout(workoutId), startedAt).length;
 	}
 
-	let planEntries = $derived.by((): PlanEntry[] => {
-		if (session.workouts === null) return [];
-		// A routine run is just the routine expanded; a program day may mix
-		// routines and one-off exercises, so both funnel into the same shape.
-		if (routine) return expandRoutine(routine.id, false);
-		if (!program) return [];
-
-		return itemsForDay(program, day).flatMap((item) =>
-			item.type === 'exercise'
-				? [{ workoutId: item.workoutId, targetSets: item.targetSets }]
-				: expandRoutine(item.routineId, true)
-		);
-	});
-
-	const todayStr = new Date().toDateString();
-	function setsToday(workoutId: string): number {
-		return (
-			session.workout(workoutId)?.sets.filter((s) => new Date(s.date).toDateString() === todayStr)
-				.length ?? 0
-		);
-	}
-
-	// ── Position ────────────────────────────────────────────────────────────────
-	// A single explicit index. It only ever moves because the user advanced, so
-	// the screen never jumps out from under someone mid-set.
-	let currentIndex = $state(0);
-	let finished = $state(false);
-	let seeded = false;
-
-	$effect(() => {
-		if (seeded || planEntries.length === 0) return;
-		seeded = true;
-		// Resume where the user left off if some of today's work is already done.
-		const firstIncomplete = planEntries.findIndex(
-			(entry) => entry.targetSets === undefined || setsToday(entry.workoutId) < entry.targetSets
-		);
-		currentIndex = firstIncomplete === -1 ? 0 : firstIncomplete;
-	});
-
-	let currentEntry = $derived(planEntries[currentIndex] ?? null);
+	// Saved on the session, so it only moves when the user advances and
+	// survives leaving the screen.
+	let currentIndex = $derived(training.index);
+	let currentEntry = $derived(entries[currentIndex] ?? null);
 	let currentWorkout = $derived(session.workout(currentEntry?.workoutId));
 	let isFreeForm = $derived(currentEntry?.targetSets === undefined);
 	let targetSets = $derived(currentEntry?.targetSets ?? 0);
-	let setsDone = $derived(currentEntry ? setsToday(currentEntry.workoutId) : 0);
+	let setsDone = $derived(currentEntry ? setsDoneFor(currentEntry.workoutId) : 0);
 	let hitTarget = $derived(!!currentEntry && !isFreeForm && setsDone >= targetSets);
 	/** Set when the user chooses to keep going past the target on this exercise. */
 	let recordingExtra = $state(false);
 	let exerciseComplete = $derived(hitTarget && !recordingExtra);
-	let isLastEntry = $derived(currentIndex >= planEntries.length - 1);
-	let nextEntry = $derived(planEntries[currentIndex + 1] ?? null);
+	let isLastEntry = $derived(currentIndex >= entries.length - 1);
+	let nextEntry = $derived(entries[currentIndex + 1] ?? null);
 
 	// ── Set entry ───────────────────────────────────────────────────────────────
 	let reps = $state(10);
@@ -142,9 +147,7 @@
 	});
 
 	// ── Elapsed ─────────────────────────────────────────────────────────────────
-	const startedAt = Date.now();
 	let now = $state(Date.now());
-	let finalDuration = $state<string | null>(null);
 
 	$effect(() => {
 		const id = setInterval(() => (now = Date.now()), 1000);
@@ -152,8 +155,11 @@
 	});
 
 	let elapsedLabel = $derived.by(() => {
-		const s = Math.floor((now - startedAt) / 1000);
-		return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
+		const s = Math.max(0, Math.floor((now - startedAt) / 1000));
+		const h = Math.floor(s / 3600);
+		const m = Math.floor((s % 3600) / 60);
+		const sec = (s % 60).toString().padStart(2, '0');
+		return h > 0 ? `${h}:${m.toString().padStart(2, '0')}:${sec}` : `${m}:${sec}`;
 	});
 
 	function formatDuration(ms: number): string {
@@ -165,21 +171,6 @@
 		if (m > 0) return `${m}m ${s}s`;
 		return `${s}s`;
 	}
-
-	// ── Summary ─────────────────────────────────────────────────────────────────
-	let sessionTotals = $derived.by(() => {
-		let sets = 0;
-		let reps = 0;
-		for (const entry of planEntries) {
-			const todays =
-				session
-					.workout(entry.workoutId)
-					?.sets.filter((s) => new Date(s.date).toDateString() === todayStr) ?? [];
-			sets += todays.length;
-			reps += todays.reduce((sum, s) => sum + s.reps, 0);
-		}
-		return { sets, reps };
-	});
 
 	// ── Actions ─────────────────────────────────────────────────────────────────
 	async function recordSet() {
@@ -210,15 +201,13 @@
 		if (isLastEntry) {
 			finish();
 		} else {
-			currentIndex += 1;
+			training.moveTo(currentIndex + 1);
 		}
 	}
 
 	function finish() {
-		finished = true;
-		finalDuration = formatDuration(Date.now() - startedAt);
+		summary = training.finish();
 		HAPTIC.success();
-		restTimer.stop();
 		confetti({
 			particleCount: 60,
 			spread: 70,
@@ -227,29 +216,32 @@
 			colors: ['#a855f7', '#3b82f6', '#10b981']
 		});
 	}
+
+	let endDialog = $state<HTMLDialogElement>()!;
 </script>
 
-{#if loading}
-	<div class="mx-auto flex w-full max-w-lg flex-col gap-4">
-		<div class="skeleton h-8 w-full rounded-xl"></div>
-		<div class="skeleton h-64 w-full rounded-2xl"></div>
-		<div class="skeleton h-14 w-full rounded-2xl"></div>
-	</div>
-{:else if sourceMissing}
+{#snippet endButton()}
+	<button class="btn btn-ghost btn-sm text-base-content/50" onclick={() => endDialog?.showModal()}
+		>End workout</button
+	>
+{/snippet}
+
+{#if conflict && active}
 	<div class="mx-auto flex max-w-lg flex-col items-center gap-4 py-16 text-center">
-		<p class="font-semibold">That workout isn't available</p>
-		<p class="text-base-content/50 text-sm">It may have been deleted on another device.</p>
-		<a class="btn btn-primary btn-sm" href="/train">Back to Train</a>
+		<div>
+			<p class="font-semibold">{training.name || 'A workout'} is in progress</p>
+			<p class="text-base-content/50 mt-1 text-sm">
+				Started {formatDistanceToNow(active.startedAt, { addSuffix: true })}
+			</p>
+		</div>
+		<div class="flex w-full max-w-xs flex-col gap-2">
+			<button class="btn btn-primary" onclick={resumeCurrent}
+				>Resume {training.name || 'workout'}</button
+			>
+			<button class="btn btn-ghost" onclick={replaceCurrent}>End it and start this one</button>
+		</div>
 	</div>
-{:else if planEntries.length === 0}
-	<div class="mx-auto flex max-w-lg flex-col items-center gap-4 py-16 text-center">
-		<p class="font-semibold">Nothing scheduled here yet</p>
-		<p class="text-base-content/50 max-w-xs text-sm">
-			Add exercises to {sourceName} and it'll be ready to run.
-		</p>
-		<a class="btn btn-primary btn-sm" href={backHref}>Set it up</a>
-	</div>
-{:else if finished}
+{:else if summary}
 	<div class="mx-auto flex w-full max-w-lg flex-col items-center gap-6 py-8 text-center">
 		<div class="bg-success/10 flex h-28 w-28 items-center justify-center rounded-full">
 			<svg class="text-success h-12 w-12" viewBox="0 0 36 36" aria-hidden="true">
@@ -261,27 +253,48 @@
 		</div>
 		<div>
 			<h1 class="text-2xl font-black">Workout complete!</h1>
-			<p class="text-base-content/50 mt-1 text-sm">{sourceName}</p>
+			<p class="text-base-content/50 mt-1 text-sm">{summary.name}</p>
 		</div>
 
 		<div class="bg-base-200 divide-base-300 grid w-full grid-cols-3 divide-x rounded-2xl">
 			<div class="flex flex-col items-center gap-0.5 px-4 py-4">
-				<span class="text-2xl font-black tabular-nums">{planEntries.length}</span>
+				<span class="text-2xl font-black tabular-nums">{summary.exercises}</span>
 				<span class="text-base-content/50 text-xs">exercises</span>
 			</div>
 			<div class="flex flex-col items-center gap-0.5 px-4 py-4">
-				<span class="text-2xl font-black tabular-nums">{sessionTotals.sets}</span>
+				<span class="text-2xl font-black tabular-nums">{summary.sets}</span>
 				<span class="text-base-content/50 text-xs">sets</span>
 			</div>
 			<div class="flex flex-col items-center gap-0.5 px-4 py-4">
-				<span class="text-2xl font-black tabular-nums">{sessionTotals.reps}</span>
+				<span class="text-2xl font-black tabular-nums">{summary.reps}</span>
 				<span class="text-base-content/50 text-xs">reps</span>
 			</div>
 		</div>
 
-		<p class="text-base-content/40 text-sm">Duration: {finalDuration ?? elapsedLabel}</p>
+		<p class="text-base-content/40 text-sm">Duration: {formatDuration(summary.durationMs)}</p>
 
 		<button class="btn btn-primary btn-lg w-full" onclick={() => goto('/train')}>Done</button>
+	</div>
+{:else if !ready || !active}
+	<div class="mx-auto flex w-full max-w-lg flex-col gap-4">
+		<div class="skeleton h-8 w-full rounded-xl"></div>
+		<div class="skeleton h-64 w-full rounded-2xl"></div>
+		<div class="skeleton h-14 w-full rounded-2xl"></div>
+	</div>
+{:else if planEntries === null}
+	<div class="mx-auto flex max-w-lg flex-col items-center gap-4 py-16 text-center">
+		<p class="font-semibold">That workout isn't available</p>
+		<p class="text-base-content/50 text-sm">It may have been deleted on another device.</p>
+		<button class="btn btn-primary btn-sm" onclick={finish}>End workout</button>
+	</div>
+{:else if entries.length === 0}
+	<div class="mx-auto flex max-w-lg flex-col items-center gap-4 py-16 text-center">
+		<p class="font-semibold">Nothing scheduled here yet</p>
+		<p class="text-base-content/50 max-w-xs text-sm">
+			Add exercises to {sourceName} and it'll be ready to run.
+		</p>
+		<a class="btn btn-primary btn-sm" href={backHref}>Set it up</a>
+		{@render endButton()}
 	</div>
 {:else}
 	<div class="mx-auto flex w-full max-w-lg flex-col gap-4">
@@ -290,11 +303,11 @@
 			<div class="bg-base-300 h-1.5 w-full overflow-hidden rounded-full">
 				<div
 					class="bg-primary h-full rounded-full transition-all duration-500"
-					style:width="{Math.round((currentIndex / planEntries.length) * 100)}%"
+					style:width="{Math.round((currentIndex / entries.length) * 100)}%"
 				></div>
 			</div>
 			<p class="text-base-content/40 text-xs">
-				Exercise {currentIndex + 1} of {planEntries.length} · {elapsedLabel}
+				Exercise {currentIndex + 1} of {entries.length} · {elapsedLabel}
 			</p>
 		</div>
 
@@ -406,8 +419,21 @@
 			{/if}
 		{/if}
 
-		<a class="text-base-content/30 mt-2 text-center text-xs" href={libraryHref('exercises')}
-			>Manage exercises</a
-		>
+		<div class="mt-2 flex items-center justify-center gap-2">
+			{@render endButton()}
+			<a class="btn btn-ghost btn-sm text-base-content/30" href={libraryHref('exercises')}
+				>Manage exercises</a
+			>
+		</div>
 	</div>
 {/if}
+
+<ConfirmationDialog
+	bind:dialog={endDialog}
+	header="End this workout?"
+	content="Your sets are saved, and it's added to your history."
+	actionLabel="End workout"
+	onclose={(e) => {
+		if ((e.target as HTMLDialogElement).returnValue === 'default') finish();
+	}}
+/>

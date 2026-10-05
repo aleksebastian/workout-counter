@@ -79,6 +79,50 @@ export function itemsForDay(program: Program, day: number): ProgramItem[] {
 	return program.schedule.find((d) => d.day === day)?.items ?? [];
 }
 
+// ── Training sessions ────────────────────────────────────────────────────────
+
+/** What a guided session is running: one routine, or one day of a program. */
+export type SessionSource =
+	| { type: 'routine'; routineId: string }
+	| { type: 'program'; programId: string; day: number };
+
+/**
+ * The workout in progress, kept on the user document so it survives leaving
+ * the screen, closing the app, and switching devices. Its sets are the ones
+ * logged since `startedAt`, so nothing about them is duplicated here.
+ */
+export type ActiveSession = {
+	id: string;
+	source: SessionSource;
+	/** Snapshot of the routine/program name, for when the source is renamed or deleted. */
+	name: string;
+	/** Epoch ms. */
+	startedAt: number;
+	/** Epoch ms of the last start or move between exercises (sets carry their own times). */
+	lastActiveAt: number;
+	/**
+	 * The exercise the user is on. Kept by id so editing the plan mid-workout
+	 * doesn't move them; `currentIndex` is the fallback if it leaves the plan.
+	 */
+	currentWorkoutId: string | null;
+	currentIndex: number;
+};
+
+/** A finished (or abandoned) session, kept as workout history. */
+export type SessionLog = {
+	id: string;
+	source: SessionSource;
+	name: string;
+	startedAt: number;
+	endedAt: number;
+	/** `abandoned`: closed automatically after inactivity; `endedAt` is the last activity. */
+	endReason: 'finished' | 'abandoned';
+	exercises: { workoutId: string; name: string; sets: number; reps: number }[];
+	totals: { sets: number; reps: number };
+	/** Epoch ms — gives the subcollection a stable insertion order. */
+	createdAt: number;
+};
+
 export type Preferences = {
 	/** The global rest timer's duration. Used only when `timerEnabled`. */
 	timer: Duration;
@@ -96,6 +140,7 @@ export type UserData = {
 	photoURL: string;
 	activeProgramId?: string | null;
 	preferences?: Partial<Preferences>;
+	activeSession?: ActiveSession | null;
 };
 
 export type Toast = {
@@ -179,4 +224,37 @@ export const parseProgram: Parse<Program> = (raw, id) => ({
 	createdAt: num(raw.createdAt)
 });
 
-export const parseUserData: Parse<UserData> = (raw) => raw as UserData;
+function sessionSource(value: unknown): SessionSource | null {
+	const raw = (value ?? {}) as RawDoc;
+	if (raw.type === 'routine' && typeof raw.routineId === 'string') {
+		return { type: 'routine', routineId: raw.routineId };
+	}
+	if (raw.type === 'program' && typeof raw.programId === 'string') {
+		return { type: 'program', programId: raw.programId, day: num(raw.day) };
+	}
+	return null;
+}
+
+/** A session that can't be resumed (unknown source, no id) is treated as none. */
+export function parseActiveSession(value: unknown): ActiveSession | null {
+	if (!value || typeof value !== 'object') return null;
+	const raw = value as RawDoc;
+	const source = sessionSource(raw.source);
+	const id = str(raw.id);
+	if (!source || !id) return null;
+	const startedAt = num(raw.startedAt);
+	return {
+		id,
+		source,
+		name: str(raw.name),
+		startedAt,
+		lastActiveAt: num(raw.lastActiveAt, startedAt),
+		currentWorkoutId: typeof raw.currentWorkoutId === 'string' ? raw.currentWorkoutId : null,
+		currentIndex: num(raw.currentIndex)
+	};
+}
+
+export const parseUserData: Parse<UserData> = (raw) => ({
+	...(raw as UserData),
+	activeSession: parseActiveSession(raw.activeSession)
+});
