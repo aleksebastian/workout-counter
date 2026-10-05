@@ -107,10 +107,14 @@
 		if (!plan || adding) return;
 		const snapshot = plan;
 		adding = true;
-		const ok = await libraryRepo.add(snapshot);
-		if (ok && data.kind === 'program' && makeActive) {
-			await user.setActiveProgram(snapshot.root.id);
-		}
+		// Issued together rather than one after the other: Firestore applies both
+		// locally at once, but a write's promise only settles when the server
+		// confirms it, so waiting for the add first left a program added offline
+		// (a gym with no signal) un-activated until the phone got back online.
+		const [ok] = await Promise.all([
+			libraryRepo.add(snapshot),
+			data.kind === 'program' && makeActive ? user.setActiveProgram(snapshot.root.id) : true
+		]);
 		adding = false;
 		if (ok) {
 			toaster.success(
