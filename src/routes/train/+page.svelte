@@ -6,6 +6,7 @@
 	import { discoverHref, libraryHref, runProgramHref, runRoutineHref } from '$lib/routes';
 	import { itemsForDay, type Program } from '$lib/types';
 	import Chevron from '$lib/components/Chevron.svelte';
+	import { training } from '$lib/logic/training.svelte';
 
 	/**
 	 * The entry point for actually working out, as opposed to the Library where
@@ -84,7 +85,27 @@
 			</div>
 		</div>
 	{:else}
-		{#if activeProgram && todayCount > 0}
+		{#if training.session}
+			{@const total = training.plan?.length ?? 0}
+			<!-- A workout in progress outranks today's plan: it's what to get back to. -->
+			<div class="flex flex-col gap-2">
+				<p class="text-base-content/40 text-xs font-semibold tracking-wider uppercase">
+					In progress
+				</p>
+				<div
+					class="border-primary/25 bg-primary/8 rounded-box flex flex-col gap-3 border px-4 py-4"
+				>
+					<div>
+						<p class="font-bold">{training.name || 'Workout'}</p>
+						<p class="text-base-content/50 text-xs">
+							Started {formatDistanceToNow(training.session.startedAt, { addSuffix: true })}
+							{#if total}· exercise {training.index + 1} of {total}{/if}
+						</p>
+					</div>
+					<button class="btn btn-primary w-full" onclick={() => goto('/train/run')}>Resume</button>
+				</div>
+			</div>
+		{:else if activeProgram && todayCount > 0}
 			<div class="flex flex-col gap-2">
 				<p class="text-base-content/40 text-xs font-semibold tracking-wider uppercase">Today</p>
 				<div

@@ -8,8 +8,11 @@
 	import BottomNav from './BottomNav.svelte';
 	import Toasts from '$lib/components/Toasts.svelte';
 	import RestTimerBar from '$lib/components/RestTimerBar.svelte';
+	import WorkoutBar from '$lib/components/WorkoutBar.svelte';
 	import { handleSignOut, isSigningOut } from '$lib/logic/auth';
 	import { restTimer } from '$lib/logic/restTimer.svelte';
+	import { training } from '$lib/logic/training.svelte';
+	import { bottomSlot } from '$lib/logic/bottomSlot.svelte';
 	import { pwa } from '$lib/logic/pwa.svelte';
 	import { applyTheme } from '$lib/logic/theme';
 	import { session } from '$lib/session.svelte';
@@ -72,12 +75,21 @@
 
 	$effect(() => applyTheme(session.prefs.theme));
 
+	// Close a workout left idle too long, once the data needed to judge it (its
+	// sets count as activity) has loaded. `training.init` re-checks on return
+	// to the foreground.
+	$effect(() => {
+		if (session.ready && session.library && training.session) training.sweep();
+	});
+
 	onMount(() => {
 		const teardownPwa = pwa.init();
 		const teardownTimer = restTimer.restore();
+		const teardownTraining = training.init();
 		return () => {
 			teardownPwa();
 			teardownTimer();
+			teardownTraining();
 		};
 	});
 
@@ -140,7 +152,9 @@
 )}
 	<div
 		class="bg-base-200 fixed right-4 left-4 z-600 flex items-center justify-between gap-3 rounded-2xl px-4 py-3 shadow-xl"
-		style="bottom: calc(var(--bottom-nav-height) + 0.75rem + env(safe-area-inset-bottom, 0px))"
+		style="bottom: calc(var(--bottom-nav-height) + {bottomSlot.occupied
+			? '5.75rem'
+			: '0.75rem'} + env(safe-area-inset-bottom, 0px)); transition: bottom 300ms ease-out"
 		transition:fly={{ y: 80, duration: 350, easing: cubicOut }}
 	>
 		<div class="min-w-0">
@@ -193,7 +207,7 @@
 <div
 	class="mx-auto p-4 transition-[padding] duration-200"
 	style={hasUser
-		? `padding-bottom: calc(var(--bottom-nav-height) + ${restTimer.barVisible ? '7rem' : '2rem'} + env(safe-area-inset-bottom, 0px))`
+		? `padding-bottom: calc(var(--bottom-nav-height) + ${bottomSlot.occupied ? '7rem' : '2rem'} + env(safe-area-inset-bottom, 0px))`
 		: 'padding-bottom: 2rem;'}
 >
 	{#if showLoadError}
@@ -254,6 +268,7 @@
 
 {#if hasUser}
 	<RestTimerBar />
+	<WorkoutBar />
 	<BottomNav />
 {/if}
 
