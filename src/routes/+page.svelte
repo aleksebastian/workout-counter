@@ -56,9 +56,24 @@
 	);
 	let lastSetTimestamp = $derived(lastSet ? new Date(lastSet.date).getTime() : null);
 
+	/**
+	 * The Last session card's set: the latest one from before the workout in
+	 * progress, if there is one — that workout has its own bar, and showing its
+	 * first set here as "last session" read as if it were already over.
+	 */
+	let sessionSet = $derived.by(() => {
+		const startedAt = training.session?.startedAt;
+		const before =
+			startedAt === undefined ? allSets : allSets.filter((s) => Date.parse(s.date) < startedAt);
+		return before.length
+			? before.reduce((a, b) => (new Date(a.date) > new Date(b.date) ? a : b))
+			: null;
+	});
+	let sessionSetTimestamp = $derived(sessionSet ? new Date(sessionSet.date).getTime() : null);
+
 	let lastWorkout = $derived(
-		lastSet
-			? ((session.workouts ?? []).find((w) => w.sets.some((s) => s.id === lastSet!.id)) ?? null)
+		sessionSet
+			? ((session.workouts ?? []).find((w) => w.sets.some((s) => s.id === sessionSet!.id)) ?? null)
 			: null
 	);
 
@@ -141,19 +156,19 @@
 	});
 
 	let lastSetLabel = $derived.by(() => {
-		if (!lastSetTimestamp) return '';
-		const secs = Math.floor((now - lastSetTimestamp) / 1000);
+		if (!sessionSetTimestamp) return '';
+		const secs = Math.floor((now - sessionSetTimestamp) / 1000);
 		const mins = Math.floor(secs / 60);
 		if (secs < 60) return secs <= 1 ? '1 second ago' : `${secs} seconds ago`;
 		if (mins < 10) return `${mins} minute${mins === 1 ? '' : 's'} ago`;
-		return formatDistanceToNow(lastSetTimestamp, { addSuffix: true });
+		return formatDistanceToNow(sessionSetTimestamp, { addSuffix: true });
 	});
 
 	// Was hardcoded to "kg" regardless of the user's preference.
 	let lastSetDetail = $derived.by(() => {
-		if (!lastSet) return '';
-		const parts = [counted(lastSet.reps, 'rep')];
-		if (lastSet.weight) parts.push(`${lastSet.weight} ${unit}`);
+		if (!sessionSet) return '';
+		const parts = [counted(sessionSet.reps, 'rep')];
+		if (sessionSet.weight) parts.push(`${sessionSet.weight} ${unit}`);
 		return parts.join(' · ');
 	});
 
