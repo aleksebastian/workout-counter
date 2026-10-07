@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
 	STALE_AFTER_MS,
 	buildPlan,
+	isDoneToday,
 	isPlanComplete,
 	isStale,
 	lastActivity,
@@ -194,5 +195,19 @@ describe('isPlanComplete', () => {
 	it('ignores sets from before the session started', () => {
 		const lib = lookups([workout('bench', [-30, -20, 1]), workout('ohp', [4])]);
 		expect(isPlanComplete(plan, lib, T0)).toBe(false);
+	});
+});
+
+describe('isDoneToday', () => {
+	const now = new Date(T0 + 60 * 60_000);
+
+	it('needs the target sets, not just one', () => {
+		expect(isDoneToday(workout('bench', [1]), 3, now)).toBe(false);
+		expect(isDoneToday(workout('bench', [1, 2, 3]), 3, now)).toBe(true);
+	});
+
+	it('counts a free-form exercise done after one set', () => {
+		expect(isDoneToday(workout('ohp', [5]), undefined, now)).toBe(true);
+		expect(isDoneToday(workout('ohp', []), undefined, now)).toBe(false);
 	});
 });

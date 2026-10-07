@@ -6,6 +6,7 @@
 	import { routines } from '$lib/data';
 	import { session } from '$lib/session.svelte';
 	import { getRoutineNameValidationMsg } from '$lib/utils';
+	import { isDoneToday } from '$lib/logic/training';
 	import { discoverHref, runRoutineHref } from '$lib/routes';
 	import Async from '$lib/components/Async.svelte';
 	import Chevron from '$lib/components/Chevron.svelte';
@@ -39,12 +40,13 @@
 	});
 
 	function stats(routine: Routine) {
-		const list = routine.exercises
-			.map((ex) => session.workout(ex.workoutId))
-			.filter((w) => w !== null);
-		const today = new Date().toDateString();
-		const doneToday = list.filter((w) =>
-			w.sets.some((s) => new Date(s.date).toDateString() === today)
+		const entries = routine.exercises.flatMap((ex) => {
+			const workout = session.workout(ex.workoutId);
+			return workout ? [{ ex, workout }] : [];
+		});
+		const list = entries.map((e) => e.workout);
+		const doneToday = entries.filter(({ ex, workout }) =>
+			isDoneToday(workout, ex.targetSets)
 		).length;
 		const times = list.flatMap((w) => w.sets.map((s) => new Date(s.date).getTime()));
 		return {
@@ -138,9 +140,7 @@
 								{/if}
 							</div>
 							<span class="text-base-content/40 text-xs">
-								{#if s.doneToday > 0}
-									{s.doneToday} of {s.total} done today
-								{:else if s.lastSession}
+								{#if s.lastSession}
 									Last: {formatDistanceToNow(s.lastSession, { addSuffix: true })}
 								{:else}
 									Not started yet

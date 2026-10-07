@@ -136,6 +136,20 @@ export function isStale(lastActiveAt: number, now: number): boolean {
 }
 
 /**
+ * Whether an exercise has had its target sets today (any set for a free-form
+ * one). One set of three isn't "done" — the routine lists used to say it was.
+ */
+export function isDoneToday(
+	workout: Workout,
+	targetSets: number | undefined,
+	now = new Date()
+): boolean {
+	const today = now.toDateString();
+	const count = workout.sets.filter((s) => new Date(s.date).toDateString() === today).length;
+	return count >= (targetSets ?? 1);
+}
+
+/**
  * Whether every exercise in the plan got its sets this session. A free-form
  * exercise (no target) counts once it has any set. An exercise planned twice
  * (a program day repeating one) needs both targets' worth.
