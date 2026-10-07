@@ -90,6 +90,19 @@
 			);
 		}
 
+		// A program can quietly add numbered copies of its routines: one the user
+		// already has under that name, but edited or reordered, no longer matches.
+		if (data.kind === 'program') {
+			for (const r of plan.create.routines) {
+				const original = bundle.routines.find((c) => c.id === r.source?.catalogId);
+				if (original && r.name !== original.name) {
+					lines.push(
+						`Your “${original.name}” differs from this program’s, so it also adds “${r.name}”.`
+					);
+				}
+			}
+		}
+
 		const name = addedName(plan);
 		if (name !== item.name) {
 			lines.push(`You already have a different “${item.name}”, so this one will be “${name}”.`);
