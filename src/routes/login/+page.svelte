@@ -3,13 +3,17 @@
 
 	let error = $state('');
 	let loading = $state(false);
+	/** Bumped by Cancel, so a sign-in it gave up on can't touch the page later. */
+	let attempt = 0;
 
 	async function signIn() {
+		const mine = ++attempt;
 		loading = true;
 		error = '';
 		try {
 			await handleSignIn();
 		} catch (e: unknown) {
+			if (mine !== attempt) return;
 			const msg = e instanceof Error ? e.message : String(e);
 			if (msg.includes('missing initial state') || msg.includes('sessionStorage')) {
 				error =
@@ -20,8 +24,18 @@
 				error = msg;
 			}
 		} finally {
-			loading = false;
+			if (mine === attempt) loading = false;
 		}
+	}
+
+	/**
+	 * A popup that never reports back (iOS can lose track of it) would leave the
+	 * button spinning forever. Cancel frees it without abandoning the attempt:
+	 * if Google does finish, handleSignIn still completes and navigates.
+	 */
+	function cancel() {
+		attempt++;
+		loading = false;
 	}
 </script>
 
@@ -154,9 +168,13 @@
 
 		{#if error}
 			<p class="text-error rounded-xl bg-red-500/10 px-4 py-3 text-center text-xs">{error}</p>
+		{:else if loading}
+			<button class="btn btn-ghost btn-xs text-base-content/50 w-full" onclick={cancel}>
+				Cancel
+			</button>
+		{:else}
+			<p class="text-base-content/30 text-center text-xs">No password needed</p>
 		{/if}
-
-		<p class="text-base-content/30 text-center text-xs">No password needed</p>
 		<!-- <p class="text-base-content/30 text-center text-xs">No password needed · free forever</p> -->
 	</div>
 </div>

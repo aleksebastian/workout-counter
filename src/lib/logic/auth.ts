@@ -36,28 +36,41 @@ export async function handleSignIn() {
 	// different account.
 	provider.setCustomParameters({ prompt: 'select_account' });
 
-	const credential = await withTimeout(
-		signInWithPopup(auth, provider),
+	// No timeout here: this resolves only once the person is done on Google's
+	// screen, and typing an email, password and 2FA code easily takes longer
+	// than any fixed limit. Timing it out left them signed in on the client but
+	// stranded on /login without a server session. Closing the popup rejects on
+	// its own; the login page offers Cancel for a popup that never reports back.
+	const credential = await signInWithPopup(auth, provider);
+
+	const idToken = await withTimeout(
+		credential.user.getIdToken(),
 		15000,
 		'Sign-in timed out. Please try again.'
 	);
-
-	const idToken = await credential.user.getIdToken();
 
 	// The server session cookie must exist before we navigate: every route but
 	// /login is gated on it server-side, so navigating early lands on a 302
 	// straight back here. Surfacing the failure lets the login page say so
 	// instead of bouncing the user silently.
-	const response = await fetch('/api/signin', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ idToken })
-	});
+	const response = await withTimeout(
+		fetch('/api/signin', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ idToken })
+		}),
+		15000,
+		'Sign-in timed out. Please try again.'
+	);
 	if (!response.ok) {
 		throw new Error("Couldn't start your session. Please try again.");
 	}
 
-	const userDoc = await getDoc(doc(db, 'users', credential.user.uid));
+	const userDoc = await withTimeout(
+		getDoc(doc(db, 'users', credential.user.uid)),
+		15000,
+		'Sign-in timed out. Please try again.'
+	);
 	const destination = getPostLoginDestination(userDoc.exists() ? userDoc.data() : null);
 
 	// Awaited so the caller's spinner stays up until the page actually commits.
