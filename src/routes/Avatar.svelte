@@ -7,10 +7,12 @@
 	interface Props {
 		hasUser: boolean;
 		user: User | null;
+		/** The claimed handle; the identity people will see once social features land. */
+		username?: string | null;
 		signOutClick: () => void;
 	}
 
-	let { hasUser, user, signOutClick }: Props = $props();
+	let { hasUser, user, username = null, signOutClick }: Props = $props();
 
 	let open = $state(false);
 	let containerEl = $state<HTMLDivElement>();
@@ -67,6 +69,9 @@
 				<div class="border-base-200 border-b px-4 py-3.5">
 					{#if user?.displayName}
 						<p class="truncate text-sm font-semibold">{user.displayName}</p>
+					{/if}
+					{#if username}
+						<p class="text-primary truncate text-xs font-medium">@{username}</p>
 					{/if}
 					{#if user?.email}
 						<p class="text-base-content/40 truncate text-xs">{user.email}</p>

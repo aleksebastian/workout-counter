@@ -137,7 +137,12 @@
 
 	<!-- Right slot: always Avatar -->
 	<div>
-		<Avatar {hasUser} user={session.user} signOutClick={signOut} />
+		<Avatar
+			{hasUser}
+			user={session.user}
+			username={session.data?.username}
+			signOutClick={signOut}
+		/>
 	</div>
 </div>
 
