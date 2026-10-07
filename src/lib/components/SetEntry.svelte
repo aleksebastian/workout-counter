@@ -46,7 +46,12 @@
 	mode: 'numeric' | 'decimal'
 )}
 	<div class="flex flex-col gap-2">
-		<span class="text-base-content/50 text-xs font-semibold tracking-widest uppercase">{label}</span
+		<span class="text-base-content/50 text-xs font-semibold tracking-widest uppercase"
+			>{label}{#if name === 'weight' && value === 0}
+				<!-- Spelled out so an unchanged 0 is a choice, not a forgotten field. -->
+				<span class="text-warning tracking-normal normal-case">
+					· none (bodyweight)</span
+				>{/if}</span
 		>
 		<div class="flex items-center gap-3">
 			<button class={buttonClass} use:holdRepeat={onDown} aria-label="Decrease {name}">

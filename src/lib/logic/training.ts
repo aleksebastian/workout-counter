@@ -22,6 +22,8 @@ export type PlanEntry = {
 	workoutId: string;
 	/** undefined = free-form: the user decides when to move on. */
 	targetSets?: number;
+	/** Bottom of the routine's rep range — where a first set starts. */
+	minReps?: number;
 	groupLabel?: string;
 	groupProgress?: { current: number; total: number };
 	/** The routine this entry comes from, whose rest timer applies. */
@@ -38,6 +40,7 @@ function expandRoutine(routine: Routine, grouped: boolean): PlanEntry[] {
 	return routine.exercises.map((ex, idx) => ({
 		workoutId: ex.workoutId,
 		targetSets: ex.targetSets,
+		...(ex.minReps !== undefined && { minReps: ex.minReps }),
 		routineId: routine.id,
 		...(grouped
 			? {

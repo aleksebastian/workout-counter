@@ -131,7 +131,8 @@
 	let notes = $state('');
 	let showNotes = $state(false);
 
-	// Seed from the last recorded set whenever the exercise changes.
+	// Seed from the last recorded set whenever the exercise changes; a first
+	// ever set starts at the bottom of the routine's rep range.
 	let seededFor = $state<string | null>(null);
 	$effect(() => {
 		const id = currentWorkout?.id;
@@ -139,7 +140,7 @@
 		seededFor = id;
 		recordingExtra = false;
 		const last = currentWorkout!.sets.at(-1);
-		reps = last?.reps ?? 10;
+		reps = last?.reps ?? currentEntry?.minReps ?? 10;
 		weight = last?.weight ?? 0;
 		notes = '';
 		showNotes = false;

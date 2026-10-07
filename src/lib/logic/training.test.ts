@@ -28,7 +28,7 @@ function workout(id: string, setTimes: number[] = []): Workout {
 const push: Routine = {
 	id: 'push',
 	name: 'Push',
-	exercises: [{ workoutId: 'bench', targetSets: 3 }, { workoutId: 'ohp' }],
+	exercises: [{ workoutId: 'bench', targetSets: 3, minReps: 6, maxReps: 8 }, { workoutId: 'ohp' }],
 	createdAt: 0
 };
 
@@ -72,7 +72,7 @@ function session(extra: Partial<ActiveSession> = {}): ActiveSession {
 describe('buildPlan', () => {
 	it('expands a routine', () => {
 		expect(buildPlan({ type: 'routine', routineId: 'push' }, lookups())).toEqual([
-			{ workoutId: 'bench', targetSets: 3, routineId: 'push' },
+			{ workoutId: 'bench', targetSets: 3, minReps: 6, routineId: 'push' },
 			{ workoutId: 'ohp', targetSets: undefined, routineId: 'push' }
 		]);
 	});
