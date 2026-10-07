@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
 	STALE_AFTER_MS,
 	buildPlan,
+	isPlanComplete,
 	isStale,
 	lastActivity,
 	resolveIndex,
@@ -157,7 +158,11 @@ describe('summarize', () => {
 	it("counts only the session's sets, once per exercise", () => {
 		const plan = buildPlan({ type: 'program', programId: 'split', day: 1 }, lookups())!;
 		// An earlier workout the same day must not count — the old "today" bug.
-		const lib = lookups([workout('bench', [-120, 1, 4]), workout('ohp', []), workout('curl', [20])]);
+		const lib = lookups([
+			workout('bench', [-120, 1, 4]),
+			workout('ohp', []),
+			workout('curl', [20])
+		]);
 		expect(summarize(plan, lib, T0)).toEqual({
 			exercises: [
 				{ workoutId: 'bench', name: 'BENCH', sets: 2, reps: 20 },
@@ -165,5 +170,29 @@ describe('summarize', () => {
 			],
 			totals: { sets: 3, reps: 30 }
 		});
+	});
+});
+
+describe('isPlanComplete', () => {
+	const plan = buildPlan({ type: 'routine', routineId: 'push' }, lookups())!;
+
+	it('is complete once each exercise meets its target, free-form needing one set', () => {
+		const lib = lookups([workout('bench', [1, 2, 3]), workout('ohp', [4])]);
+		expect(isPlanComplete(plan, lib, T0)).toBe(true);
+	});
+
+	it('is not complete when a target is short', () => {
+		const lib = lookups([workout('bench', [1, 2]), workout('ohp', [4])]);
+		expect(isPlanComplete(plan, lib, T0)).toBe(false);
+	});
+
+	it('is not complete when a free-form exercise was never done', () => {
+		const lib = lookups([workout('bench', [1, 2, 3]), workout('ohp', [])]);
+		expect(isPlanComplete(plan, lib, T0)).toBe(false);
+	});
+
+	it('ignores sets from before the session started', () => {
+		const lib = lookups([workout('bench', [-30, -20, 1]), workout('ohp', [4])]);
+		expect(isPlanComplete(plan, lib, T0)).toBe(false);
 	});
 });

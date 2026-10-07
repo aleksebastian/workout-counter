@@ -27,7 +27,6 @@
 		"@sveltejs/vite-plugin-svelte": "^7.3.0",
 		"@tailwindcss/postcss": "^4.3.3",
 		"@tailwindcss/typography": "^0.5.20",
-		"@types/canvas-confetti": "^1.9.0",
 		"@types/dom-view-transitions": "^1.0.6",
 		"@types/eslint": "^9.6.1",
 		"@types/node": "^26.2.0",
@@ -57,7 +56,6 @@
 	"packageManager": "pnpm@10",
 	"dependencies": {
 		"@upstash/qstash": "^2.11.3",
-		"canvas-confetti": "^1.9.4",
 		"date-fns": "^4.4.0",
 		"firebase": "^12.17.1",
 		"firebase-admin": "^13.8.0",

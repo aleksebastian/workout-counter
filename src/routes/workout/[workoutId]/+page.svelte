@@ -2,7 +2,6 @@
 	import { page } from '$app/state';
 	import { v4 as uuidv4 } from 'uuid';
 	import { formatRelative } from 'date-fns';
-	import confetti from 'canvas-confetti';
 	import SetsHistoryTable from '../../SetsHistoryTable.svelte';
 	import RecordSetSheet from '$lib/components/RecordSetSheet.svelte';
 	import FAB from '$lib/components/Buttons/FAB.svelte';
@@ -160,12 +159,6 @@
 		const ok = await exercises.addSet(workout.id, set);
 		if (ok && pr) {
 			HAPTIC.success();
-			confetti({
-				particleCount: 120,
-				spread: 80,
-				origin: { y: 0.6 },
-				colors: ['#a855f7', '#3b82f6', '#10b981', '#f59e0b', '#ef4444']
-			});
 		}
 	}
 </script>

@@ -61,7 +61,8 @@ export function buildPlan(source: SessionSource, lookups: Lookups): PlanEntry[] 
 	const program = lookups.program(source.programId);
 	if (!program) return null;
 	return itemsForDay(program, source.day).flatMap((item) => {
-		if (item.type === 'exercise') return [{ workoutId: item.workoutId, targetSets: item.targetSets }];
+		if (item.type === 'exercise')
+			return [{ workoutId: item.workoutId, targetSets: item.targetSets }];
 		const routine = lookups.routine(item.routineId);
 		return routine ? expandRoutine(routine, true) : [];
 	});
@@ -129,6 +130,22 @@ export function lastActivity(session: ActiveSession, plan: PlanEntry[], lookups:
 
 export function isStale(lastActiveAt: number, now: number): boolean {
 	return now - lastActiveAt > STALE_AFTER_MS;
+}
+
+/**
+ * Whether every exercise in the plan got its sets this session. A free-form
+ * exercise (no target) counts once it has any set. An exercise planned twice
+ * (a program day repeating one) needs both targets' worth.
+ */
+export function isPlanComplete(plan: PlanEntry[], lookups: Lookups, since: number): boolean {
+	if (plan.length === 0) return false;
+	const needed = new Map<string, number>();
+	for (const e of plan)
+		needed.set(e.workoutId, (needed.get(e.workoutId) ?? 0) + (e.targetSets ?? 1));
+	for (const [id, count] of needed) {
+		if (setsSince(lookups.workout(id), since).length < count) return false;
+	}
+	return true;
 }
 
 /** Sets and reps per exercise for the session, in plan order, once each. */

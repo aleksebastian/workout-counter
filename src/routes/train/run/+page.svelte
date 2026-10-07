@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import confetti from 'canvas-confetti';
 	import { formatDistanceToNow } from 'date-fns';
 	import { v4 as uuidv4 } from 'uuid';
 	import { exercises } from '$lib/data';
@@ -208,13 +207,6 @@
 	function finish() {
 		summary = training.finish();
 		HAPTIC.success();
-		confetti({
-			particleCount: 60,
-			spread: 70,
-			origin: { y: 0.5 },
-			scalar: 0.9,
-			colors: ['#a855f7', '#3b82f6', '#10b981']
-		});
 	}
 
 	let endDialog = $state<HTMLDialogElement>()!;
@@ -243,16 +235,22 @@
 	</div>
 {:else if summary}
 	<div class="mx-auto flex w-full max-w-lg flex-col items-center gap-6 py-8 text-center">
-		<div class="bg-success/10 flex h-28 w-28 items-center justify-center rounded-full">
-			<svg class="text-success h-12 w-12" viewBox="0 0 36 36" aria-hidden="true">
-				<path
-					fill="currentColor"
-					d="M34.459 1.375a2.999 2.999 0 0 0-4.149.884L13.5 28.17l-8.198-7.58a2.999 2.999 0 1 0-4.073 4.405l10.764 9.952s.309.266.452.359a2.999 2.999 0 0 0 4.15-.884L35.343 5.524a2.999 2.999 0 0 0-.884-4.149z"
-				/>
-			</svg>
-		</div>
+		{#if summary.complete}
+			<div class="bg-success/10 flex h-28 w-28 items-center justify-center rounded-full">
+				<svg class="text-success h-12 w-12" viewBox="0 0 36 36" aria-hidden="true">
+					<path
+						fill="currentColor"
+						d="M34.459 1.375a2.999 2.999 0 0 0-4.149.884L13.5 28.17l-8.198-7.58a2.999 2.999 0 1 0-4.073 4.405l10.764 9.952s.309.266.452.359a2.999 2.999 0 0 0 4.15-.884L35.343 5.524a2.999 2.999 0 0 0-.884-4.149z"
+					/>
+				</svg>
+			</div>
+		{/if}
 		<div>
-			<h1 class="text-2xl font-black">Workout complete!</h1>
+			<!-- Only a workout that hit every target is "complete"; ending early is
+			     reported plainly rather than celebrated. -->
+			<h1 class="text-2xl font-black">
+				{summary.complete ? 'Workout complete' : 'Workout ended'}
+			</h1>
 			<p class="text-base-content/50 mt-1 text-sm">{summary.name}</p>
 		</div>
 

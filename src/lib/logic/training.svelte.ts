@@ -6,6 +6,7 @@ import { toaster } from '$lib/toast.svelte';
 import { restTimer } from '$lib/logic/restTimer.svelte';
 import {
 	buildPlan,
+	isPlanComplete,
 	isStale,
 	lastActivity,
 	resolveIndex,
@@ -38,6 +39,8 @@ export type SessionSummary = {
 	exercises: number;
 	sets: number;
 	reps: number;
+	/** Every planned exercise got its sets; false when the user ended early. */
+	complete: boolean;
 };
 
 /** The history entry for a session, or `null` if it has no sets worth keeping. */
@@ -126,7 +129,8 @@ export const training = {
 			durationMs: now - s.startedAt,
 			exercises: log?.exercises.length ?? 0,
 			sets: log?.totals.sets ?? 0,
-			reps: log?.totals.reps ?? 0
+			reps: log?.totals.reps ?? 0,
+			complete: isPlanComplete(buildPlan(s.source, lookups) ?? [], lookups, s.startedAt)
 		};
 	},
 
