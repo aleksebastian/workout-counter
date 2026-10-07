@@ -11,28 +11,47 @@
 	let username = $state('');
 	let checking = $state(false);
 	let isAvailable = $state(false);
+	let checkFailed = $state(false);
 	let submitting = $state(false);
+	let blurred = $state(false);
 	let debounceTimer: ReturnType<typeof setTimeout>;
 
+	// 3–16 of letters, numbers, `.` and `_`; no `.`/`_` first, last or doubled.
 	const VALID = /^(?=[a-zA-Z0-9._]{3,16}$)(?!.*[_.]{2})[^_.].*[^_.]$/;
 
 	let normalized = $derived(username.toLowerCase());
-	let isValid = $derived(normalized.length > 2 && normalized.length < 16 && VALID.test(normalized));
-	let isTouched = $derived(username.length > 0);
-	let isTaken = $derived(isValid && !isAvailable && !checking);
+	let isValid = $derived(VALID.test(normalized));
+	// Don't flag a name for being short while it's still being typed: wait for
+	// three characters or leaving the field, unless a character is already wrong.
+	let showInvalid = $derived(
+		!isValid &&
+			username.length > 0 &&
+			(blurred || username.length >= 3 || /[^a-zA-Z0-9._]/.test(username))
+	);
+	let isTaken = $derived(isValid && !isAvailable && !checking && !checkFailed);
 
 	function checkAvailability() {
 		isAvailable = false;
+		checkFailed = false;
 		clearTimeout(debounceTimer);
 		if (!isValid) {
 			checking = false;
 			return;
 		}
 		checking = true;
+		const name = normalized;
 		debounceTimer = setTimeout(async () => {
-			const exists = (await getDoc(doc(db, 'usernames', normalized))).exists();
-			isAvailable = !exists;
-			checking = false;
+			try {
+				const exists = (await getDoc(doc(db, 'usernames', name))).exists();
+				if (name !== normalized) return; // typed on since; a newer check owns the state
+				isAvailable = !exists;
+			} catch {
+				if (name !== normalized) return;
+				// Offline or refused: say so instead of spinning on "Checking…" forever.
+				checkFailed = true;
+			} finally {
+				if (name === normalized) checking = false;
+			}
 		}, 500);
 	}
 
@@ -88,7 +107,7 @@
 		<form class="flex w-full flex-col gap-3" onsubmit={confirm}>
 			<label
 				class="input flex w-full items-center gap-2"
-				class:input-error={!isValid && isTouched}
+				class:input-error={showInvalid}
 				class:input-warning={isTaken}
 				class:input-success={isAvailable && isValid && !checking}
 			>
@@ -103,6 +122,7 @@
 					spellcheck="false"
 					bind:value={username}
 					oninput={checkAvailability}
+					onblur={() => (blurred = true)}
 				/>
 				{#if checking}
 					<span class="loading loading-spinner loading-xs text-base-content/30"></span>
@@ -112,8 +132,16 @@
 			</label>
 
 			<div class="min-h-5 px-1 text-xs">
-				{#if !isValid && isTouched}
-					<p class="text-error">3–16 characters, letters and numbers only</p>
+				{#if showInvalid}
+					<p class="text-error">
+						3–16 letters, numbers, dots or underscores — no dot or underscore at the start, end or
+						twice in a row
+					</p>
+				{:else if checkFailed}
+					<p class="text-warning">
+						Couldn't check @{normalized} —
+						<button type="button" class="link" onclick={checkAvailability}>try again</button>
+					</p>
 				{:else if isTaken}
 					<p class="text-warning">@{normalized} is already taken</p>
 				{:else if isAvailable && isValid}
