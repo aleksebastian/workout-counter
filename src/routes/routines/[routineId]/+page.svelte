@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { counted } from '$lib/utils';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { formatDistanceToNow } from 'date-fns';
@@ -179,7 +180,7 @@
 					<span class="text-base-content/50 text-xs"
 						>{formatDistanceToNow(new Date(last.date), { addSuffix: true })}</span
 					>
-					<span class="badge badge-sm badge-ghost font-medium">{last.reps} reps</span>
+					<span class="badge badge-sm badge-ghost font-medium">{counted(last.reps, 'rep')}</span>
 					{#if last.weight && last.weight > 0}
 						<span class="badge badge-sm badge-ghost font-medium">{last.weight} {unit}</span>
 					{/if}

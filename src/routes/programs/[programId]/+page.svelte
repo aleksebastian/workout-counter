@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { counted } from '$lib/utils';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { programs, user } from '$lib/data';
@@ -288,7 +289,9 @@
 									>{done >= ex.targetSets ? '✓' : `${done}/${ex.targetSets}`}</span
 								>
 							{:else}
-								<span class="text-base-content/30 text-xs">{done > 0 ? `${done} sets` : '—'}</span>
+								<span class="text-base-content/30 text-xs"
+									>{done > 0 ? counted(done, 'set') : '—'}</span
+								>
 							{/if}
 						</div>
 					{/each}
@@ -310,11 +313,13 @@
 				{:else if last}
 					<span>{last.reps} reps{last.weight ? ` · ${last.weight} ${unit}` : ''}</span>
 				{:else}
-					<span>{item.targetSets} sets planned</span>
+					<span>{counted(item.targetSets, 'set')} planned</span>
 				{/if}
 			</div>
 		</div>
-		<span class="badge badge-ghost badge-sm shrink-0 self-center">{item.targetSets} sets</span>
+		<span class="badge badge-ghost badge-sm shrink-0 self-center"
+			>{counted(item.targetSets, 'set')}</span
+		>
 	{/if}
 {/snippet}
 
@@ -347,7 +352,7 @@
 						class:btn-ghost={selectedDay !== dayNum}
 						class:ring-2={dayNum === todayDow && selectedDay !== dayNum}
 						class:ring-primary={dayNum === todayDow && selectedDay !== dayNum}
-						aria-label="{DAY_FULL[dayNum]} — {count} exercises"
+						aria-label="{DAY_FULL[dayNum]} — {counted(count, 'exercise')}"
 						onclick={() => {
 							selectedDay = dayNum;
 							reordering = false;

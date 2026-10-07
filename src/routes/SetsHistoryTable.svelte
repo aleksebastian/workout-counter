@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { counted } from '$lib/utils';
 	import { v4 as uuidv4 } from 'uuid';
 	import { format, formatRelative } from 'date-fns';
 	import EditSetSheet from '$lib/components/EditSetSheet.svelte';
@@ -125,7 +126,7 @@
 			{#if !(index === 0 && hideFirstHeader)}
 				<div class="mb-2 flex justify-between">
 					<h3>{dayHeading(group.date)}</h3>
-					<p><strong>{group.totalReps} reps</strong></p>
+					<p><strong>{counted(group.totalReps, 'rep')}</strong></p>
 				</div>
 			{/if}
 

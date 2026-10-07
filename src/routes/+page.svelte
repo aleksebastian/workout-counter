@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { counted, plural } from '$lib/utils';
 	import { goto, afterNavigate } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -151,7 +152,7 @@
 	// Was hardcoded to "kg" regardless of the user's preference.
 	let lastSetDetail = $derived.by(() => {
 		if (!lastSet) return '';
-		const parts = [`${lastSet.reps} reps`];
+		const parts = [counted(lastSet.reps, 'rep')];
 		if (lastSet.weight) parts.push(`${lastSet.weight} ${unit}`);
 		return parts.join(' · ');
 	});
@@ -173,8 +174,8 @@
 	let stats = $derived(
 		[
 			{ value: sinceLastSet, label: 'since last set' },
-			{ value: String(weekDayCount), label: 'days this week' },
-			streaksEnabled ? { value: String(streak), label: 'week streak' } : null
+			{ value: String(weekDayCount), label: `${plural(weekDayCount, 'day')} this week` },
+			streaksEnabled ? { value: String(streak), label: `${plural(streak, 'week')} streak` } : null
 		].filter((s) => s !== null)
 	);
 
@@ -458,7 +459,7 @@
 							<a href={'/routines/' + routine.id} class="flex min-w-0 flex-1 flex-col">
 								<span class="truncate text-sm font-semibold">{routine.name}</span>
 								<span class="text-base-content/40 text-xs"
-									>{routine.exercises.length} exercises</span
+									>{counted(routine.exercises.length, 'exercise')}</span
 								>
 							</a>
 							{#if routine.exercises.length}

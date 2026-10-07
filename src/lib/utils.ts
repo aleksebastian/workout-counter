@@ -1,6 +1,16 @@
 import type { User } from 'firebase/auth';
 import type { Workout, Routine, Program } from './types';
 
+/** "set" for 1, "sets" otherwise. Only regular plurals — every noun this app counts. */
+export function plural(n: number, word: string): string {
+	return n === 1 ? word : `${word}s`;
+}
+
+/** "1 set", "3 sets". */
+export function counted(n: number, word: string): string {
+	return `${n} ${plural(n, word)}`;
+}
+
 export function getUserInitials(user: User) {
 	if (user) {
 		const name = user.displayName;

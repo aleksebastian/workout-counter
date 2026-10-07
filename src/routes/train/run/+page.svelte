@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { counted, plural } from '$lib/utils';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { formatDistanceToNow } from 'date-fns';
@@ -259,15 +260,15 @@
 		<div class="bg-base-200 divide-base-300 grid w-full grid-cols-3 divide-x rounded-2xl">
 			<div class="flex flex-col items-center gap-0.5 px-4 py-4">
 				<span class="text-2xl font-black tabular-nums">{summary.exercises}</span>
-				<span class="text-base-content/50 text-xs">exercises</span>
+				<span class="text-base-content/50 text-xs">{plural(summary.exercises, 'exercise')}</span>
 			</div>
 			<div class="flex flex-col items-center gap-0.5 px-4 py-4">
 				<span class="text-2xl font-black tabular-nums">{summary.sets}</span>
-				<span class="text-base-content/50 text-xs">sets</span>
+				<span class="text-base-content/50 text-xs">{plural(summary.sets, 'set')}</span>
 			</div>
 			<div class="flex flex-col items-center gap-0.5 px-4 py-4">
 				<span class="text-2xl font-black tabular-nums">{summary.reps}</span>
-				<span class="text-base-content/50 text-xs">reps</span>
+				<span class="text-base-content/50 text-xs">{plural(summary.reps, 'rep')}</span>
 			</div>
 		</div>
 
@@ -328,7 +329,7 @@
 			<h1 class="text-2xl leading-tight font-black">{currentWorkout?.name ?? '—'}</h1>
 			<div class="flex items-center gap-2">
 				{#if isFreeForm}
-					<span class="text-base-content/50 text-sm">{setsDone} sets today</span>
+					<span class="text-base-content/50 text-sm">{counted(setsDone, 'set')} today</span>
 				{:else}
 					<div class="flex gap-1">
 						{#each { length: targetSets } as _, i}
@@ -349,7 +350,7 @@
 				<div class="text-success text-4xl">✓</div>
 				<div>
 					<p class="text-success font-semibold">Exercise complete!</p>
-					<p class="text-base-content/50 mt-1 text-sm">{setsDone} sets done</p>
+					<p class="text-base-content/50 mt-1 text-sm">{counted(setsDone, 'set')} done</p>
 				</div>
 			</div>
 
@@ -365,7 +366,9 @@
 						{/if}
 						<p class="font-semibold">{session.workout(nextEntry.workoutId)?.name ?? '—'}</p>
 						<p class="text-base-content/40 text-xs">
-							{nextEntry.targetSets !== undefined ? `${nextEntry.targetSets} sets` : 'Free-form'}
+							{nextEntry.targetSets !== undefined
+								? counted(nextEntry.targetSets, 'set')
+								: 'Free-form'}
 						</p>
 					</div>
 				</div>
