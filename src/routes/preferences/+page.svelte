@@ -102,18 +102,19 @@
 {/snippet}
 
 <div class="mx-auto flex w-full max-w-lg flex-col gap-6">
-	<div class="flex h-6 justify-end">
-		{#if saveState === 'saved'}
-			<span
-				class="text-success text-sm font-semibold whitespace-nowrap"
-				in:fade={{ duration: 200 }}
-				out:fade={{ duration: 150 }}>✓ Saved</span
-			>
-		{/if}
-	</div>
-
 	<section class="flex flex-col gap-3">
-		<p class="text-base-content/40 text-xs font-semibold tracking-widest uppercase">Appearance</p>
+		<!-- "Saved" shares the first heading's line rather than reserving an
+		     empty row of its own above everything. -->
+		<div class="flex h-5 items-center justify-between">
+			<p class="text-base-content/40 text-xs font-semibold tracking-widest uppercase">Appearance</p>
+			{#if saveState === 'saved'}
+				<span
+					class="text-success text-sm font-semibold whitespace-nowrap"
+					in:fade={{ duration: 200 }}
+					out:fade={{ duration: 150 }}>✓ Saved</span
+				>
+			{/if}
+		</div>
 		<div class="bg-base-200 flex items-center justify-between gap-4 rounded-2xl px-4 py-4">
 			{@render row('Theme', 'App colour scheme')}
 			<div class="join">
@@ -172,7 +173,7 @@
 				Routines with their own rest timer use that instead.
 			</p>
 			{#if draft.timerEnabled}
-				<div class="-mx-4 flex scrollbar-none gap-2 overflow-x-auto px-4 pb-1">
+				<div class="flex flex-wrap gap-2">
 					{#each TIMER_PRESETS as preset}
 						<button
 							type="button"
