@@ -3,6 +3,15 @@
 	import { restTimer } from '$lib/logic/restTimer.svelte';
 	import { formatDuration } from '$lib/logic/rest';
 	import { session } from '$lib/session.svelte';
+	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
+	import { training } from '$lib/logic/training.svelte';
+
+	// Resting during a workout while elsewhere in the app: the countdown holds
+	// the in-progress bar's slot, so it doubles as the way back.
+	let canResume = $derived(
+		training.session !== null && !page.url.pathname.startsWith('/train/run')
+	);
 </script>
 
 {#snippet dismissIcon()}
@@ -61,16 +70,32 @@
 	>
 		<div class="bg-base-200 border-base-300 overflow-hidden rounded-2xl border shadow-xl">
 			<div class="flex items-center gap-4 px-4 py-3">
-				<div class="min-w-0 flex-1">
-					<p class="text-base-content/40 text-xs font-semibold tracking-widest uppercase">Rest</p>
-					<!-- Naming the source makes the routine-over-default precedence visible,
-					     rather than leaving the user to wonder why this rest is 2:00 today. -->
-					<p class="text-base-content/55 mt-0.5 truncate text-xs">
-						{restTimer.source ? `${restTimer.source} timer` : 'Next set coming up'}
-					</p>
-				</div>
+				<button
+					type="button"
+					class="flex min-w-0 flex-1 items-center gap-4 text-left"
+					disabled={!canResume}
+					aria-label={canResume
+						? `Rest ${restTimer.display}. Back to ${training.name || 'workout'}`
+						: undefined}
+					onclick={() => goto('/train/run')}
+				>
+					<span class="min-w-0 flex-1">
+						<span class="text-base-content/40 block text-xs font-semibold tracking-widest uppercase"
+							>Rest</span
+						>
+						<!-- Naming the source makes the routine-over-default precedence visible,
+						     rather than leaving the user to wonder why this rest is 2:00 today. -->
+						<span class="text-base-content/55 mt-0.5 block truncate text-xs">
+							{canResume
+								? `Back to ${training.name || 'workout'}`
+								: restTimer.source
+									? `${restTimer.source} timer`
+									: 'Next set coming up'}
+						</span>
+					</span>
 
-				<span class="text-primary text-3xl font-black tabular-nums">{restTimer.display}</span>
+					<span class="text-primary text-3xl font-black tabular-nums">{restTimer.display}</span>
+				</button>
 
 				<button
 					class="btn btn-circle btn-ghost btn-sm text-base-content/30"

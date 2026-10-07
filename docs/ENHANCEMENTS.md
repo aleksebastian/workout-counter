@@ -9,7 +9,9 @@ Tracks upcoming features and improvements. Each item includes status, priority, 
 
 ## 1 — Notification Permission Banner Stacking
 
-**Status:** Backlog | **Priority:** P2
+**Status:** Done | **Priority:** P2
+
+> Done with the active-session work: banners now sit above whatever holds the slot over the bottom nav (rest countdown, rest-timer offer, or workout-in-progress bar) — see `bottomSlot` in `src/lib/logic/bottomSlot.svelte.ts`.
 
 The allow-notifications banner currently renders on top of the rest timer bar and overlaps it. It should stack *above* the rest timer in the visual hierarchy so both are fully visible simultaneously.
 

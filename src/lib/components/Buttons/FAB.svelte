@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { scale } from 'svelte/transition';
 	import AddIcon from '$lib/icons/add.svg?raw';
-	import { restTimer } from '$lib/logic/restTimer.svelte';
+	import { bottomSlot } from '$lib/logic/bottomSlot.svelte';
 
 	let {
 		onclick,
@@ -9,9 +9,9 @@
 		label = 'Add'
 	}: { onclick: () => void; hidden?: boolean; label?: string } = $props();
 
-	// Move FAB up when rest timer is active to avoid blocking it
+	// Move the FAB up while the slot above the nav is taken, so it never covers a bar
 	let bottomPosition = $derived(
-		restTimer.barVisible
+		bottomSlot.occupied
 			? 'calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 5.75rem)'
 			: 'calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 0.75rem)'
 	);

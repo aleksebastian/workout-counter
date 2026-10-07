@@ -12,12 +12,13 @@ service cloud.firestore {
 			allow delete: if false;
 		}
 
-		// Exercises, routines and programs live in per-user subcollections so that
-		// concurrent writes to different entities cannot clobber each other.
+		// Exercises, routines, programs and finished training sessions live in
+		// per-user subcollections so that concurrent writes to different entities
+		// cannot clobber each other.
 		match /users/{userId}/{entity}/{entityId} {
 			allow read, write: if request.auth != null
 												&& request.auth.uid == userId
-												&& entity in ['workouts', 'routines', 'programs'];
+												&& entity in ['workouts', 'routines', 'programs', 'sessions'];
 		}
 
 		match /usernames/{username} {

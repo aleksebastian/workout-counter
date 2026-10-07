@@ -5,6 +5,7 @@
 	import type { TransitionConfig } from 'svelte/transition';
 	import { browser } from '$app/environment';
 	import HomeIcon from '$lib/icons/home.svg?raw';
+	import { training } from '$lib/logic/training.svelte';
 
 	// Use sessionStorage to persist animation state across navigation
 	// This ensures the animation only plays once per session, even after login redirects
@@ -63,7 +64,7 @@
 
 		<a
 			href="/train"
-			aria-label="Train"
+			aria-label={training.session ? 'Train, workout in progress' : 'Train'}
 			aria-current={current === 'train' ? 'page' : undefined}
 			class="nav-item"
 		>
@@ -82,6 +83,13 @@
 				<rect x="19.5" y="7.5" width="3" height="9" rx="1.5" />
 			</svg>
 			<span class="text-[10px] font-medium">Train</span>
+			{#if training.session}
+				<!-- A workout is in progress. -->
+				<span
+					class="bg-primary absolute top-1.5 left-1/2 ml-3 h-2 w-2 rounded-full"
+					aria-hidden="true"
+				></span>
+			{/if}
 		</a>
 
 		<a
@@ -141,6 +149,7 @@
 
 <style>
 	.nav-item {
+		position: relative;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
