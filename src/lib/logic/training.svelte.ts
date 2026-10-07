@@ -10,6 +10,7 @@ import {
 	isStale,
 	lastActivity,
 	resolveIndex,
+	sameSource,
 	sourceName,
 	summarize,
 	type Lookups,
@@ -91,6 +92,17 @@ export const training = {
 		const s = this.session;
 		if (!s) return '';
 		return sourceName(s.source, lookups) ?? s.name;
+	},
+
+	/** Whether `source` is the workout in progress, so its Start buttons can say Resume. */
+	isRunning(source: SessionSource): boolean {
+		const s = this.session;
+		return !!s && sameSource(s.source, source);
+	},
+
+	/** What a routine or program is called now, for naming one that isn't running yet. */
+	nameOf(source: SessionSource): string | null {
+		return sourceName(source, lookups);
 	},
 
 	start(source: SessionSource): ActiveSession {

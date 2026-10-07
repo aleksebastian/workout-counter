@@ -7,6 +7,7 @@
 	import { session } from '$lib/session.svelte';
 	import { user } from '$lib/data';
 	import { pwa } from '$lib/logic/pwa.svelte';
+	import { training } from '$lib/logic/training.svelte';
 	import {
 		discoverHref,
 		libraryHref,
@@ -433,7 +434,10 @@
 					{#if todayCount > 0}
 						<button
 							class="btn btn-primary btn-sm"
-							onclick={() => goto(runProgramHref(activeProgram.id, todayDow))}>Start</button
+							onclick={() => goto(runProgramHref(activeProgram.id, todayDow))}
+							>{training.isRunning({ type: 'program', programId: activeProgram.id, day: todayDow })
+								? 'Resume'
+								: 'Start'}</button
 						>
 					{:else}
 						<a class="btn btn-ghost btn-sm" href={`/programs/${activeProgram.id}`}>View</a>
@@ -461,7 +465,10 @@
 								<button
 									class="btn btn-primary btn-sm shrink-0"
 									aria-label="Start {routine.name}"
-									onclick={() => goto(runRoutineHref(routine.id))}>Start</button
+									onclick={() => goto(runRoutineHref(routine.id))}
+									>{training.isRunning({ type: 'routine', routineId: routine.id })
+										? 'Resume'
+										: 'Start'}</button
 								>
 							{/if}
 						</div>

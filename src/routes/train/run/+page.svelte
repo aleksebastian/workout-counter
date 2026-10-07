@@ -11,7 +11,6 @@
 	import { sameSource, setsSince, sourceFromParams } from '$lib/logic/training';
 	import { pwa } from '$lib/logic/pwa.svelte';
 	import { HAPTIC } from '$lib/haptic';
-	import { libraryHref } from '$lib/routes';
 	import SetEntry from '$lib/components/SetEntry.svelte';
 	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
 	import NotesIcon from '$lib/icons/notes.svg?raw';
@@ -231,7 +230,9 @@
 			<button class="btn btn-primary" onclick={resumeCurrent}
 				>Resume {training.name || 'workout'}</button
 			>
-			<button class="btn btn-ghost" onclick={replaceCurrent}>End it and start this one</button>
+			<button class="btn btn-ghost" onclick={replaceCurrent}
+				>End it and start {(requested && training.nameOf(requested)) || 'this one'}</button
+			>
 		</div>
 	</div>
 {:else if summary}
@@ -397,13 +398,14 @@
 			<div class="flex gap-2">
 				<button class="btn btn-primary btn-lg flex-1" onclick={recordSet}>Record Set</button>
 				<button
-					class="btn btn-lg btn-square"
+					class="btn btn-lg gap-1.5 px-4"
 					class:btn-primary={!!notes}
 					class:btn-ghost={!notes}
-					aria-label={showNotes ? 'Hide note' : 'Add a note'}
+					aria-expanded={showNotes}
 					onclick={() => (showNotes = !showNotes)}
 				>
-					<span class="[&>svg]:h-5 [&>svg]:w-5">{@html NotesIcon}</span>
+					<span class="[&>svg]:h-5 [&>svg]:w-5" aria-hidden="true">{@html NotesIcon}</span>
+					<span class="text-sm">Note</span>
 				</button>
 			</div>
 
@@ -420,9 +422,12 @@
 
 		<div class="mt-2 flex items-center justify-center gap-2">
 			{@render endButton()}
-			<a class="btn btn-ghost btn-sm text-base-content/30" href={libraryHref('exercises')}
-				>Manage exercises</a
-			>
+			<!-- Opens the routine or program being run: where its exercises are edited. -->
+			{#if active}
+				<a class="btn btn-ghost btn-sm text-base-content/50" href={backHref}
+					>Edit {active.source.type === 'program' ? 'program' : 'routine'}</a
+				>
+			{/if}
 		</div>
 	</div>
 {/if}

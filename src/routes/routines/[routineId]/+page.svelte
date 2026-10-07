@@ -4,6 +4,7 @@
 	import { formatDistanceToNow } from 'date-fns';
 	import { routines } from '$lib/data';
 	import { session } from '$lib/session.svelte';
+	import { training } from '$lib/logic/training.svelte';
 	import { setPageNav } from '$lib/nav.svelte';
 	import { libraryHref, runRoutineHref } from '$lib/routes';
 	import { formatDuration } from '$lib/logic/rest';
@@ -207,7 +208,9 @@
 			<div class="flex items-center gap-1">
 				{#if rows.length}
 					<button class="btn btn-primary btn-sm" onclick={() => goto(runRoutineHref(routine.id))}
-						>Start</button
+						>{training.isRunning({ type: 'routine', routineId: routine.id })
+							? 'Resume'
+							: 'Start'}</button
 					>
 				{/if}
 				<RowMenuButton label="Routine options" onclick={() => (showRoutineMenu = true)} />

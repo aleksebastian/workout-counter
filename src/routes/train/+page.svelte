@@ -157,7 +157,10 @@
 						<button
 							class="btn btn-primary btn-sm shrink-0"
 							aria-label="Start {routine.name}"
-							onclick={() => goto(runRoutineHref(routine.id))}>Start</button
+							onclick={() => goto(runRoutineHref(routine.id))}
+							>{training.isRunning({ type: 'routine', routineId: routine.id })
+								? 'Resume'
+								: 'Start'}</button
 						>
 					</div>
 				{/each}
