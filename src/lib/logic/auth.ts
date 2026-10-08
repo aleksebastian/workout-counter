@@ -1,7 +1,12 @@
 import { goto } from '$app/navigation';
 import { auth, db } from '$lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
-import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
+import { clearIndexedDbPersistence, doc, getDoc, terminate } from 'firebase/firestore';
+import {
+	GoogleAuthProvider,
+	reauthenticateWithPopup,
+	signInWithPopup,
+	signOut
+} from 'firebase/auth';
 import { getPostLoginDestination } from '$lib/logic/onboarding';
 
 /**
@@ -92,17 +97,38 @@ export async function handleSignOut() {
 }
 
 /**
- * Permanently deletes the account on the server, then signs out locally. The
- * server removes the Firebase user, so a plain sign-out is all that's left.
+ * Permanently deletes the account. Google sign-in is asked for again first:
+ * the server only deletes on a token from the last few minutes, so a session
+ * left open on someone's device can't be used to wipe the account.
+ *
+ * Afterwards the local Firestore cache is cleared too — it holds a full copy
+ * of the deleted history — which leaves the SDK unusable, so this ends in a
+ * full page load rather than a client-side navigation.
  */
 export async function deleteAccount() {
-	const response = await fetch('/api/account', { method: 'DELETE' });
-	if (!response.ok) throw new Error("Couldn't delete your account. Please try again.");
+	const current = auth.currentUser;
+	if (!current) throw new Error('Sign in again to delete your account.');
+	const provider = new GoogleAuthProvider();
+	provider.setCustomParameters({ prompt: 'select_account' });
+	const fresh = await reauthenticateWithPopup(current, provider);
+	const idToken = await fresh.user.getIdToken(true);
+
+	// Set before the delete: the profile document vanishing would otherwise
+	// read as a new account and send the layout to username setup.
 	signingOut = true;
 	try {
+		const response = await fetch('/api/account', {
+			method: 'DELETE',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ idToken })
+		});
+		if (!response.ok) throw new Error("Couldn't delete your account. Please try again.");
 		await signOut(auth).catch(() => {});
-		await goto('/login', { replaceState: true });
-	} finally {
+		await terminate(db).catch(() => {});
+		await clearIndexedDbPersistence(db).catch(() => {});
+		window.location.replace('/login');
+	} catch (e) {
 		signingOut = false;
+		throw e;
 	}
 }

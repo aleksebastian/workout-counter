@@ -68,7 +68,8 @@
 			return;
 		}
 
-		if (status === 'onboarding' && !path.startsWith('/login')) {
+		// Deleting an account also empties the profile; that's not a new account.
+		if (status === 'onboarding' && !path.startsWith('/login') && !isSigningOut()) {
 			goto('/login/username');
 		}
 	});

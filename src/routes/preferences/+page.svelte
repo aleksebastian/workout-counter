@@ -105,7 +105,11 @@
 		try {
 			await deleteAccount();
 		} catch (e) {
-			toaster.error(e instanceof Error ? e.message : "Couldn't delete your account");
+			const msg = e instanceof Error ? e.message : '';
+			// Closing Google's sheet is a change of mind, not an error.
+			if (!msg.includes('popup-closed-by-user') && !msg.includes('cancelled')) {
+				toaster.error(msg || "Couldn't delete your account");
+			}
 		} finally {
 			deleting = false;
 		}
@@ -341,8 +345,8 @@
 <ConfirmationDialog
 	bind:dialog={deleteDialog}
 	header="Delete your account?"
-	content="Every exercise, routine, program and logged set is deleted, and @{session.data
-		?.username ?? 'your username'} is released. This can't be undone."
+	content="You'll confirm with Google, then every exercise, routine, program and logged set is deleted and @{session
+		.data?.username ?? 'your username'} is released. This can't be undone."
 	actionLabel="Delete account"
 	destructive
 	onclose={(e) => {
