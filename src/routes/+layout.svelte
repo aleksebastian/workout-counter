@@ -23,6 +23,14 @@
 
 	let hasUser = $derived(session.ready);
 
+	/**
+	 * Height of the banner stacked above the bottom bars (0 when none shows).
+	 * Page padding includes it, or the end of a page — End workout, for one —
+	 * sits behind the banner with no way to scroll it into view.
+	 */
+	let bannerHeight = $state(0);
+	let bannerShown = $derived(pwa.updateReady || pwa.showNotifPrompt || pwa.showInstall);
+
 	// The skeleton stands in for app content while auth resolves. Login and
 	// username setup must render regardless: a brand-new account has no user
 	// document yet, which is indistinguishable from "still loading" — gating
@@ -152,6 +160,7 @@
 	busyLabel?: string
 )}
 	<div
+		bind:clientHeight={bannerHeight}
 		class="bg-base-200 fixed right-4 left-4 z-600 flex items-center justify-between gap-3 rounded-2xl px-4 py-3 shadow-xl"
 		style="bottom: calc(var(--bottom-nav-height) + {bottomSlot.occupied
 			? '5.75rem'
@@ -208,7 +217,7 @@
 <div
 	class="mx-auto p-4 transition-[padding] duration-200"
 	style={hasUser
-		? `padding-bottom: calc(var(--bottom-nav-height) + ${bottomSlot.occupied ? '7rem' : '2rem'} + env(safe-area-inset-bottom, 0px))`
+		? `padding-bottom: calc(var(--bottom-nav-height) + ${bottomSlot.occupied ? '7rem' : '2rem'} + ${bannerShown ? bannerHeight : 0}px + env(safe-area-inset-bottom, 0px))`
 		: 'padding-bottom: 2rem;'}
 >
 	{#if showLoadError}
