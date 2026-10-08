@@ -22,6 +22,8 @@ export type PlanEntry = {
 	workoutId: string;
 	/** undefined = free-form: the user decides when to move on. */
 	targetSets?: number;
+	/** Bottom of the routine's rep range — where a first set starts. */
+	minReps?: number;
 	groupLabel?: string;
 	groupProgress?: { current: number; total: number };
 	/** The routine this entry comes from, whose rest timer applies. */
@@ -38,6 +40,7 @@ function expandRoutine(routine: Routine, grouped: boolean): PlanEntry[] {
 	return routine.exercises.map((ex, idx) => ({
 		workoutId: ex.workoutId,
 		targetSets: ex.targetSets,
+		...(ex.minReps !== undefined && { minReps: ex.minReps }),
 		routineId: routine.id,
 		...(grouped
 			? {
@@ -61,7 +64,8 @@ export function buildPlan(source: SessionSource, lookups: Lookups): PlanEntry[] 
 	const program = lookups.program(source.programId);
 	if (!program) return null;
 	return itemsForDay(program, source.day).flatMap((item) => {
-		if (item.type === 'exercise') return [{ workoutId: item.workoutId, targetSets: item.targetSets }];
+		if (item.type === 'exercise')
+			return [{ workoutId: item.workoutId, targetSets: item.targetSets }];
 		const routine = lookups.routine(item.routineId);
 		return routine ? expandRoutine(routine, true) : [];
 	});
@@ -129,6 +133,36 @@ export function lastActivity(session: ActiveSession, plan: PlanEntry[], lookups:
 
 export function isStale(lastActiveAt: number, now: number): boolean {
 	return now - lastActiveAt > STALE_AFTER_MS;
+}
+
+/**
+ * Whether an exercise has had its target sets today (any set for a free-form
+ * one). One set of three isn't "done" — the routine lists used to say it was.
+ */
+export function isDoneToday(
+	workout: Workout,
+	targetSets: number | undefined,
+	now = new Date()
+): boolean {
+	const today = now.toDateString();
+	const count = workout.sets.filter((s) => new Date(s.date).toDateString() === today).length;
+	return count >= (targetSets ?? 1);
+}
+
+/**
+ * Whether every exercise in the plan got its sets this session. A free-form
+ * exercise (no target) counts once it has any set. An exercise planned twice
+ * (a program day repeating one) needs both targets' worth.
+ */
+export function isPlanComplete(plan: PlanEntry[], lookups: Lookups, since: number): boolean {
+	if (plan.length === 0) return false;
+	const needed = new Map<string, number>();
+	for (const e of plan)
+		needed.set(e.workoutId, (needed.get(e.workoutId) ?? 0) + (e.targetSets ?? 1));
+	for (const [id, count] of needed) {
+		if (setsSince(lookups.workout(id), since).length < count) return false;
+	}
+	return true;
 }
 
 /** Sets and reps per exercise for the session, in plan order, once each. */

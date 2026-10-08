@@ -8,7 +8,7 @@
 
 	// Exercises, routines and programs are three views of the same library, so
 	// they share one tab and one URL rather than three top-level destinations.
-	const tab = urlTab(isLibraryTab, 'exercises');
+	const tab = urlTab(isLibraryTab, 'exercises', 'library');
 </script>
 
 <div class="mx-auto flex w-full max-w-lg flex-col gap-4">

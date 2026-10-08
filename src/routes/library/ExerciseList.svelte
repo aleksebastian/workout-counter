@@ -3,7 +3,7 @@
 	import { formatDistanceToNow } from 'date-fns';
 	import { exercises } from '$lib/data';
 	import { session } from '$lib/session.svelte';
-	import { getWorkoutNameValidationMsg } from '$lib/utils';
+	import { counted, getWorkoutNameValidationMsg } from '$lib/utils';
 	import { discoverHref } from '$lib/routes';
 	import Async from '$lib/components/Async.svelte';
 	import Chevron from '$lib/components/Chevron.svelte';
@@ -153,7 +153,8 @@
 										>{last ? formatDistanceToNow(last, { addSuffix: true }) : 'Never done'}</span
 									>
 								</div>
-								<span class="text-base-content/40 shrink-0 text-xs">{workout.sets.length} sets</span
+								<span class="text-base-content/40 shrink-0 text-xs"
+									>{counted(workout.sets.length, 'set')}</span
 								>
 								<Chevron />
 							</a>

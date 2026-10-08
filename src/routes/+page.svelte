@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { counted, plural } from '$lib/utils';
 	import { goto, afterNavigate } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -7,6 +8,7 @@
 	import { session } from '$lib/session.svelte';
 	import { user } from '$lib/data';
 	import { pwa } from '$lib/logic/pwa.svelte';
+	import { training } from '$lib/logic/training.svelte';
 	import {
 		discoverHref,
 		libraryHref,
@@ -49,14 +51,32 @@
 
 	let allSets = $derived((session.workouts ?? []).flatMap((w) => w.sets));
 
-	let lastSet = $derived(
-		allSets.length ? allSets.reduce((a, b) => (new Date(a.date) > new Date(b.date) ? a : b)) : null
-	);
+	/** The most recent of `sets`, or `null`. */
+	function latest<S extends { date: string }>(sets: S[]): S | null {
+		return sets.length
+			? sets.reduce((a, b) => (new Date(a.date) > new Date(b.date) ? a : b))
+			: null;
+	}
+
+	let lastSet = $derived(latest(allSets));
 	let lastSetTimestamp = $derived(lastSet ? new Date(lastSet.date).getTime() : null);
 
+	/**
+	 * The Last session card's set: the latest one from before the workout in
+	 * progress, if there is one — that workout has its own bar, and showing its
+	 * first set here as "last session" read as if it were already over.
+	 */
+	let sessionSet = $derived.by(() => {
+		const startedAt = training.session?.startedAt;
+		return latest(
+			startedAt === undefined ? allSets : allSets.filter((s) => Date.parse(s.date) < startedAt)
+		);
+	});
+	let sessionSetTimestamp = $derived(sessionSet ? new Date(sessionSet.date).getTime() : null);
+
 	let lastWorkout = $derived(
-		lastSet
-			? ((session.workouts ?? []).find((w) => w.sets.some((s) => s.id === lastSet!.id)) ?? null)
+		sessionSet
+			? ((session.workouts ?? []).find((w) => w.sets.some((s) => s.id === sessionSet!.id)) ?? null)
 			: null
 	);
 
@@ -139,19 +159,19 @@
 	});
 
 	let lastSetLabel = $derived.by(() => {
-		if (!lastSetTimestamp) return '';
-		const secs = Math.floor((now - lastSetTimestamp) / 1000);
+		if (!sessionSetTimestamp) return '';
+		const secs = Math.floor((now - sessionSetTimestamp) / 1000);
 		const mins = Math.floor(secs / 60);
 		if (secs < 60) return secs <= 1 ? '1 second ago' : `${secs} seconds ago`;
 		if (mins < 10) return `${mins} minute${mins === 1 ? '' : 's'} ago`;
-		return formatDistanceToNow(lastSetTimestamp, { addSuffix: true });
+		return formatDistanceToNow(sessionSetTimestamp, { addSuffix: true });
 	});
 
 	// Was hardcoded to "kg" regardless of the user's preference.
 	let lastSetDetail = $derived.by(() => {
-		if (!lastSet) return '';
-		const parts = [`${lastSet.reps} reps`];
-		if (lastSet.weight) parts.push(`${lastSet.weight} ${unit}`);
+		if (!sessionSet) return '';
+		const parts = [counted(sessionSet.reps, 'rep')];
+		if (sessionSet.weight) parts.push(`${sessionSet.weight} ${unit}`);
 		return parts.join(' · ');
 	});
 
@@ -172,7 +192,7 @@
 	let stats = $derived(
 		[
 			{ value: sinceLastSet, label: 'since last set' },
-			{ value: String(weekDayCount), label: 'days this week' },
+			{ value: String(weekDayCount), label: `${plural(weekDayCount, 'day')} this week` },
 			streaksEnabled ? { value: String(streak), label: 'week streak' } : null
 		].filter((s) => s !== null)
 	);
@@ -209,6 +229,33 @@
 	// hard gate in front of it, which it isn't.
 	let hasExercises = $derived((session.workouts?.length ?? 0) > 0);
 	let hasSet = $derived(allSets.length > 0);
+
+	// The checklist vanished the moment the first set landed, with nothing to
+	// say it was finished. A new account (first set within the last two days)
+	// gets a closing card instead, until it's dismissed.
+	const SETUP_SEEN_KEY = 'sc-setup-complete-seen';
+	const NEW_ACCOUNT_MS = 2 * 24 * 60 * 60 * 1000;
+	let setupSeen = $state(true);
+	onMount(() => {
+		try {
+			setupSeen = localStorage.getItem(SETUP_SEEN_KEY) === 'true';
+		} catch {
+			setupSeen = true;
+		}
+	});
+	let showSetupDone = $derived(
+		!setupSeen &&
+			hasSet &&
+			Date.now() - Math.min(...allSets.map((s) => Date.parse(s.date))) < NEW_ACCOUNT_MS
+	);
+	function dismissSetupDone() {
+		setupSeen = true;
+		try {
+			localStorage.setItem(SETUP_SEEN_KEY, 'true');
+		} catch {
+			// Private mode: it just comes back next visit.
+		}
+	}
 	let firstWorkout = $derived(session.workouts?.[0]);
 	// An empty routine doesn't count: there'd be nothing to start.
 	let startingRoutine = $derived(session.routines?.find((r) => r.exercises.length > 0));
@@ -433,7 +480,10 @@
 					{#if todayCount > 0}
 						<button
 							class="btn btn-primary btn-sm"
-							onclick={() => goto(runProgramHref(activeProgram.id, todayDow))}>Start</button
+							onclick={() => goto(runProgramHref(activeProgram.id, todayDow))}
+							>{training.isRunning({ type: 'program', programId: activeProgram.id, day: todayDow })
+								? 'Resume'
+								: 'Start'}</button
 						>
 					{:else}
 						<a class="btn btn-ghost btn-sm" href={`/programs/${activeProgram.id}`}>View</a>
@@ -454,14 +504,17 @@
 							<a href={'/routines/' + routine.id} class="flex min-w-0 flex-1 flex-col">
 								<span class="truncate text-sm font-semibold">{routine.name}</span>
 								<span class="text-base-content/40 text-xs"
-									>{routine.exercises.length} exercises</span
+									>{counted(routine.exercises.length, 'exercise')}</span
 								>
 							</a>
 							{#if routine.exercises.length}
 								<button
 									class="btn btn-primary btn-sm shrink-0"
 									aria-label="Start {routine.name}"
-									onclick={() => goto(runRoutineHref(routine.id))}>Start</button
+									onclick={() => goto(runRoutineHref(routine.id))}
+									>{training.isRunning({ type: 'routine', routineId: routine.id })
+										? 'Resume'
+										: 'Start'}</button
 								>
 							{/if}
 						</div>
@@ -507,6 +560,22 @@
 					</div>
 					<Chevron />
 				</a>
+			</div>
+		{/if}
+
+		{#if showSetupDone}
+			<div
+				class="bg-success/10 rounded-box flex items-center gap-4 px-4 py-4"
+				in:landingFly|global={{ y: 20, duration: 400, delay: 400, easing: cubicOut }}
+			>
+				<CheckIcon class="text-success h-6 w-6 shrink-0" />
+				<div class="flex-1">
+					<p class="text-sm font-semibold">You're all set up</p>
+					<p class="text-base-content/60 text-xs">
+						Your first set is in. Start a routine any time from Train.
+					</p>
+				</div>
+				<button class="btn btn-ghost btn-sm" onclick={dismissSetupDone}>Got it</button>
 			</div>
 		{/if}
 

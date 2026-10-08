@@ -2,6 +2,12 @@ import { page } from '$app/state';
 import { replaceState } from '$app/navigation';
 
 /**
+ * Last tab chosen per page, for this app session. A link without `?tab=`
+ * (the bottom nav) reopens it rather than resetting to the first tab.
+ */
+const lastTab = new Map<string, string>();
+
+/**
  * Selected segment for a tabbed page, mirrored into `?tab=` so a reload or a
  * shared link reopens the same one. Shared by Library and Discover.
  *
@@ -12,9 +18,15 @@ import { replaceState } from '$app/navigation';
  *
  * Call during component init (it registers an effect).
  */
-export function urlTab<T extends string>(isTab: (v: string | null) => v is T, fallback: T) {
+export function urlTab<T extends string>(
+	isTab: (v: string | null) => v is T,
+	fallback: T,
+	/** Remembers the choice under this key for the next visit without `?tab=`. */
+	rememberAs?: string
+) {
 	const fromUrl = page.url.searchParams.get('tab');
-	let tab = $state<T>(isTab(fromUrl) ? fromUrl : fallback);
+	const remembered = rememberAs ? (lastTab.get(rememberAs) ?? null) : null;
+	let tab = $state<T>(isTab(fromUrl) ? fromUrl : isTab(remembered) ? remembered : fallback);
 
 	// Re-seed only on a real navigation in with an explicit tab — an old
 	// /routines link, a bookmark, or a redirect.
@@ -28,7 +40,10 @@ export function urlTab<T extends string>(isTab: (v: string | null) => v is T, fa
 		if (href === seededFrom) return;
 		seededFrom = href;
 		const value = page.url.searchParams.get('tab');
-		if (isTab(value)) tab = value;
+		if (isTab(value)) {
+			tab = value;
+			if (rememberAs) lastTab.set(rememberAs, value);
+		}
 	});
 
 	return {
@@ -37,6 +52,7 @@ export function urlTab<T extends string>(isTab: (v: string | null) => v is T, fa
 		},
 		select(next: T) {
 			tab = next;
+			if (rememberAs) lastTab.set(rememberAs, next);
 			// replaceState keeps segments out of history, so Back leaves the page
 			// rather than walking back through them.
 			const url = new URL(page.url);

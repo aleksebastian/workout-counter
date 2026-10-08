@@ -1,9 +1,12 @@
 <script lang="ts">
+	import { counted } from '$lib/utils';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { formatDistanceToNow } from 'date-fns';
 	import { routines } from '$lib/data';
 	import { session } from '$lib/session.svelte';
+	import { training } from '$lib/logic/training.svelte';
+	import { isDoneToday } from '$lib/logic/training';
 	import { setPageNav } from '$lib/nav.svelte';
 	import { libraryHref, runRoutineHref } from '$lib/routes';
 	import { formatDuration } from '$lib/logic/rest';
@@ -39,11 +42,8 @@
 			.filter((row): row is Row => row.workout !== null)
 	);
 
-	const todayStr = new Date().toDateString();
 	let doneToday = $derived(
-		rows.filter(({ workout }) =>
-			workout.sets.some((s) => new Date(s.date).toDateString() === todayStr)
-		).length
+		rows.filter(({ ex, workout }) => isDoneToday(workout, ex.targetSets)).length
 	);
 	let totalSets = $derived(rows.reduce((sum, { workout }) => sum + workout.sets.length, 0));
 	let lastSession = $derived.by(() => {
@@ -148,7 +148,7 @@
 
 {#snippet rowBody(row: Row, index: number)}
 	{@const last = lastSet(row.workout)}
-	{@const doneNow = row.workout.sets.some((s) => new Date(s.date).toDateString() === todayStr)}
+	{@const doneNow = isDoneToday(row.workout, row.ex.targetSets)}
 	<div class="flex min-w-0 flex-1 items-center gap-3">
 		<span class="text-base-content/40 w-5 shrink-0 text-right text-xs font-medium">{index + 1}</span
 		>
@@ -178,7 +178,7 @@
 					<span class="text-base-content/50 text-xs"
 						>{formatDistanceToNow(new Date(last.date), { addSuffix: true })}</span
 					>
-					<span class="badge badge-sm badge-ghost font-medium">{last.reps} reps</span>
+					<span class="badge badge-sm badge-ghost font-medium">{counted(last.reps, 'rep')}</span>
 					{#if last.weight && last.weight > 0}
 						<span class="badge badge-sm badge-ghost font-medium">{last.weight} {unit}</span>
 					{/if}
@@ -207,7 +207,9 @@
 			<div class="flex items-center gap-1">
 				{#if rows.length}
 					<button class="btn btn-primary btn-sm" onclick={() => goto(runRoutineHref(routine.id))}
-						>Start</button
+						>{training.isRunning({ type: 'routine', routineId: routine.id })
+							? 'Resume'
+							: 'Start'}</button
 					>
 				{/if}
 				<RowMenuButton label="Routine options" onclick={() => (showRoutineMenu = true)} />
@@ -215,13 +217,15 @@
 		</div>
 
 		{#if !reordering && rows.length > 0}
-			<div class="-mx-1 flex scrollbar-none gap-2 overflow-x-auto px-1 pb-1">
-				<div class="bg-base-200 flex-none rounded-xl px-4 py-2.5 text-center">
+			<!-- Wraps instead of scrolling sideways: a sideways row hid its last tile
+			     (the rest timer) behind the screen edge with no hint it was there. -->
+			<div class="grid grid-cols-2 gap-2">
+				<div class="bg-base-200 rounded-xl px-4 py-2.5 text-center">
 					<p class="text-base-content/50 text-xs">Today</p>
 					<p class="text-sm font-semibold">{doneToday}/{rows.length}</p>
 				</div>
 				{#if lastSession}
-					<div class="bg-base-200 flex-none rounded-xl px-4 py-2.5 text-center">
+					<div class="bg-base-200 rounded-xl px-4 py-2.5 text-center">
 						<p class="text-base-content/50 text-xs">Last session</p>
 						<p class="text-sm font-semibold">
 							{formatDistanceToNow(lastSession, { addSuffix: true })}
@@ -229,14 +233,14 @@
 					</div>
 				{/if}
 				{#if totalSets > 0}
-					<div class="bg-base-200 flex-none rounded-xl px-4 py-2.5 text-center">
+					<div class="bg-base-200 rounded-xl px-4 py-2.5 text-center">
 						<p class="text-base-content/50 text-xs">Total sets</p>
 						<p class="text-sm font-semibold">{totalSets}</p>
 					</div>
 				{/if}
 				<!-- Always shown, and tappable: it's where people look to change rest. -->
 				<button
-					class="bg-base-200 hover:bg-base-300 flex-none rounded-xl px-4 py-2.5 text-center transition-colors"
+					class="bg-base-200 hover:bg-base-300 rounded-xl px-4 py-2.5 text-center transition-colors"
 					aria-label="Edit rest timer"
 					onclick={() => (showEditRoutine = true)}
 				>

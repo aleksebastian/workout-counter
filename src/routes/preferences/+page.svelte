@@ -7,6 +7,9 @@
 	import { pwa } from '$lib/logic/pwa.svelte';
 	import { TIMER_PRESETS } from '$lib/constants';
 	import type { Duration, Preferences } from '$lib/types';
+	import { deleteAccount } from '$lib/logic/auth';
+	import { toaster } from '$lib/toast.svelte';
+	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
 
 	/**
 	 * Plain settings — no longer an onboarding gate. New accounts get sensible
@@ -92,6 +95,25 @@
 	// ── Notifications ──────────────────────────────────────────────────────────
 	// Shared with the home checklist, so both always show the same state.
 	let notifStatus = $derived(pwa.notifStatus);
+
+	// ── Account ─────────────────────────────────────────────────────────────────
+	let deleteDialog = $state<HTMLDialogElement>()!;
+	let deleting = $state(false);
+
+	async function confirmDelete() {
+		deleting = true;
+		try {
+			await deleteAccount();
+		} catch (e) {
+			const msg = e instanceof Error ? e.message : '';
+			// Closing Google's sheet is a change of mind, not an error.
+			if (!msg.includes('popup-closed-by-user') && !msg.includes('cancelled')) {
+				toaster.error(msg || "Couldn't delete your account");
+			}
+		} finally {
+			deleting = false;
+		}
+	}
 </script>
 
 {#snippet row(title: string, blurb: string)}
@@ -102,18 +124,19 @@
 {/snippet}
 
 <div class="mx-auto flex w-full max-w-lg flex-col gap-6">
-	<div class="flex h-6 justify-end">
-		{#if saveState === 'saved'}
-			<span
-				class="text-success text-sm font-semibold whitespace-nowrap"
-				in:fade={{ duration: 200 }}
-				out:fade={{ duration: 150 }}>✓ Saved</span
-			>
-		{/if}
-	</div>
-
 	<section class="flex flex-col gap-3">
-		<p class="text-base-content/40 text-xs font-semibold tracking-widest uppercase">Appearance</p>
+		<!-- "Saved" shares the first heading's line rather than reserving an
+		     empty row of its own above everything. -->
+		<div class="flex h-5 items-center justify-between">
+			<p class="text-base-content/40 text-xs font-semibold tracking-widest uppercase">Appearance</p>
+			{#if saveState === 'saved'}
+				<span
+					class="text-success text-sm font-semibold whitespace-nowrap"
+					in:fade={{ duration: 200 }}
+					out:fade={{ duration: 150 }}>✓ Saved</span
+				>
+			{/if}
+		</div>
 		<div class="bg-base-200 flex items-center justify-between gap-4 rounded-2xl px-4 py-4">
 			{@render row('Theme', 'App colour scheme')}
 			<div class="join">
@@ -172,7 +195,7 @@
 				Routines with their own rest timer use that instead.
 			</p>
 			{#if draft.timerEnabled}
-				<div class="-mx-4 flex scrollbar-none gap-2 overflow-x-auto px-4 pb-1">
+				<div class="flex flex-wrap gap-2">
 					{#each TIMER_PRESETS as preset}
 						<button
 							type="button"
@@ -302,4 +325,31 @@
 			</div>
 		</section>
 	{/if}
+
+	<section class="flex flex-col gap-3 pb-4">
+		<p class="text-base-content/40 text-xs font-semibold tracking-widest uppercase">Account</p>
+		<div class="bg-base-200 flex items-center justify-between gap-4 rounded-2xl px-4 py-4">
+			{@render row('Delete account', 'Removes your exercises, history and username for good')}
+			<button
+				class="btn btn-error btn-outline btn-sm"
+				disabled={deleting}
+				onclick={() => deleteDialog?.showModal()}
+			>
+				{#if deleting}<span class="loading loading-spinner loading-xs"></span>{/if}
+				Delete
+			</button>
+		</div>
+	</section>
 </div>
+
+<ConfirmationDialog
+	bind:dialog={deleteDialog}
+	header="Delete your account?"
+	content="You'll confirm with Google, then every exercise, routine, program and logged set is deleted and @{session
+		.data?.username ?? 'your username'} is released. This can't be undone."
+	actionLabel="Delete account"
+	destructive
+	onclose={(e) => {
+		if ((e.target as HTMLDialogElement).returnValue === 'default') confirmDelete();
+	}}
+/>

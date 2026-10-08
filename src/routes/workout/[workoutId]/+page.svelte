@@ -1,8 +1,8 @@
 <script lang="ts">
+	import { counted } from '$lib/utils';
 	import { page } from '$app/state';
 	import { v4 as uuidv4 } from 'uuid';
 	import { formatRelative } from 'date-fns';
-	import confetti from 'canvas-confetti';
 	import SetsHistoryTable from '../../SetsHistoryTable.svelte';
 	import RecordSetSheet from '$lib/components/RecordSetSheet.svelte';
 	import FAB from '$lib/components/Buttons/FAB.svelte';
@@ -115,8 +115,8 @@
 		return [
 			stat('Sets', String(cur.sets), cur.sets, prev.sets),
 			stat('Reps', String(cur.reps), cur.reps, prev.reps),
-			stat('Best set', `${cur.bestSetReps} reps`, cur.bestSetReps, prev.bestSetReps),
-			stat('Avg / set', `${avg} reps`, avg, prevAvg)
+			stat('Best set', counted(cur.bestSetReps, 'rep'), cur.bestSetReps, prev.bestSetReps),
+			stat('Avg / set', counted(avg, 'rep'), avg, prevAvg)
 		];
 	});
 
@@ -160,12 +160,6 @@
 		const ok = await exercises.addSet(workout.id, set);
 		if (ok && pr) {
 			HAPTIC.success();
-			confetti({
-				particleCount: 120,
-				spread: 80,
-				origin: { y: 0.6 },
-				colors: ['#a855f7', '#3b82f6', '#10b981', '#f59e0b', '#ef4444']
-			});
 		}
 	}
 </script>
@@ -175,7 +169,7 @@
 		{#if comparisonStats.length && latestHeader}
 			<div class="flex items-baseline justify-between">
 				<span class="text-base font-bold capitalize">{latestHeader.date}</span>
-				<span class="text-base font-bold">{latestHeader.reps} reps</span>
+				<span class="text-base font-bold">{counted(latestHeader.reps, 'rep')}</span>
 			</div>
 			<div class="bg-base-200 rounded-2xl p-4">
 				<p class="text-base-content/40 mb-3 text-[10px] font-semibold tracking-widest uppercase">

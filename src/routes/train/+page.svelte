@@ -44,7 +44,7 @@
 	);
 
 	let hasAnything = $derived(
-		todayCount > 0 || runnableRoutines.length > 0 || recentExercises.length > 0
+		todayCount > 0 || runnableRoutines.length > 0 || !!session.workouts?.length
 	);
 </script>
 
@@ -157,14 +157,17 @@
 						<button
 							class="btn btn-primary btn-sm shrink-0"
 							aria-label="Start {routine.name}"
-							onclick={() => goto(runRoutineHref(routine.id))}>Start</button
+							onclick={() => goto(runRoutineHref(routine.id))}
+							>{training.isRunning({ type: 'routine', routineId: routine.id })
+								? 'Resume'
+								: 'Start'}</button
 						>
 					</div>
 				{/each}
 			</div>
 		{/if}
 
-		{#if recentExercises.length}
+		{#if session.workouts?.length}
 			<div class="flex flex-col gap-2">
 				<p class="text-base-content/40 text-xs font-semibold tracking-wider uppercase">
 					Log a single set
@@ -184,6 +187,13 @@
 						<Chevron />
 					</a>
 				{/each}
+				<!-- Only recent exercises are listed, so a new one is reached through
+				     the Library, where every exercise opens to its record page. -->
+				<a
+					href={libraryHref('exercises')}
+					class="btn btn-ghost btn-sm text-base-content/60 self-start"
+					>{recentExercises.length ? 'Another exercise' : 'Choose an exercise'} →</a
+				>
 			</div>
 		{/if}
 	{/if}

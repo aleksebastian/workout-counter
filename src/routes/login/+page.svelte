@@ -1,15 +1,21 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { handleSignIn } from '$lib/logic/auth';
+	import { auth } from '$lib/firebase';
 
 	let error = $state('');
 	let loading = $state(false);
+	/** Bumped by Cancel, so a sign-in it gave up on can't touch the page later. */
+	let attempt = 0;
 
 	async function signIn() {
+		const mine = ++attempt;
 		loading = true;
 		error = '';
 		try {
 			await handleSignIn();
 		} catch (e: unknown) {
+			if (mine !== attempt) return;
 			const msg = e instanceof Error ? e.message : String(e);
 			if (msg.includes('missing initial state') || msg.includes('sessionStorage')) {
 				error =
@@ -20,9 +26,47 @@
 				error = msg;
 			}
 		} finally {
-			loading = false;
+			if (mine === attempt) loading = false;
 		}
 	}
+
+	/**
+	 * A popup that never reports back (iOS can lose track of it) would leave the
+	 * button spinning forever. Cancel frees it without abandoning the attempt:
+	 * if Google does finish, handleSignIn still completes and navigates.
+	 */
+	function cancel() {
+		attempt++;
+		loading = false;
+	}
+
+	/**
+	 * In the installed iOS app, closing Google's sheet never rejects the popup,
+	 * so the button spun until Cancel. Coming back to the page while still
+	 * waiting frees it after a short grace — long enough for a sign-in that
+	 * did finish to land, and if one lands later it still completes.
+	 */
+	const RETURN_GRACE_MS = 3000;
+	onMount(() => {
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		const onReturn = () => {
+			if (document.visibilityState !== 'visible' || !loading) return;
+			clearTimeout(timer);
+			const waitingOn = attempt;
+			timer = setTimeout(() => {
+				// Signed in already means Google finished and our own steps are still
+				// running; resetting then would invite a second popup mid-navigation.
+				if (loading && attempt === waitingOn && !auth.currentUser) cancel();
+			}, RETURN_GRACE_MS);
+		};
+		window.addEventListener('focus', onReturn);
+		document.addEventListener('visibilitychange', onReturn);
+		return () => {
+			clearTimeout(timer);
+			window.removeEventListener('focus', onReturn);
+			document.removeEventListener('visibilitychange', onReturn);
+		};
+	});
 </script>
 
 <div class="mx-auto flex min-h-[70dvh] max-w-sm flex-col items-center justify-center gap-10 py-8">
@@ -85,7 +129,11 @@
 					stroke="currentColor"
 					stroke-width="1.5"
 				>
-					<path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125z"
+					/>
 				</svg>
 			</div>
 			<div>
@@ -154,9 +202,13 @@
 
 		{#if error}
 			<p class="text-error rounded-xl bg-red-500/10 px-4 py-3 text-center text-xs">{error}</p>
+		{:else if loading}
+			<button class="btn btn-ghost btn-xs text-base-content/50 w-full" onclick={cancel}>
+				Cancel
+			</button>
+		{:else}
+			<p class="text-base-content/30 text-center text-xs">No password needed</p>
 		{/if}
-
-		<p class="text-base-content/30 text-center text-xs">No password needed</p>
 		<!-- <p class="text-base-content/30 text-center text-xs">No password needed · free forever</p> -->
 	</div>
 </div>

@@ -1,7 +1,7 @@
 <script lang="ts">
+	import { counted, plural } from '$lib/utils';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import confetti from 'canvas-confetti';
 	import { formatDistanceToNow } from 'date-fns';
 	import { v4 as uuidv4 } from 'uuid';
 	import { exercises } from '$lib/data';
@@ -12,7 +12,6 @@
 	import { sameSource, setsSince, sourceFromParams } from '$lib/logic/training';
 	import { pwa } from '$lib/logic/pwa.svelte';
 	import { HAPTIC } from '$lib/haptic';
-	import { libraryHref } from '$lib/routes';
 	import SetEntry from '$lib/components/SetEntry.svelte';
 	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
 	import NotesIcon from '$lib/icons/notes.svg?raw';
@@ -132,7 +131,8 @@
 	let notes = $state('');
 	let showNotes = $state(false);
 
-	// Seed from the last recorded set whenever the exercise changes.
+	// Seed from the last recorded set whenever the exercise changes; a first
+	// ever set starts at the bottom of the routine's rep range.
 	let seededFor = $state<string | null>(null);
 	$effect(() => {
 		const id = currentWorkout?.id;
@@ -140,7 +140,7 @@
 		seededFor = id;
 		recordingExtra = false;
 		const last = currentWorkout!.sets.at(-1);
-		reps = last?.reps ?? 10;
+		reps = last?.reps ?? currentEntry?.minReps ?? 10;
 		weight = last?.weight ?? 0;
 		notes = '';
 		showNotes = false;
@@ -208,13 +208,6 @@
 	function finish() {
 		summary = training.finish();
 		HAPTIC.success();
-		confetti({
-			particleCount: 60,
-			spread: 70,
-			origin: { y: 0.5 },
-			scalar: 0.9,
-			colors: ['#a855f7', '#3b82f6', '#10b981']
-		});
 	}
 
 	let endDialog = $state<HTMLDialogElement>()!;
@@ -238,36 +231,44 @@
 			<button class="btn btn-primary" onclick={resumeCurrent}
 				>Resume {training.name || 'workout'}</button
 			>
-			<button class="btn btn-ghost" onclick={replaceCurrent}>End it and start this one</button>
+			<button class="btn btn-ghost" onclick={replaceCurrent}
+				>End it and start {(requested && training.nameOf(requested)) || 'this one'}</button
+			>
 		</div>
 	</div>
 {:else if summary}
 	<div class="mx-auto flex w-full max-w-lg flex-col items-center gap-6 py-8 text-center">
-		<div class="bg-success/10 flex h-28 w-28 items-center justify-center rounded-full">
-			<svg class="text-success h-12 w-12" viewBox="0 0 36 36" aria-hidden="true">
-				<path
-					fill="currentColor"
-					d="M34.459 1.375a2.999 2.999 0 0 0-4.149.884L13.5 28.17l-8.198-7.58a2.999 2.999 0 1 0-4.073 4.405l10.764 9.952s.309.266.452.359a2.999 2.999 0 0 0 4.15-.884L35.343 5.524a2.999 2.999 0 0 0-.884-4.149z"
-				/>
-			</svg>
-		</div>
+		{#if summary.complete}
+			<div class="bg-success/10 flex h-28 w-28 items-center justify-center rounded-full">
+				<svg class="text-success h-12 w-12" viewBox="0 0 36 36" aria-hidden="true">
+					<path
+						fill="currentColor"
+						d="M34.459 1.375a2.999 2.999 0 0 0-4.149.884L13.5 28.17l-8.198-7.58a2.999 2.999 0 1 0-4.073 4.405l10.764 9.952s.309.266.452.359a2.999 2.999 0 0 0 4.15-.884L35.343 5.524a2.999 2.999 0 0 0-.884-4.149z"
+					/>
+				</svg>
+			</div>
+		{/if}
 		<div>
-			<h1 class="text-2xl font-black">Workout complete!</h1>
+			<!-- Only a workout that hit every target is "complete"; ending early is
+			     reported plainly rather than celebrated. -->
+			<h1 class="text-2xl font-black">
+				{summary.complete ? 'Workout complete' : 'Workout ended'}
+			</h1>
 			<p class="text-base-content/50 mt-1 text-sm">{summary.name}</p>
 		</div>
 
 		<div class="bg-base-200 divide-base-300 grid w-full grid-cols-3 divide-x rounded-2xl">
 			<div class="flex flex-col items-center gap-0.5 px-4 py-4">
 				<span class="text-2xl font-black tabular-nums">{summary.exercises}</span>
-				<span class="text-base-content/50 text-xs">exercises</span>
+				<span class="text-base-content/50 text-xs">{plural(summary.exercises, 'exercise')}</span>
 			</div>
 			<div class="flex flex-col items-center gap-0.5 px-4 py-4">
 				<span class="text-2xl font-black tabular-nums">{summary.sets}</span>
-				<span class="text-base-content/50 text-xs">sets</span>
+				<span class="text-base-content/50 text-xs">{plural(summary.sets, 'set')}</span>
 			</div>
 			<div class="flex flex-col items-center gap-0.5 px-4 py-4">
 				<span class="text-2xl font-black tabular-nums">{summary.reps}</span>
-				<span class="text-base-content/50 text-xs">reps</span>
+				<span class="text-base-content/50 text-xs">{plural(summary.reps, 'rep')}</span>
 			</div>
 		</div>
 
@@ -328,7 +329,7 @@
 			<h1 class="text-2xl leading-tight font-black">{currentWorkout?.name ?? '—'}</h1>
 			<div class="flex items-center gap-2">
 				{#if isFreeForm}
-					<span class="text-base-content/50 text-sm">{setsDone} sets today</span>
+					<span class="text-base-content/50 text-sm">{counted(setsDone, 'set')} today</span>
 				{:else}
 					<div class="flex gap-1">
 						{#each { length: targetSets } as _, i}
@@ -349,7 +350,7 @@
 				<div class="text-success text-4xl">✓</div>
 				<div>
 					<p class="text-success font-semibold">Exercise complete!</p>
-					<p class="text-base-content/50 mt-1 text-sm">{setsDone} sets done</p>
+					<p class="text-base-content/50 mt-1 text-sm">{counted(setsDone, 'set')} done</p>
 				</div>
 			</div>
 
@@ -365,7 +366,9 @@
 						{/if}
 						<p class="font-semibold">{session.workout(nextEntry.workoutId)?.name ?? '—'}</p>
 						<p class="text-base-content/40 text-xs">
-							{nextEntry.targetSets !== undefined ? `${nextEntry.targetSets} sets` : 'Free-form'}
+							{nextEntry.targetSets !== undefined
+								? counted(nextEntry.targetSets, 'set')
+								: 'Free-form'}
 						</p>
 					</div>
 				</div>
@@ -398,13 +401,14 @@
 			<div class="flex gap-2">
 				<button class="btn btn-primary btn-lg flex-1" onclick={recordSet}>Record Set</button>
 				<button
-					class="btn btn-lg btn-square"
+					class="btn btn-lg gap-1.5 px-4"
 					class:btn-primary={!!notes}
 					class:btn-ghost={!notes}
-					aria-label={showNotes ? 'Hide note' : 'Add a note'}
+					aria-expanded={showNotes}
 					onclick={() => (showNotes = !showNotes)}
 				>
-					<span class="[&>svg]:h-5 [&>svg]:w-5">{@html NotesIcon}</span>
+					<span class="[&>svg]:h-5 [&>svg]:w-5" aria-hidden="true">{@html NotesIcon}</span>
+					<span class="text-sm">Note</span>
 				</button>
 			</div>
 
@@ -421,9 +425,12 @@
 
 		<div class="mt-2 flex items-center justify-center gap-2">
 			{@render endButton()}
-			<a class="btn btn-ghost btn-sm text-base-content/30" href={libraryHref('exercises')}
-				>Manage exercises</a
-			>
+			<!-- Opens the routine or program being run: where its exercises are edited. -->
+			{#if active}
+				<a class="btn btn-ghost btn-sm text-base-content/50" href={backHref}
+					>Edit {active.source.type === 'program' ? 'program' : 'routine'}</a
+				>
+			{/if}
 		</div>
 	</div>
 {/if}

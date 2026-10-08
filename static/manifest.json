@@ -6,8 +6,8 @@
 	"orientation": "portrait",
 	"scope": "/",
 	"start_url": "/",
-	"background_color": "#282a36",
-	"theme_color": "#282a36",
+	"background_color": "#ffffff",
+	"theme_color": "#ffffff",
 	"description": "A simple workout counter to track your fitness progress.",
 	"icons": [
 		{

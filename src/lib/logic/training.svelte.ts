@@ -6,9 +6,11 @@ import { toaster } from '$lib/toast.svelte';
 import { restTimer } from '$lib/logic/restTimer.svelte';
 import {
 	buildPlan,
+	isPlanComplete,
 	isStale,
 	lastActivity,
 	resolveIndex,
+	sameSource,
 	sourceName,
 	summarize,
 	type Lookups,
@@ -38,6 +40,8 @@ export type SessionSummary = {
 	exercises: number;
 	sets: number;
 	reps: number;
+	/** Every planned exercise got its sets; false when the user ended early. */
+	complete: boolean;
 };
 
 /** The history entry for a session, or `null` if it has no sets worth keeping. */
@@ -90,6 +94,17 @@ export const training = {
 		return sourceName(s.source, lookups) ?? s.name;
 	},
 
+	/** Whether `source` is the workout in progress, so its Start buttons can say Resume. */
+	isRunning(source: SessionSource): boolean {
+		const s = this.session;
+		return !!s && sameSource(s.source, source);
+	},
+
+	/** What a routine or program is called now, for naming one that isn't running yet. */
+	nameOf(source: SessionSource): string | null {
+		return sourceName(source, lookups);
+	},
+
 	start(source: SessionSource): ActiveSession {
 		const plan = buildPlan(source, lookups) ?? [];
 		const now = Date.now();
@@ -126,7 +141,8 @@ export const training = {
 			durationMs: now - s.startedAt,
 			exercises: log?.exercises.length ?? 0,
 			sets: log?.totals.sets ?? 0,
-			reps: log?.totals.reps ?? 0
+			reps: log?.totals.reps ?? 0,
+			complete: isPlanComplete(buildPlan(s.source, lookups) ?? [], lookups, s.startedAt)
 		};
 	},
 

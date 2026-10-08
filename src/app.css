@@ -10,6 +10,17 @@
 		dracula --prefersdark;
 }
 
+/*
+ * Dracula's own primary is pink, so switching to dark mode recoloured the
+ * whole app. Keep the brand green from emerald; everything else stays Dracula.
+ */
+@plugin 'daisyui/theme' {
+	name: 'dracula';
+	prefersdark: true;
+	--color-primary: oklch(76.662% 0.135 153.45);
+	--color-primary-content: oklch(33.387% 0.04 162.24);
+}
+
 :root {
 	/* Native iOS tab bar row height; the home-indicator inset is added on top. */
 	--bottom-nav-height: 49px;

@@ -87,7 +87,7 @@
 	}
 </script>
 
-<div bind:this={container} class="flex flex-col gap-2">
+<div bind:this={container} class="sortable-list flex flex-col gap-2">
 	{#each order as item, i (key(item))}
 		<div
 			data-sortable-row
@@ -124,5 +124,13 @@
 
 	.drag-handle {
 		touch-action: none;
+	}
+
+	/* A press held on a handle otherwise starts an iOS text selection on the
+	   neighbouring row, and once text is selected the drag never begins. */
+	.sortable-list {
+		-webkit-user-select: none;
+		user-select: none;
+		-webkit-touch-callout: none;
 	}
 </style>
