@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { handleSignIn } from '$lib/logic/auth';
+	import { auth } from '$lib/firebase';
 
 	let error = $state('');
 	let loading = $state(false);
@@ -53,7 +54,9 @@
 			clearTimeout(timer);
 			const waitingOn = attempt;
 			timer = setTimeout(() => {
-				if (loading && attempt === waitingOn) cancel();
+				// Signed in already means Google finished and our own steps are still
+				// running; resetting then would invite a second popup mid-navigation.
+				if (loading && attempt === waitingOn && !auth.currentUser) cancel();
 			}, RETURN_GRACE_MS);
 		};
 		window.addEventListener('focus', onReturn);

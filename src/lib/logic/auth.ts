@@ -110,7 +110,12 @@ export async function deleteAccount() {
 	if (!current) throw new Error('Sign in again to delete your account.');
 	const provider = new GoogleAuthProvider();
 	provider.setCustomParameters({ prompt: 'select_account' });
-	const fresh = await reauthenticateWithPopup(current, provider);
+	const fresh = await reauthenticateWithPopup(current, provider).catch((e: { code?: string }) => {
+		if (e.code === 'auth/user-mismatch') {
+			throw new Error(`Choose ${current.email ?? 'the account you signed in with'} to confirm.`);
+		}
+		throw e;
+	});
 	const idToken = await fresh.user.getIdToken(true);
 
 	// Set before the delete: the profile document vanishing would otherwise
