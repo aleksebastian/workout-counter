@@ -90,3 +90,19 @@ export async function handleSignOut() {
 		signingOut = false;
 	}
 }
+
+/**
+ * Permanently deletes the account on the server, then signs out locally. The
+ * server removes the Firebase user, so a plain sign-out is all that's left.
+ */
+export async function deleteAccount() {
+	const response = await fetch('/api/account', { method: 'DELETE' });
+	if (!response.ok) throw new Error("Couldn't delete your account. Please try again.");
+	signingOut = true;
+	try {
+		await signOut(auth).catch(() => {});
+		await goto('/login', { replaceState: true });
+	} finally {
+		signingOut = false;
+	}
+}

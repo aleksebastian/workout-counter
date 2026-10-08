@@ -7,6 +7,9 @@
 	import { pwa } from '$lib/logic/pwa.svelte';
 	import { TIMER_PRESETS } from '$lib/constants';
 	import type { Duration, Preferences } from '$lib/types';
+	import { deleteAccount } from '$lib/logic/auth';
+	import { toaster } from '$lib/toast.svelte';
+	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
 
 	/**
 	 * Plain settings — no longer an onboarding gate. New accounts get sensible
@@ -92,6 +95,21 @@
 	// ── Notifications ──────────────────────────────────────────────────────────
 	// Shared with the home checklist, so both always show the same state.
 	let notifStatus = $derived(pwa.notifStatus);
+
+	// ── Account ─────────────────────────────────────────────────────────────────
+	let deleteDialog = $state<HTMLDialogElement>()!;
+	let deleting = $state(false);
+
+	async function confirmDelete() {
+		deleting = true;
+		try {
+			await deleteAccount();
+		} catch (e) {
+			toaster.error(e instanceof Error ? e.message : "Couldn't delete your account");
+		} finally {
+			deleting = false;
+		}
+	}
 </script>
 
 {#snippet row(title: string, blurb: string)}
@@ -303,4 +321,31 @@
 			</div>
 		</section>
 	{/if}
+
+	<section class="flex flex-col gap-3 pb-4">
+		<p class="text-base-content/40 text-xs font-semibold tracking-widest uppercase">Account</p>
+		<div class="bg-base-200 flex items-center justify-between gap-4 rounded-2xl px-4 py-4">
+			{@render row('Delete account', 'Removes your exercises, history and username for good')}
+			<button
+				class="btn btn-error btn-outline btn-sm"
+				disabled={deleting}
+				onclick={() => deleteDialog?.showModal()}
+			>
+				{#if deleting}<span class="loading loading-spinner loading-xs"></span>{/if}
+				Delete
+			</button>
+		</div>
+	</section>
 </div>
+
+<ConfirmationDialog
+	bind:dialog={deleteDialog}
+	header="Delete your account?"
+	content="Every exercise, routine, program and logged set is deleted, and @{session.data
+		?.username ?? 'your username'} is released. This can't be undone."
+	actionLabel="Delete account"
+	destructive
+	onclose={(e) => {
+		if ((e.target as HTMLDialogElement).returnValue === 'default') confirmDelete();
+	}}
+/>
