@@ -16,8 +16,9 @@
 	let blurred = $state(false);
 	let debounceTimer: ReturnType<typeof setTimeout>;
 
-	// 3–16 of letters, numbers, `.` and `_`; no `.`/`_` first, last or doubled.
-	const VALID = /^(?=[a-zA-Z0-9._]{3,16}$)(?!.*[_.]{2})[^_.].*[^_.]$/;
+	// 3–15 of letters, numbers, `.` and `_`; no `.`/`_` first, last or doubled.
+	// 15 is the Firestore rule's limit (`usernames`), so a name passing here can be saved.
+	const VALID = /^(?=[a-zA-Z0-9._]{3,15}$)(?!.*[_.]{2})[^_.].*[^_.]$/;
 
 	let normalized = $derived(username.toLowerCase());
 	let isValid = $derived(VALID.test(normalized));
@@ -134,7 +135,7 @@
 			<div class="min-h-5 px-1 text-xs">
 				{#if showInvalid}
 					<p class="text-error">
-						3–16 letters, numbers, dots or underscores — no dot or underscore at the start, end or
+						3–15 letters, numbers, dots or underscores — no dot or underscore at the start, end or
 						twice in a row
 					</p>
 				{:else if checkFailed}
