@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { handleSignIn } from '$lib/logic/auth';
 
 	let error = $state('');
@@ -37,6 +38,32 @@
 		attempt++;
 		loading = false;
 	}
+
+	/**
+	 * In the installed iOS app, closing Google's sheet never rejects the popup,
+	 * so the button spun until Cancel. Coming back to the page while still
+	 * waiting frees it after a short grace — long enough for a sign-in that
+	 * did finish to land, and if one lands later it still completes.
+	 */
+	const RETURN_GRACE_MS = 3000;
+	onMount(() => {
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		const onReturn = () => {
+			if (document.visibilityState !== 'visible' || !loading) return;
+			clearTimeout(timer);
+			const waitingOn = attempt;
+			timer = setTimeout(() => {
+				if (loading && attempt === waitingOn) cancel();
+			}, RETURN_GRACE_MS);
+		};
+		window.addEventListener('focus', onReturn);
+		document.addEventListener('visibilitychange', onReturn);
+		return () => {
+			clearTimeout(timer);
+			window.removeEventListener('focus', onReturn);
+			document.removeEventListener('visibilitychange', onReturn);
+		};
+	});
 </script>
 
 <div class="mx-auto flex min-h-[70dvh] max-w-sm flex-col items-center justify-center gap-10 py-8">
