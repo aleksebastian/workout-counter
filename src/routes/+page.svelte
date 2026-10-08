@@ -226,6 +226,33 @@
 	// hard gate in front of it, which it isn't.
 	let hasExercises = $derived((session.workouts?.length ?? 0) > 0);
 	let hasSet = $derived(allSets.length > 0);
+
+	// The checklist vanished the moment the first set landed, with nothing to
+	// say it was finished. A new account (first set within the last two days)
+	// gets a closing card instead, until it's dismissed.
+	const SETUP_SEEN_KEY = 'sc-setup-complete-seen';
+	const NEW_ACCOUNT_MS = 2 * 24 * 60 * 60 * 1000;
+	let setupSeen = $state(true);
+	onMount(() => {
+		try {
+			setupSeen = localStorage.getItem(SETUP_SEEN_KEY) === 'true';
+		} catch {
+			setupSeen = true;
+		}
+	});
+	let showSetupDone = $derived(
+		!setupSeen &&
+			hasSet &&
+			Date.now() - Math.min(...allSets.map((s) => Date.parse(s.date))) < NEW_ACCOUNT_MS
+	);
+	function dismissSetupDone() {
+		setupSeen = true;
+		try {
+			localStorage.setItem(SETUP_SEEN_KEY, 'true');
+		} catch {
+			// Private mode: it just comes back next visit.
+		}
+	}
 	let firstWorkout = $derived(session.workouts?.[0]);
 	// An empty routine doesn't count: there'd be nothing to start.
 	let startingRoutine = $derived(session.routines?.find((r) => r.exercises.length > 0));
@@ -530,6 +557,22 @@
 					</div>
 					<Chevron />
 				</a>
+			</div>
+		{/if}
+
+		{#if showSetupDone}
+			<div
+				class="bg-success/10 rounded-box flex items-center gap-4 px-4 py-4"
+				in:landingFly|global={{ y: 20, duration: 400, delay: 400, easing: cubicOut }}
+			>
+				<CheckIcon class="text-success h-6 w-6 shrink-0" />
+				<div class="flex-1">
+					<p class="text-sm font-semibold">You're all set up</p>
+					<p class="text-base-content/60 text-xs">
+						Your first set is in. Start a routine any time from Train.
+					</p>
+				</div>
+				<button class="btn btn-ghost btn-sm" onclick={dismissSetupDone}>Got it</button>
 			</div>
 		{/if}
 
