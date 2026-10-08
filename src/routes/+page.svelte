@@ -51,9 +51,14 @@
 
 	let allSets = $derived((session.workouts ?? []).flatMap((w) => w.sets));
 
-	let lastSet = $derived(
-		allSets.length ? allSets.reduce((a, b) => (new Date(a.date) > new Date(b.date) ? a : b)) : null
-	);
+	/** The most recent of `sets`, or `null`. */
+	function latest<S extends { date: string }>(sets: S[]): S | null {
+		return sets.length
+			? sets.reduce((a, b) => (new Date(a.date) > new Date(b.date) ? a : b))
+			: null;
+	}
+
+	let lastSet = $derived(latest(allSets));
 	let lastSetTimestamp = $derived(lastSet ? new Date(lastSet.date).getTime() : null);
 
 	/**
@@ -63,11 +68,9 @@
 	 */
 	let sessionSet = $derived.by(() => {
 		const startedAt = training.session?.startedAt;
-		const before =
-			startedAt === undefined ? allSets : allSets.filter((s) => Date.parse(s.date) < startedAt);
-		return before.length
-			? before.reduce((a, b) => (new Date(a.date) > new Date(b.date) ? a : b))
-			: null;
+		return latest(
+			startedAt === undefined ? allSets : allSets.filter((s) => Date.parse(s.date) < startedAt)
+		);
 	});
 	let sessionSetTimestamp = $derived(sessionSet ? new Date(sessionSet.date).getTime() : null);
 
@@ -190,7 +193,7 @@
 		[
 			{ value: sinceLastSet, label: 'since last set' },
 			{ value: String(weekDayCount), label: `${plural(weekDayCount, 'day')} this week` },
-			streaksEnabled ? { value: String(streak), label: `${plural(streak, 'week')} streak` } : null
+			streaksEnabled ? { value: String(streak), label: 'week streak' } : null
 		].filter((s) => s !== null)
 	);
 

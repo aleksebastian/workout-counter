@@ -49,7 +49,7 @@
 		<span class="text-base-content/50 text-xs font-semibold tracking-widest uppercase"
 			>{label}{#if name === 'weight' && value === 0}
 				<!-- Spelled out so an unchanged 0 is a choice, not a forgotten field. -->
-				<span class="text-warning tracking-normal normal-case">
+				<span class="text-base-content/40 tracking-normal normal-case">
 					· none (bodyweight)</span
 				>{/if}</span
 		>
