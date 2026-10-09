@@ -14,10 +14,6 @@ const config = {
 		adapter: adapter()
 	},
 
-	build: {
-		minify: true
-	},
-
 	compilerOptions: {
 		runes: true
 	}

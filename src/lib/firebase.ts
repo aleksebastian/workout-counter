@@ -11,7 +11,6 @@ import {
 	onSnapshot
 } from 'firebase/firestore';
 import { getAuth, onAuthStateChanged, type User } from 'firebase/auth';
-import { getStorage } from 'firebase/storage';
 import { writable, type Readable, derived } from 'svelte/store';
 import type { Workout, Routine, Program, UserData, Parse } from '$lib/types';
 import { parseWorkout, parseRoutine, parseProgram, parseUserData } from '$lib/types';
@@ -43,7 +42,6 @@ export const db =
 		: getFirestore(app);
 
 export const auth = getAuth();
-export const storage = getStorage();
 
 /**
  * @returns a store with the current firebase user

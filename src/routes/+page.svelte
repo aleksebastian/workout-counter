@@ -393,7 +393,7 @@
 		</div>
 		<div class="skeleton h-14 w-full rounded-xl"></div>
 		<div class="grid grid-cols-3 gap-2">
-			{#each { length: 3 } as _}
+			{#each { length: 3 } as _, i (i)}
 				<div class="skeleton h-16 rounded-xl"></div>
 			{/each}
 		</div>
@@ -416,7 +416,7 @@
 					This week
 				</p>
 				<div class="flex justify-between">
-					{#each weekDays as day}
+					{#each weekDays as day, i (i)}
 						<div class="flex flex-col items-center gap-1.5">
 							<div
 								class={[
@@ -446,7 +446,7 @@
 				class:grid-cols-2={stats.length === 2}
 				in:landingFly|global={{ y: 20, duration: 400, delay: 490, easing: cubicOut }}
 			>
-				{#each stats as stat}
+				{#each stats as stat, i (i)}
 					<div
 						class="bg-base-200 rounded-box flex flex-col items-center justify-center gap-0.5 py-3"
 					>

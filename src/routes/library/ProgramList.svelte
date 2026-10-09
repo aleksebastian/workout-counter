@@ -61,7 +61,7 @@
 {#snippet weekDots(program: Program, small: boolean)}
 	{@const scheduled = programDays(program)}
 	<div class="flex items-end gap-2">
-		{#each DAY_SHORT as label, i}
+		{#each DAY_SHORT as label, i (i)}
 			{@const isScheduled = scheduled.includes(i)}
 			{@const isToday = i === todayDow}
 			<div class="flex flex-col items-center gap-0.5">
@@ -124,86 +124,84 @@
 		</div>
 	{/snippet}
 
-	{#snippet children()}
-		<div class="flex flex-col gap-4 pb-16">
-			{#if activeProgram}
-				{@const todayCount = exerciseCount(activeProgram, todayDow)}
-				<div class="flex flex-col gap-1.5">
-					<p class="text-base-content/50 text-xs font-semibold tracking-widest uppercase">
-						Active Program
-					</p>
-					<div
-						class="border-primary/30 bg-primary/8 rounded-box relative overflow-hidden border px-4 py-4"
-					>
-						<div class="bg-primary rounded-l-box absolute top-0 left-0 h-full w-1"></div>
-						<div class="ml-2 flex flex-col gap-3">
-							<div class="flex items-start justify-between gap-2">
-								<a href={`/programs/${activeProgram.id}`} class="min-w-0 flex-1">
-									<p class="text-base leading-snug font-bold">{activeProgram.name}</p>
-									{#if activeProgram.notes}
-										<p class="text-base-content/50 mt-0.5 line-clamp-2 text-xs">
-											{activeProgram.notes}
-										</p>
-									{/if}
-								</a>
-								<RowMenuButton
-									label="Options for {activeProgram.name}"
-									onclick={() => openMenu(activeProgram)}
-								/>
-							</div>
-
-							{#if programDays(activeProgram).length}
-								{@render weekDots(activeProgram, false)}
-							{:else}
-								<p class="text-base-content/40 text-xs">No days scheduled yet</p>
-							{/if}
-
-							{#if todayCount > 0}
-								<button
-									class="btn btn-primary btn-sm w-full"
-									onclick={() => goto(runProgramHref(activeProgram.id, todayDow))}
-									>Start today's workout</button
-								>
-							{:else}
-								<a href={`/programs/${activeProgram.id}`} class="text-base-content/40 text-xs"
-									>Rest day · {DAY_NAMES[todayDow]} — tap to view schedule</a
-								>
-							{/if}
+	<div class="flex flex-col gap-4 pb-16">
+		{#if activeProgram}
+			{@const todayCount = exerciseCount(activeProgram, todayDow)}
+			<div class="flex flex-col gap-1.5">
+				<p class="text-base-content/50 text-xs font-semibold tracking-widest uppercase">
+					Active Program
+				</p>
+				<div
+					class="border-primary/30 bg-primary/8 rounded-box relative overflow-hidden border px-4 py-4"
+				>
+					<div class="bg-primary rounded-l-box absolute top-0 left-0 h-full w-1"></div>
+					<div class="ml-2 flex flex-col gap-3">
+						<div class="flex items-start justify-between gap-2">
+							<a href={`/programs/${activeProgram.id}`} class="min-w-0 flex-1">
+								<p class="text-base leading-snug font-bold">{activeProgram.name}</p>
+								{#if activeProgram.notes}
+									<p class="text-base-content/50 mt-0.5 line-clamp-2 text-xs">
+										{activeProgram.notes}
+									</p>
+								{/if}
+							</a>
+							<RowMenuButton
+								label="Options for {activeProgram.name}"
+								onclick={() => openMenu(activeProgram)}
+							/>
 						</div>
+
+						{#if programDays(activeProgram).length}
+							{@render weekDots(activeProgram, false)}
+						{:else}
+							<p class="text-base-content/40 text-xs">No days scheduled yet</p>
+						{/if}
+
+						{#if todayCount > 0}
+							<button
+								class="btn btn-primary btn-sm w-full"
+								onclick={() => goto(runProgramHref(activeProgram.id, todayDow))}
+								>Start today's workout</button
+							>
+						{:else}
+							<a href={`/programs/${activeProgram.id}`} class="text-base-content/40 text-xs"
+								>Rest day · {DAY_NAMES[todayDow]} — tap to view schedule</a
+							>
+						{/if}
 					</div>
 				</div>
-			{/if}
+			</div>
+		{/if}
 
-			{#if others.length}
-				<div class="flex flex-col gap-2">
-					{#if activeProgram}
-						<p class="text-base-content/50 text-xs font-semibold tracking-widest uppercase">
-							Other Programs
-						</p>
-					{/if}
-					{#each others as program (program.id)}
-						<div class="bg-base-200 rounded-box flex items-center gap-1 pr-1.5">
-							<a
-								href={`/programs/${program.id}`}
-								class="hover:bg-base-300 rounded-box flex min-w-0 flex-1 items-center gap-3 px-4 py-3.5 transition-colors active:scale-[0.99]"
-							>
-								<div class="flex min-w-0 flex-1 flex-col gap-1 overflow-hidden">
-									<span class="truncate font-semibold">{program.name}</span>
-									{#if programDays(program).length}
-										{@render weekDots(program, true)}
-									{:else}
-										<p class="text-base-content/30 text-xs">No days scheduled</p>
-									{/if}
-								</div>
-								<Chevron />
-							</a>
-							<RowMenuButton label="Options for {program.name}" onclick={() => openMenu(program)} />
-						</div>
-					{/each}
-				</div>
-			{/if}
-		</div>
-	{/snippet}
+		{#if others.length}
+			<div class="flex flex-col gap-2">
+				{#if activeProgram}
+					<p class="text-base-content/50 text-xs font-semibold tracking-widest uppercase">
+						Other Programs
+					</p>
+				{/if}
+				{#each others as program (program.id)}
+					<div class="bg-base-200 rounded-box flex items-center gap-1 pr-1.5">
+						<a
+							href={`/programs/${program.id}`}
+							class="hover:bg-base-300 rounded-box flex min-w-0 flex-1 items-center gap-3 px-4 py-3.5 transition-colors active:scale-[0.99]"
+						>
+							<div class="flex min-w-0 flex-1 flex-col gap-1 overflow-hidden">
+								<span class="truncate font-semibold">{program.name}</span>
+								{#if programDays(program).length}
+									{@render weekDots(program, true)}
+								{:else}
+									<p class="text-base-content/30 text-xs">No days scheduled</p>
+								{/if}
+							</div>
+							<Chevron />
+						</a>
+						<RowMenuButton label="Options for {program.name}" onclick={() => openMenu(program)} />
+					</div>
+				{/each}
+			</div>
+		{/if}
+	</div>
 </Async>
 
 <ActionSheet bind:open={showActions} title={selected?.name} {actions} />

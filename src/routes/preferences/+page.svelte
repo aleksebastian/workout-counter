@@ -140,7 +140,7 @@
 		<div class="bg-base-200 flex items-center justify-between gap-4 rounded-2xl px-4 py-4">
 			{@render row('Theme', 'App colour scheme')}
 			<div class="join">
-				{#each [['light', 'Light'], ['system', 'System'], ['dark', 'Dark']] as const as [value, label]}
+				{#each [['light', 'Light'], ['system', 'System'], ['dark', 'Dark']] as const as [value, label] (value)}
 					<button
 						type="button"
 						class="btn btn-sm join-item"
@@ -161,7 +161,7 @@
 		<div class="bg-base-200 flex items-center justify-between gap-4 rounded-2xl px-4 py-4">
 			{@render row('Weight Unit', 'Used across all exercises')}
 			<div class="join">
-				{#each ['lbs', 'kg'] as const as value}
+				{#each ['lbs', 'kg'] as const as value (value)}
 					<button
 						type="button"
 						class="btn btn-sm join-item px-6"
@@ -196,7 +196,7 @@
 			</p>
 			{#if draft.timerEnabled}
 				<div class="flex flex-wrap gap-2">
-					{#each TIMER_PRESETS as preset}
+					{#each TIMER_PRESETS as preset (preset.label)}
 						<button
 							type="button"
 							class="btn btn-sm flex-none transition-colors"
@@ -252,7 +252,7 @@
 		<div class="bg-base-200 flex items-center justify-between gap-4 rounded-2xl px-4 py-4">
 			{@render row('Week starts on', 'Defines the start of each streak week')}
 			<div class="join">
-				{#each [[0, 'Sun'], [1, 'Mon']] as const as [value, label]}
+				{#each [[0, 'Sun'], [1, 'Mon']] as const as [value, label] (value)}
 					<button
 						type="button"
 						class="btn btn-sm join-item px-5"
@@ -283,7 +283,7 @@
 		>
 			{@render row('Weekly goal', 'Days/week needed to earn a streak')}
 			<div class="join">
-				{#each [1, 2, 3, 4, 5, 6, 7] as n}
+				{#each [1, 2, 3, 4, 5, 6, 7] as n (n)}
 					<button
 						type="button"
 						class="btn btn-xs join-item px-2"

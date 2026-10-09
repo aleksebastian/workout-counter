@@ -357,7 +357,7 @@
 	<div class="flex flex-col gap-3">
 		{#if routines}
 			<div role="tablist" class="tabs tabs-box grid grid-cols-2">
-				{#each [['exercises', 'Exercises'], ['routines', 'Routines']] as const as [id, label]}
+				{#each [['exercises', 'Exercises'], ['routines', 'Routines']] as const as [id, label] (id)}
 					<button
 						role="tab"
 						class="tab"
@@ -431,7 +431,7 @@
 				{#each catalogRows as r (r.key)}{@render row(r)}{/each}
 			{:else if !catalog}
 				{@render sectionLabel('From Discover')}
-				{#each { length: 3 } as _}<div class="skeleton h-14 w-full rounded-xl"></div>{/each}
+				{#each { length: 3 } as _, i (i)}<div class="skeleton h-14 w-full rounded-xl"></div>{/each}
 			{/if}
 
 			{#if query && !createName && !presentRows.length && !typedRows.length && !libraryRows.length && !catalogRows.length}

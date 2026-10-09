@@ -7,7 +7,7 @@ import type { RequestHandler } from './$types';
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.userID) throw error(401, 'Unauthorized');
 
-	const { messageId } = await request.json() as { messageId: string };
+	const { messageId } = (await request.json()) as { messageId: string };
 	if (!messageId || typeof messageId !== 'string') {
 		throw error(400, 'Invalid messageId');
 	}

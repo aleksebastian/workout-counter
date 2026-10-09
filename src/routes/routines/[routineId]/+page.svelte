@@ -194,7 +194,7 @@
 	<div class="mx-auto flex w-full max-w-lg flex-col gap-4">
 		<div class="skeleton h-10 w-full rounded-xl"></div>
 		<div class="skeleton h-14 w-full rounded-2xl"></div>
-		{#each { length: 3 } as _}
+		{#each { length: 3 } as _, i (i)}
 			<div class="skeleton h-20 w-full rounded-2xl"></div>
 		{/each}
 	</div>

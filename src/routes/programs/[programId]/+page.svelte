@@ -343,7 +343,7 @@
 
 		<!-- Day picker -->
 		<div class="-mr-2 flex items-center gap-1.5 overflow-x-auto pr-2 pb-0.5">
-			{#each [0, 1, 2, 3, 4, 5, 6] as dayNum}
+			{#each [0, 1, 2, 3, 4, 5, 6] as dayNum (dayNum)}
 				{@const count = exerciseCount(dayNum)}
 				<div class="flex shrink-0 flex-col items-center">
 					<button
@@ -420,7 +420,7 @@
 			<button class="btn btn-primary w-full" onclick={() => (reordering = false)}>Done</button>
 		{:else if dayItems.length}
 			<ul class="flex flex-col gap-2 pb-2">
-				{#each dayItems as item, i}
+				{#each dayItems as item, i (i)}
 					<li class="bg-base-200 rounded-box flex items-start gap-2 px-4 py-3">
 						{@render itemBody(item)}
 						<RowMenuButton label="Options for this item" onclick={() => openItemMenu(i)} />

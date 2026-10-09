@@ -112,7 +112,7 @@
 			{#if useCustomTimer}
 				<div class="flex flex-col gap-2">
 					<div class="-mx-1 flex scrollbar-none gap-1.5 overflow-x-auto px-1 pb-0.5">
-						{#each TIMER_PRESETS as preset}
+						{#each TIMER_PRESETS as preset (preset.label)}
 							<button
 								type="button"
 								class="btn btn-xs flex-none transition-colors"

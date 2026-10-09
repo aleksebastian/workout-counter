@@ -28,7 +28,7 @@
 		{@render loading()}
 	{:else}
 		<div class="flex flex-col gap-2" aria-busy="true" aria-label="Loading">
-			{#each { length: rows } as _}
+			{#each { length: rows } as _, i (i)}
 				<div class="skeleton {rowClass}"></div>
 			{/each}
 		</div>

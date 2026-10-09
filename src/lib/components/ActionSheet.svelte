@@ -35,7 +35,7 @@
 		{#if subtitle}
 			<p class="text-base-content/50 mb-2 text-sm">{subtitle}</p>
 		{/if}
-		{#each actions as action, i}
+		{#each actions as action, i (i)}
 			{#if action.destructive && i > 0 && !actions[i - 1].destructive}
 				<!-- Destructive actions sit apart, so they're harder to hit by accident. -->
 				<hr class="border-base-300 mx-3 my-1" />

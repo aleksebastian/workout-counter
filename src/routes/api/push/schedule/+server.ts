@@ -9,7 +9,7 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 	const uid = locals.userID;
 	if (!uid) throw error(401, 'Unauthorized');
 
-	const { expiresAt } = await request.json() as { expiresAt: number };
+	const { expiresAt } = (await request.json()) as { expiresAt: number };
 	if (!expiresAt || typeof expiresAt !== 'number') {
 		throw error(400, 'Invalid expiresAt');
 	}

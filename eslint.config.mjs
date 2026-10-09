@@ -53,6 +53,9 @@ export default [
 		},
 		rules: {
 			...typescriptEslint.configs.recommended.rules,
+			// TypeScript already reports undefined names, and no-undef doesn't know
+			// the DOM lib's type-only globals (VibratePattern, NotificationPermission…).
+			'no-undef': 'off',
 			'svelte/no-navigation-without-resolve': 'off',
 			'@typescript-eslint/no-unused-vars': [
 				'error',
@@ -86,7 +89,9 @@ export default [
 			sourceType: 'module'
 		},
 		rules: {
-			...typescriptEslint.configs.recommended.rules
+			...typescriptEslint.configs.recommended.rules,
+			// Same reasoning as for .svelte files below.
+			'svelte/prefer-svelte-reactivity': 'off'
 		}
 	},
 	{
@@ -104,6 +109,10 @@ export default [
 		},
 		rules: {
 			'svelte/no-at-html-tags': 'off',
+			// Every hit was a throwaway Date/Map/Set built inside a $derived or a
+			// helper and never kept as state; the reactive wrappers would only add
+			// overhead and imply reactivity that isn't there.
+			'svelte/prefer-svelte-reactivity': 'off',
 			'svelte/no-navigation-without-resolve': 'off',
 			'@typescript-eslint/no-unused-expressions': 'off',
 			'no-undef': 'off',
