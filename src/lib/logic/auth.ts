@@ -5,7 +5,8 @@ import {
 	GoogleAuthProvider,
 	reauthenticateWithPopup,
 	signInWithPopup,
-	signOut
+	signOut,
+	type User
 } from 'firebase/auth';
 import { getPostLoginDestination } from '$lib/logic/onboarding';
 
@@ -47,9 +48,28 @@ export async function handleSignIn() {
 	// stranded on /login without a server session. Closing the popup rejects on
 	// its own; the login page offers Cancel for a popup that never reports back.
 	const credential = await signInWithPopup(auth, provider);
+	await finishSignIn(credential.user);
+}
 
+let finishing: Promise<void> | null = null;
+
+/**
+ * Turns a Firebase sign-in into an app session: mints the server session
+ * cookie, then navigates to wherever this user should land.
+ *
+ * Split out of handleSignIn because on iOS the popup call can reject (Firebase
+ * loses track of Google's sheet and reports it closed) while the sign-in still
+ * completes behind it. The login page then sees a signed-in user that nothing
+ * is finishing, and calls this itself. Concurrent calls share one run.
+ */
+export function finishSignIn(user: User): Promise<void> {
+	finishing ??= completeSession(user).finally(() => (finishing = null));
+	return finishing;
+}
+
+async function completeSession(user: User) {
 	const idToken = await withTimeout(
-		credential.user.getIdToken(),
+		user.getIdToken(),
 		15000,
 		'Sign-in timed out. Please try again.'
 	);
@@ -72,7 +92,7 @@ export async function handleSignIn() {
 	}
 
 	const userDoc = await withTimeout(
-		getDoc(doc(db, 'users', credential.user.uid)),
+		getDoc(doc(db, 'users', user.uid)),
 		15000,
 		'Sign-in timed out. Please try again.'
 	);

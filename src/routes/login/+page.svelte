@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { handleSignIn } from '$lib/logic/auth';
+	import { onAuthStateChanged, type User } from 'firebase/auth';
+	import { finishSignIn, handleSignIn, isSigningOut } from '$lib/logic/auth';
 	import { auth } from '$lib/firebase';
 
 	let error = $state('');
@@ -9,11 +10,40 @@
 	let attempt = 0;
 
 	async function signIn() {
+		// Already signed in to Firebase (a finish that failed): no new popup needed.
+		if (auth.currentUser) return finish(auth.currentUser);
+		await run(async () => {
+			try {
+				await handleSignIn();
+			} catch (e: unknown) {
+				// The popup reporting itself closed doesn't mean nobody signed in.
+				// Only popup (auth/*) errors qualify: retrying after our own session
+				// step failed would just fail again, in a loop.
+				const popupError = (e as { code?: string }).code?.startsWith('auth/');
+				if (popupError && auth.currentUser && !isSigningOut()) {
+					return finishSignIn(auth.currentUser);
+				}
+				throw e;
+			}
+		});
+	}
+
+	/**
+	 * Finishes a sign-in Firebase completed without our popup call resolving.
+	 * On iOS that call can reject as closed while Google's sheet still signs the
+	 * person in, which used to leave them signed in on the device but stranded
+	 * here with no server session and no message.
+	 */
+	function finish(user: User) {
+		return run(() => finishSignIn(user));
+	}
+
+	async function run(step: () => Promise<void>) {
 		const mine = ++attempt;
 		loading = true;
 		error = '';
 		try {
-			await handleSignIn();
+			await step();
 		} catch (e: unknown) {
 			if (mine !== attempt) return;
 			const msg = e instanceof Error ? e.message : String(e);
@@ -47,6 +77,12 @@
 	 * did finish to land, and if one lands later it still completes.
 	 */
 	const RETURN_GRACE_MS = 3000;
+	onMount(() =>
+		onAuthStateChanged(auth, (user) => {
+			if (user && !isSigningOut()) finish(user);
+		})
+	);
+
 	onMount(() => {
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		const onReturn = () => {
