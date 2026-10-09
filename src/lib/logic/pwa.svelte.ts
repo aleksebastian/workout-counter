@@ -71,20 +71,20 @@ let recordedSets = 0;
 let notifPromptShown = false;
 let staleCheck: Promise<boolean> | null = null;
 
-/** Resolves once `reg` has a worker waiting to take over, or after `timeoutMs`. */
+/** Call after `reg.update()`. Resolves once the new worker is waiting to take over, or after `timeoutMs`. */
 function waitForWaitingWorker(reg: ServiceWorkerRegistration, timeoutMs: number): Promise<void> {
 	return new Promise((resolve) => {
-		if (reg.waiting) return resolve();
+		// Nothing installing after update(): another tab already moved the new
+		// worker in, so a plain reload lands on the new build.
+		const worker = reg.installing;
+		if (reg.waiting || !worker) return resolve();
 		const timer = setTimeout(resolve, timeoutMs);
-		const watch = (worker: ServiceWorker | null) =>
-			worker?.addEventListener('statechange', () => {
-				if (worker.state === 'installed') {
-					clearTimeout(timer);
-					resolve();
-				}
-			});
-		watch(reg.installing);
-		reg.addEventListener('updatefound', () => watch(reg.installing), { once: true });
+		worker.addEventListener('statechange', () => {
+			if (worker.state === 'installed') {
+				clearTimeout(timer);
+				resolve();
+			}
+		});
 	});
 }
 

@@ -73,6 +73,14 @@
 		}
 	}
 
+	onMount(() => {
+		// Catch a stale build before the person even taps sign-in.
+		pwa.reloadIfStale();
+		return onAuthStateChanged(auth, (user) => {
+			if (user && !isSigningOut()) finish(user);
+		});
+	});
+
 	/**
 	 * A popup that never reports back (iOS can lose track of it) would leave the
 	 * button spinning forever. Cancel frees it without abandoning the attempt:
@@ -90,14 +98,6 @@
 	 * did finish to land, and if one lands later it still completes.
 	 */
 	const RETURN_GRACE_MS = 3000;
-	onMount(() => {
-		// Catch a stale build before the person even taps sign-in.
-		pwa.reloadIfStale();
-		return onAuthStateChanged(auth, (user) => {
-			if (user && !isSigningOut()) finish(user);
-		});
-	});
-
 	onMount(() => {
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		const onReturn = () => {
