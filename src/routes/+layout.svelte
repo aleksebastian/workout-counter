@@ -18,11 +18,18 @@
 	import { applyTheme } from '$lib/logic/theme';
 	import { session } from '$lib/session.svelte';
 	import { toaster } from '$lib/toast.svelte';
-	import { TAB_ROUTES } from '$lib/routes';
+	import { TAB_ROUTES, isRunPath } from '$lib/routes';
 
 	let { children } = $props();
 
 	let hasUser = $derived(session.ready);
+
+	/**
+	 * The run screen brings its own header and a pinned footer, so the navbar
+	 * and tabs step aside. Hidden rather than unmounted: remounting the navbar
+	 * would replay its launch animation every time you leave a workout.
+	 */
+	let immersive = $derived(isRunPath(page.url.pathname));
 
 	/**
 	 * Height of the banner stacked above the bottom bars (0 when none shows).
@@ -148,7 +155,7 @@
 	</div>
 {/if}
 
-<div style={!pwa.online ? 'margin-top: 1.75rem' : ''}>
+<div style={!pwa.online ? 'margin-top: 1.75rem' : ''} class:hidden={immersive}>
 	<Navbar {hasUser} ready={hasUser} />
 </div>
 
@@ -285,7 +292,9 @@
 {#if hasUser}
 	<RestTimerBar />
 	<WorkoutBar />
-	<BottomNav />
+	<div class:hidden={immersive}>
+		<BottomNav />
+	</div>
 {/if}
 
 <style>

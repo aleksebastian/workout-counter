@@ -53,6 +53,11 @@ export function libraryItemHref(kind: 'exercise' | 'routine' | 'program', id: st
 	return kind === 'routine' ? `/routines/${id}` : `/programs/${id}`;
 }
 
+/** The guided session screen, which runs full-screen without the tab chrome. */
+export function isRunPath(pathname: string): boolean {
+	return pathname.startsWith('/train/run');
+}
+
 /** Guided session for one day of a program. */
 export function runProgramHref(programId: string, day: number): string {
 	return `/train/run?program=${programId}&day=${day}`;

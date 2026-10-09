@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { bottomSlot } from '$lib/logic/bottomSlot.svelte';
 	import { training } from '$lib/logic/training.svelte';
+	import { formatClock } from '$lib/logic/training';
 	import Chevron from '$lib/components/Chevron.svelte';
 
 	/**
@@ -18,13 +19,7 @@
 		return () => clearInterval(id);
 	});
 
-	let elapsed = $derived.by(() => {
-		const s = Math.max(0, Math.floor((now - (training.session?.startedAt ?? now)) / 1000));
-		const h = Math.floor(s / 3600);
-		const m = Math.floor((s % 3600) / 60);
-		const sec = (s % 60).toString().padStart(2, '0');
-		return h > 0 ? `${h}:${m.toString().padStart(2, '0')}:${sec}` : `${m}:${sec}`;
-	});
+	let elapsed = $derived(formatClock(now - (training.session?.startedAt ?? now)));
 
 	let progress = $derived.by(() => {
 		const total = training.plan?.length ?? 0;
