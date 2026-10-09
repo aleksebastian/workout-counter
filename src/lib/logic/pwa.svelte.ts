@@ -1,4 +1,5 @@
 import { version } from '$app/environment';
+import { updated } from '$app/state';
 import { subscribeToPush } from '$lib/push';
 import { toaster } from '$lib/toast.svelte';
 
@@ -45,6 +46,14 @@ const UPDATED_FROM_KEY = 'sc-updated-from';
  * so the "Updating" state can never strand the user.
  */
 const UPDATE_RELOAD_FALLBACK_MS = 4000;
+/**
+ * The build a stale-build reload last left, for this session. A reload that
+ * still lands on that build (the new worker never took over) must not reload
+ * again, or the page would loop.
+ */
+const STALE_RELOAD_FROM_KEY = 'sc-stale-reload-from';
+/** How long a stale page waits for the new worker to install before reloading anyway. */
+const NEW_WORKER_INSTALL_TIMEOUT_MS = 10000;
 /** Sets recorded before we suggest installing — enough to show the app works. */
 const SETS_BEFORE_INSTALL_PROMPT = 3;
 
@@ -60,6 +69,49 @@ let deferredPrompt: BeforeInstallPromptEvent | null = null;
 let registration: ServiceWorkerRegistration | null = null;
 let recordedSets = 0;
 let notifPromptShown = false;
+let staleCheck: Promise<boolean> | null = null;
+
+/** Call after `reg.update()`. Resolves once the new worker is waiting to take over, or after `timeoutMs`. */
+function waitForWaitingWorker(reg: ServiceWorkerRegistration, timeoutMs: number): Promise<void> {
+	return new Promise((resolve) => {
+		// Nothing installing after update(): another tab already moved the new
+		// worker in, so a plain reload lands on the new build.
+		const worker = reg.installing;
+		if (reg.waiting || !worker) return resolve();
+		const timer = setTimeout(resolve, timeoutMs);
+		worker.addEventListener('statechange', () => {
+			if (worker.state === 'installed') {
+				clearTimeout(timer);
+				resolve();
+			}
+		});
+	});
+}
+
+async function reloadIfStale(): Promise<boolean> {
+	let stale = false;
+	try {
+		stale = await updated.check();
+	} catch {
+		// Offline or the check failed: carry on with the build we have.
+	}
+	if (!stale || sessionStorage.getItem(STALE_RELOAD_FROM_KEY) === version) return false;
+	// The worker serves the last cached page, so a reload before the new worker
+	// takes over would come straight back to this stale build. Looked up here
+	// rather than relying on init(): a page's onMount runs before the layout's.
+	const reg =
+		registration ??
+		(await navigator.serviceWorker?.getRegistration().catch(() => undefined)) ??
+		null;
+	if (reg) {
+		registration = reg;
+		await reg.update().catch(() => {});
+		await waitForWaitingWorker(reg, NEW_WORKER_INSTALL_TIMEOUT_MS);
+	}
+	sessionStorage.setItem(STALE_RELOAD_FROM_KEY, version);
+	pwa.applyUpdate();
+	return true;
+}
 
 export const pwa = {
 	get online() {
@@ -180,6 +232,19 @@ export const pwa = {
 		const { outcome } = await deferredPrompt.userChoice;
 		if (outcome === 'accepted') deferredPrompt = null;
 		showInstall = false;
+	},
+
+	/**
+	 * Asks the server whether a newer build is live and, if so, moves to it.
+	 * Resolves true when that reload is under way. The worker's update check only
+	 * runs on its own schedule, so a page open across a deploy can keep running
+	 * the old build against the new server — which broke sign-in mid-way. Call
+	 * before steps that must match the server; concurrent calls share one check.
+	 */
+	reloadIfStale(): Promise<boolean> {
+		if (updating) return Promise.resolve(true);
+		staleCheck ??= reloadIfStale().finally(() => (staleCheck = null));
+		return staleCheck;
 	},
 
 	/**

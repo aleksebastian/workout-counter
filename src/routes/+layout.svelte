@@ -56,7 +56,7 @@
 	// sign-in while the server session cookie is still being minted, so that
 	// navigation would hit the server guard cookie-less and bounce straight back
 	// to /login — with neither of this effect's dependencies changed, so it would
-	// never retry. handleSignIn owns that redirect; it knows the cookie is set.
+	// never retry. finishSignIn owns that redirect; it knows the cookie is set.
 	$effect(() => {
 		const status = session.status;
 		const path = page.url.pathname;

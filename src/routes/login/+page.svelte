@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { handleSignIn } from '$lib/logic/auth';
+	import { onAuthStateChanged, type User } from 'firebase/auth';
+	import { finishSignIn, signInWithGoogle, isSigningOut } from '$lib/logic/auth';
 	import { auth } from '$lib/firebase';
+	import { pwa } from '$lib/logic/pwa.svelte';
 
 	let error = $state('');
 	let loading = $state(false);
@@ -9,11 +11,52 @@
 	let attempt = 0;
 
 	async function signIn() {
+		// Already signed in to Firebase (a finish that failed): no new popup needed.
+		if (auth.currentUser) return finish(auth.currentUser);
+		// The popup opens first, straight from the tap: iOS blocks a popup opened
+		// after an await. The build check runs once Google is done.
+		await run(async () => {
+			let user: User;
+			try {
+				user = await signInWithGoogle();
+			} catch (e: unknown) {
+				// The popup reporting itself closed doesn't mean nobody signed in.
+				// Only popup (auth/*) errors qualify: retrying after our own session
+				// step failed would just fail again, in a loop.
+				const popupError = (e as { code?: string }).code?.startsWith('auth/');
+				if (!popupError || !auth.currentUser || isSigningOut()) throw e;
+				user = auth.currentUser;
+			}
+			await startSession(user);
+		});
+	}
+
+	/**
+	 * A page left open across a deploy runs the old build against the new
+	 * server, and the session step breaks part-way. Move to the new build first:
+	 * the Firebase sign-in survives the reload, and the fresh page finishes it.
+	 */
+	async function startSession(user: User) {
+		if (await pwa.reloadIfStale()) return new Promise<void>(() => {}); // spin until the reload
+		await finishSignIn(user);
+	}
+
+	/**
+	 * Finishes a sign-in Firebase completed without our popup call resolving.
+	 * On iOS that call can reject as closed while Google's sheet still signs the
+	 * person in, which used to leave them signed in on the device but stranded
+	 * here with no server session and no message.
+	 */
+	function finish(user: User) {
+		return run(() => startSession(user));
+	}
+
+	async function run(step: () => Promise<void>) {
 		const mine = ++attempt;
 		loading = true;
 		error = '';
 		try {
-			await handleSignIn();
+			await step();
 		} catch (e: unknown) {
 			if (mine !== attempt) return;
 			const msg = e instanceof Error ? e.message : String(e);
@@ -30,10 +73,18 @@
 		}
 	}
 
+	onMount(() => {
+		// Catch a stale build before the person even taps sign-in.
+		pwa.reloadIfStale();
+		return onAuthStateChanged(auth, (user) => {
+			if (user && !isSigningOut()) finish(user);
+		});
+	});
+
 	/**
 	 * A popup that never reports back (iOS can lose track of it) would leave the
 	 * button spinning forever. Cancel frees it without abandoning the attempt:
-	 * if Google does finish, handleSignIn still completes and navigates.
+	 * if Google does finish, the sign-in still completes and navigates.
 	 */
 	function cancel() {
 		attempt++;
