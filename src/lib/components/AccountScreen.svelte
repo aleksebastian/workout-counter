@@ -31,9 +31,15 @@
 	// Only slide out when we close it. The iOS back swipe has already animated
 	// the screen away, so sliding it down again afterwards would play twice.
 	let animateOut = $state(false);
+	// Set once a close or hand-off is under way, so a second tap can't call
+	// history.back() again before page.state catches up and leave the app's page.
+	let closing = false;
+	// Read by the scroll lock's cleanup, which runs after `leaving` is cleared.
+	let handedOff = false;
 
 	function close() {
-		if (!page.state.account) return;
+		if (!page.state.account || closing) return;
+		closing = true;
 		animateOut = true;
 		history.back();
 	}
@@ -47,6 +53,9 @@
 	// then cross-fades from it straight to the next page.
 	function leaveThen(next: () => void | Promise<void>) {
 		if (!page.state.account) return next();
+		if (closing) return;
+		closing = true;
+		handedOff = true;
 		leaving = true;
 		addEventListener(
 			'popstate',
@@ -106,10 +115,12 @@
 
 	$effect(() => {
 		if (!open) return;
+		closing = false;
+		handedOff = false;
 		const unlock = lockBodyScroll();
 		// After handing off to another page, restoring this page's scroll offset
 		// would land the new page partway down.
-		return () => unlock(!leaving);
+		return () => unlock(!handedOff);
 	});
 </script>
 
