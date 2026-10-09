@@ -19,7 +19,7 @@
 <section class="flex flex-col gap-2">
 	<h2 class="text-base-content/50 text-xs font-semibold tracking-widest uppercase">Works</h2>
 	<div class="flex flex-wrap gap-1.5">
-		{#each exercise.muscles as muscle, i}
+		{#each exercise.muscles as muscle, i (i)}
 			<span class="badge {i === 0 ? 'badge-primary badge-soft' : 'badge-ghost'}"
 				>{MUSCLE_LABELS[muscle]}</span
 			>

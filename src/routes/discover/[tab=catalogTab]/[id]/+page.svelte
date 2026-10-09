@@ -233,7 +233,7 @@
 					Add to Library
 				{/if}
 			</button>
-			{#each summary as line}
+			{#each summary as line, i (i)}
 				<p class="text-base-content/50 -mt-1 text-center text-xs">{line}</p>
 			{/each}
 		{/if}

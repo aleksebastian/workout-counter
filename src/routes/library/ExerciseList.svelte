@@ -84,7 +84,7 @@
 <div class="flex flex-col gap-4">
 	{#if session.workouts?.length}
 		<div class="flex gap-1.5" role="group" aria-label="Sort by">
-			{#each SORTS as [key, label]}
+			{#each SORTS as [key, label] (key)}
 				<button
 					class="btn btn-xs rounded-full transition-all"
 					class:btn-primary={sortKey === key}

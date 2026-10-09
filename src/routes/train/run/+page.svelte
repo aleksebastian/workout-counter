@@ -332,7 +332,7 @@
 					<span class="text-base-content/50 text-sm">{counted(setsDone, 'set')} today</span>
 				{:else}
 					<div class="flex gap-1">
-						{#each { length: targetSets } as _, i}
+						{#each { length: targetSets } as _, i (i)}
 							<span
 								class="h-2.5 w-2.5 rounded-full transition-colors duration-200"
 								class:bg-primary={i < setsDone}

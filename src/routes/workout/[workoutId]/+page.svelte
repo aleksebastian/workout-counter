@@ -176,7 +176,7 @@
 					{comparisonLabel}
 				</p>
 				<div class="grid grid-cols-2 gap-x-6 gap-y-3">
-					{#each comparisonStats as stat}
+					{#each comparisonStats as stat, i (i)}
 						<div class="flex flex-col">
 							<span class="text-base-content/40 text-[10px] font-semibold tracking-wider uppercase"
 								>{stat.label}</span

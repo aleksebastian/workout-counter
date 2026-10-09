@@ -16,7 +16,7 @@
 	class="tabs tabs-box grid"
 	style="grid-template-columns: repeat({tabs.length}, 1fr)"
 >
-	{#each tabs as { id, label }}
+	{#each tabs as { id, label } (id)}
 		<button
 			role="tab"
 			class="tab"

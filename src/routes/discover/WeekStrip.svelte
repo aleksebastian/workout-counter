@@ -6,7 +6,7 @@
 </script>
 
 <div class="flex items-end gap-2" aria-hidden="true">
-	{#each DAY_SHORT as label, i}
+	{#each DAY_SHORT as label, i (i)}
 		{@const on = days.includes(i)}
 		<div class="flex flex-col items-center gap-0.5">
 			<span

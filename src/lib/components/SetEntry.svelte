@@ -89,7 +89,7 @@
 		</div>
 		<div class="relative">
 			<div class="flex scrollbar-none gap-2 overflow-x-auto pb-1">
-				{#each quick as n}
+				{#each quick as n, i (i)}
 					<button
 						class="btn btn-sm flex-none transition-colors select-none"
 						class:btn-primary={value === n}

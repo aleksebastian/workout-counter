@@ -61,7 +61,7 @@
 {#snippet weekDots(program: Program, small: boolean)}
 	{@const scheduled = programDays(program)}
 	<div class="flex items-end gap-2">
-		{#each DAY_SHORT as label, i}
+		{#each DAY_SHORT as label, i (i)}
 			{@const isScheduled = scheduled.includes(i)}
 			{@const isToday = i === todayDow}
 			<div class="flex flex-col items-center gap-0.5">
