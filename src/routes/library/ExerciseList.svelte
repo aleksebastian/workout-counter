@@ -133,44 +133,41 @@
 			</div>
 		{/snippet}
 
-		{#snippet children()}
-			{#if filtered.length}
-				<ul class="flex flex-col gap-2 pb-16">
-					{#each filtered as workout (workout.id)}
-						{@const last = lastSetDate(workout)}
-						<li class="bg-base-200 rounded-box flex items-center gap-1 pr-1.5">
-							<a
-								href={'/workout/' + workout.id}
-								class="hover:bg-base-300 rounded-box flex min-w-0 flex-1 items-center gap-3 px-4 py-3 transition-colors active:scale-[0.99]"
-							>
-								<div class="flex min-w-0 flex-1 flex-col overflow-hidden">
-									<span class="truncate text-sm font-semibold">{workout.name}</span>
-									{#if workout.notes}
-										<p class="text-base-content/50 truncate text-xs">{workout.notes}</p>
-									{/if}
-									<span
-										class={last ? 'text-base-content/40 text-xs' : 'text-base-content/25 text-xs'}
-										>{last ? formatDistanceToNow(last, { addSuffix: true }) : 'Never done'}</span
-									>
-								</div>
-								<span class="text-base-content/40 shrink-0 text-xs"
-									>{counted(workout.sets.length, 'set')}</span
+		{#if filtered.length}
+			<ul class="flex flex-col gap-2 pb-16">
+				{#each filtered as workout (workout.id)}
+					{@const last = lastSetDate(workout)}
+					<li class="bg-base-200 rounded-box flex items-center gap-1 pr-1.5">
+						<a
+							href={'/workout/' + workout.id}
+							class="hover:bg-base-300 rounded-box flex min-w-0 flex-1 items-center gap-3 px-4 py-3 transition-colors active:scale-[0.99]"
+						>
+							<div class="flex min-w-0 flex-1 flex-col overflow-hidden">
+								<span class="truncate text-sm font-semibold">{workout.name}</span>
+								{#if workout.notes}
+									<p class="text-base-content/50 truncate text-xs">{workout.notes}</p>
+								{/if}
+								<span class={last ? 'text-base-content/40 text-xs' : 'text-base-content/25 text-xs'}
+									>{last ? formatDistanceToNow(last, { addSuffix: true }) : 'Never done'}</span
 								>
-								<Chevron />
-							</a>
-							<RowMenuButton label="Options for {workout.name}" onclick={() => openMenu(workout)} />
-						</li>
-					{/each}
-				</ul>
-			{:else if search.trim()}
-				<div class="flex flex-col items-center gap-4 pt-4">
-					<p class="text-base-content/50 text-sm">No exercises match "{search}"</p>
-					<button class="btn btn-primary btn-sm gap-1.5" onclick={() => create(search.trim())}>
-						{@html AddIcon} Create "{search.trim()}"
-					</button>
-				</div>
-			{/if}
-		{/snippet}
+							</div>
+							<span class="text-base-content/40 shrink-0 text-xs"
+								>{counted(workout.sets.length, 'set')}</span
+							>
+							<Chevron />
+						</a>
+						<RowMenuButton label="Options for {workout.name}" onclick={() => openMenu(workout)} />
+					</li>
+				{/each}
+			</ul>
+		{:else if search.trim()}
+			<div class="flex flex-col items-center gap-4 pt-4">
+				<p class="text-base-content/50 text-sm">No exercises match "{search}"</p>
+				<button class="btn btn-primary btn-sm gap-1.5" onclick={() => create(search.trim())}>
+					{@html AddIcon} Create "{search.trim()}"
+				</button>
+			</div>
+		{/if}
 	</Async>
 </div>
 
