@@ -132,6 +132,26 @@ export const exercises = {
 	/** Whole-array rewrite — used by edit, which has to preserve ordering. */
 	replaceSets(workoutId: string, sets: Set[]) {
 		return mutate('save set', () => updateDoc(ref('workouts', workoutId), { sets }));
+	},
+
+	/** Rewrites one set where it stands, so chronological order survives an edit. */
+	updateSet(
+		workout: Workout,
+		id: string,
+		fields: { reps: number; weight: number; date: string; notes: string }
+	) {
+		const sets = workout.sets.map((set) =>
+			set.id === id
+				? {
+						id,
+						reps: fields.reps,
+						date: fields.date,
+						...(fields.weight > 0 ? { weight: fields.weight } : {}),
+						...(fields.notes.trim() ? { notes: fields.notes.trim() } : {})
+					}
+				: set
+		);
+		return exercises.replaceSets(workout.id, sets);
 	}
 };
 

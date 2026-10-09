@@ -31,6 +31,11 @@ export function quickWeights(unit: 'lbs' | 'kg') {
 /** Step used by the weight +/- buttons, in the user's unit. */
 export const WEIGHT_STEP = 2.5;
 
+/** The run screen's second, coarser weight stepper — about a plate pair's jump. */
+export function bigWeightStep(unit: 'lbs' | 'kg') {
+	return unit === 'kg' ? 5 : 10;
+}
+
 export const TIMER_PRESETS = [
 	{ label: '0:30', minutes: 0, seconds: 30 },
 	{ label: '1:00', minutes: 1, seconds: 0 },

@@ -81,19 +81,7 @@
 
 	function saveEdit(reps: number, weight: number, date: string, notes: string) {
 		if (!editing) return;
-		// Rewrite the array in place so chronological order survives an edit.
-		const sets = workout.sets.map((set) =>
-			set.id === editing!.id
-				? {
-						id: set.id,
-						reps,
-						date,
-						...(weight > 0 ? { weight } : {}),
-						...(notes.trim() ? { notes: notes.trim() } : {})
-					}
-				: set
-		);
-		exercises.replaceSets(workout.id, sets);
+		exercises.updateSet(workout, editing.id, { reps, weight, date, notes });
 	}
 </script>
 

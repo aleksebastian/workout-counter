@@ -1,3 +1,4 @@
+import { counted } from '$lib/utils';
 import {
 	itemsForDay,
 	type ActiveSession,
@@ -24,6 +25,7 @@ export type PlanEntry = {
 	targetSets?: number;
 	/** Bottom of the routine's rep range — where a first set starts. */
 	minReps?: number;
+	maxReps?: number;
 	groupLabel?: string;
 	groupProgress?: { current: number; total: number };
 	/** The routine this entry comes from, whose rest timer applies. */
@@ -41,6 +43,7 @@ function expandRoutine(routine: Routine, grouped: boolean): PlanEntry[] {
 		workoutId: ex.workoutId,
 		targetSets: ex.targetSets,
 		...(ex.minReps !== undefined && { minReps: ex.minReps }),
+		...(ex.maxReps !== undefined && { maxReps: ex.maxReps }),
 		routineId: routine.id,
 		...(grouped
 			? {
@@ -118,6 +121,42 @@ export function resolveIndex(
  */
 export function setsSince(workout: Workout | null, since: number): Set[] {
 	return workout?.sets.filter((s) => new Date(s.date).getTime() >= since) ?? [];
+}
+
+const timeOf = (set: Set) => new Date(set.date).getTime();
+
+/**
+ * What the user did on this exercise last time: the sets from the most recent
+ * day before this session started, in order. The run screen shows set *i* of
+ * it next to set *i* of this session, as the number to beat.
+ */
+export function previousSets(workout: Workout | null, since: number): Set[] {
+	const before = workout?.sets.filter((s) => timeOf(s) < since) ?? [];
+	if (before.length === 0) return [];
+	const latest = before.reduce((a, b) => (timeOf(b) > timeOf(a) ? b : a));
+	const day = new Date(latest.date).toDateString();
+	return before
+		.filter((s) => new Date(s.date).toDateString() === day)
+		.sort((a, b) => timeOf(a) - timeOf(b));
+}
+
+/** "3 × 10", "3 × 8–12", or "3 sets" without a rep range; `null` for free-form. */
+export function targetLabel(
+	entry: Pick<PlanEntry, 'targetSets' | 'minReps' | 'maxReps'>
+): string | null {
+	const { targetSets, minReps: lo, maxReps: hi } = entry;
+	if (targetSets === undefined) return null;
+	const reps = lo !== undefined && hi !== undefined && lo !== hi ? `${lo}–${hi}` : (lo ?? hi);
+	return reps === undefined ? counted(targetSets, 'set') : `${targetSets} × ${reps}`;
+}
+
+/** A running clock: "1:05", or "1:02:05" past the hour. */
+export function formatClock(ms: number): string {
+	const s = Math.max(0, Math.floor(ms / 1000));
+	const h = Math.floor(s / 3600);
+	const m = Math.floor((s % 3600) / 60);
+	const sec = (s % 60).toString().padStart(2, '0');
+	return h > 0 ? `${h}:${m.toString().padStart(2, '0')}:${sec}` : `${m}:${sec}`;
 }
 
 /** The latest sign of life: a move between exercises, or a set logged on a planned exercise. */

@@ -2,14 +2,17 @@ import { describe, it, expect } from 'vitest';
 import {
 	STALE_AFTER_MS,
 	buildPlan,
+	formatClock,
 	isDoneToday,
 	isPlanComplete,
 	isStale,
 	lastActivity,
+	previousSets,
 	resolveIndex,
 	sameSource,
 	sourceFromParams,
 	summarize,
+	targetLabel,
 	type Lookups
 } from './training';
 import type { ActiveSession, Program, Routine, Workout } from '$lib/types';
@@ -73,7 +76,7 @@ function session(extra: Partial<ActiveSession> = {}): ActiveSession {
 describe('buildPlan', () => {
 	it('expands a routine', () => {
 		expect(buildPlan({ type: 'routine', routineId: 'push' }, lookups())).toEqual([
-			{ workoutId: 'bench', targetSets: 3, minReps: 6, routineId: 'push' },
+			{ workoutId: 'bench', targetSets: 3, minReps: 6, maxReps: 8, routineId: 'push' },
 			{ workoutId: 'ohp', targetSets: undefined, routineId: 'push' }
 		]);
 	});
@@ -209,5 +212,59 @@ describe('isDoneToday', () => {
 	it('counts a free-form exercise done after one set', () => {
 		expect(isDoneToday(workout('ohp', [5]), undefined, now)).toBe(true);
 		expect(isDoneToday(workout('ohp', []), undefined, now)).toBe(false);
+	});
+});
+
+describe('previousSets', () => {
+	// Local noon, so "the same day" holds whatever timezone the tests run in.
+	const NOON = new Date(2026, 9, 4, 12).getTime();
+	const DAY = 24 * 60;
+	const bench = (minutes: number[]): Workout => ({
+		id: 'bench',
+		name: 'BENCH',
+		sets: minutes.map((m, i) => ({
+			id: `s${i}`,
+			date: new Date(NOON + m * 60_000).toISOString(),
+			reps: 10
+		})),
+		createdAt: 0
+	});
+
+	it("takes the latest earlier day's sets, in order, ignoring this session's", () => {
+		const w = bench([-2 * DAY, -DAY - 5, -DAY - 30, -DAY - 20, 3]);
+		expect(previousSets(w, NOON).map((s) => s.id)).toEqual(['s2', 's3', 's1']);
+	});
+
+	it('counts an earlier session the same day as last time', () => {
+		const w = bench([-DAY, -90, -80, 2]);
+		expect(previousSets(w, NOON).map((s) => s.id)).toEqual(['s1', 's2']);
+	});
+
+	it('is empty for a first session', () => {
+		expect(previousSets(bench([1, 2]), NOON)).toEqual([]);
+		expect(previousSets(null, NOON)).toEqual([]);
+	});
+});
+
+describe('targetLabel', () => {
+	it('shows sets by reps, or the rep range', () => {
+		expect(targetLabel({ targetSets: 3, minReps: 10, maxReps: 10 })).toBe('3 × 10');
+		expect(targetLabel({ targetSets: 3, minReps: 8, maxReps: 12 })).toBe('3 × 8–12');
+		expect(targetLabel({ targetSets: 4, minReps: 5 })).toBe('4 × 5');
+	});
+
+	it('falls back to a set count without reps, and null for free-form', () => {
+		expect(targetLabel({ targetSets: 1 })).toBe('1 set');
+		expect(targetLabel({ targetSets: 2 })).toBe('2 sets');
+		expect(targetLabel({ minReps: 8, maxReps: 12 })).toBeNull();
+	});
+});
+
+describe('formatClock', () => {
+	it('pads seconds, and minutes once past the hour', () => {
+		expect(formatClock(0)).toBe('0:00');
+		expect(formatClock(105_000)).toBe('1:45');
+		expect(formatClock(3_725_000)).toBe('1:02:05');
+		expect(formatClock(-5_000)).toBe('0:00');
 	});
 });

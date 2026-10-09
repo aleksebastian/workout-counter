@@ -87,6 +87,12 @@ export const training = {
 		return s && plan ? resolveIndex(plan, s) : 0;
 	},
 
+	/** Every planned exercise has had its sets, so finishing needs no "are you sure". */
+	get complete(): boolean {
+		const s = this.session;
+		return !!s && isPlanComplete(this.plan ?? [], lookups, s.startedAt);
+	},
+
 	/** The source's current name, falling back to the one saved when it started. */
 	get name(): string {
 		const s = this.session;
