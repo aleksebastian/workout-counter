@@ -1,7 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { onAuthStateChanged, type User } from 'firebase/auth';
-	import { finishSignIn, signInWithGoogle, isSigningOut } from '$lib/logic/auth';
+	import {
+		finishSignIn,
+		isSigningOut,
+		returningFromRedirect,
+		signInWithGoogle,
+		takeRedirectResult
+	} from '$lib/logic/auth';
 	import { auth } from '$lib/firebase';
 	import { pwa } from '$lib/logic/pwa.svelte';
 
@@ -74,6 +80,14 @@
 	}
 
 	onMount(() => {
+		// Back from a redirect sign-in (the installed iOS app): keep the button
+		// busy and finish it, or show why Google or Firebase turned it down.
+		if (returningFromRedirect()) {
+			run(async () => {
+				const user = await takeRedirectResult();
+				if (user) await startSession(user);
+			});
+		}
 		// Catch a stale build before the person even taps sign-in.
 		pwa.reloadIfStale();
 		return onAuthStateChanged(auth, (user) => {

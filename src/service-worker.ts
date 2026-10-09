@@ -93,6 +93,13 @@ sw.addEventListener('fetch', (event) => {
 		return;
 	}
 
+	// Firebase's sign-in helper pages, passed through from our own domain (see
+	// src/routes/__/auth). The handler page carries one-off OAuth results, so it
+	// must never be served from — or written to — this cache.
+	if (url.origin === sw.location.origin && url.pathname.startsWith('/__/')) {
+		return;
+	}
+
 	event.respondWith(respond(event.request, url));
 });
 

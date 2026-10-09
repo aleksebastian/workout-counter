@@ -3,8 +3,10 @@ import { auth, db } from '$lib/firebase';
 import { clearIndexedDbPersistence, doc, getDoc, terminate } from 'firebase/firestore';
 import {
 	GoogleAuthProvider,
+	getRedirectResult,
 	reauthenticateWithPopup,
 	signInWithPopup,
+	signInWithRedirect,
 	signOut,
 	type User
 } from 'firebase/auth';
@@ -35,10 +37,42 @@ export function isSigningOut() {
 	return signingOut;
 }
 
+/** Set while a redirect sign-in is out at Google, so the return can be picked up. */
+const REDIRECT_PENDING_KEY = 'sc-redirect-signin';
+
+/**
+ * The installed iOS app can't use the popup: Firebase opens it by simulating a
+ * tap on a link, which iOS only honours inside the real tap — and Firebase
+ * first waits on network setup, so the sheet often never opened and the
+ * button spun forever. A redirect needs no tap. It also needs first-party
+ * sign-in helpers to read its result back (see $lib/authDomain), so it's only
+ * used where the auth domain is this site.
+ */
+function useRedirect(): boolean {
+	const standalone = (navigator as Navigator & { standalone?: boolean }).standalone === true;
+	return standalone && auth.config.authDomain === location.host;
+}
+
+/** True when this page load is the return from a redirect sign-in. */
+export function returningFromRedirect(): boolean {
+	return sessionStorage.getItem(REDIRECT_PENDING_KEY) !== null;
+}
+
+/**
+ * Picks up a redirect sign-in on its return: the signed-in user, or null if
+ * there was none. Rejects with Google's or Firebase's error if it failed.
+ */
+export async function takeRedirectResult(): Promise<User | null> {
+	sessionStorage.removeItem(REDIRECT_PENDING_KEY);
+	const result = await getRedirectResult(auth);
+	return result?.user ?? auth.currentUser;
+}
+
 /**
  * Opens Google's sign-in and resolves with the signed-in user. The caller
  * finishes the session with finishSignIn — the login page checks for a newer
- * build in between.
+ * build in between. In the installed iOS app this navigates away to Google
+ * instead and never resolves; takeRedirectResult picks it up on the way back.
  */
 export async function signInWithGoogle(): Promise<User> {
 	const provider = new GoogleAuthProvider();
@@ -52,6 +86,11 @@ export async function signInWithGoogle(): Promise<User> {
 	// than any fixed limit. Timing it out left them signed in on the client but
 	// stranded on /login without a server session. Closing the popup rejects on
 	// its own; the login page offers Cancel for a popup that never reports back.
+	if (useRedirect()) {
+		sessionStorage.setItem(REDIRECT_PENDING_KEY, '1');
+		await signInWithRedirect(auth, provider);
+		return new Promise<User>(() => {}); // the page is leaving for Google
+	}
 	const credential = await signInWithPopup(auth, provider);
 	return credential.user;
 }

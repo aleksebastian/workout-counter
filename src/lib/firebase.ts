@@ -14,10 +14,11 @@ import { getAuth, onAuthStateChanged, type User } from 'firebase/auth';
 import { writable, type Readable, derived } from 'svelte/store';
 import type { Workout, Routine, Program, UserData, Parse } from '$lib/types';
 import { parseWorkout, parseRoutine, parseProgram, parseUserData } from '$lib/types';
+import { authDomainFor } from '$lib/authDomain';
 
 const firebaseConfig = {
 	apiKey: 'AIzaSyB2Wxz_yyr7spT7MrwhxpGPK9XXbo8SDmU',
-	authDomain: 'workout-counter-99d56.firebaseapp.com',
+	authDomain: authDomainFor(globalThis.location?.host),
 	projectId: 'workout-counter-99d56',
 	storageBucket: 'workout-counter-99d56.appspot.com',
 	messagingSenderId: '478354387280',
