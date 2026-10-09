@@ -3,6 +3,7 @@
 	import { cubicOut } from 'svelte/easing';
 	import type { TransitionConfig } from 'svelte/transition';
 	import type { Snippet } from 'svelte';
+	import { lockBodyScroll } from '$lib/scrollLock';
 
 	interface Props {
 		open?: boolean;
@@ -190,30 +191,18 @@
 	});
 
 	// iOS-safe scroll lock: position:fixed prevents touch-scroll on background
-	let savedScrollY = 0;
-	let didLock = false;
+	let unlock: (() => void) | null = null;
 
 	$effect(() => {
 		if (open) {
-			savedScrollY = window.scrollY;
-			didLock = true;
-			document.body.style.position = 'fixed';
-			document.body.style.top = `-${savedScrollY}px`;
-			document.body.style.left = '0';
-			document.body.style.right = '0';
-			document.body.style.overflow = 'hidden';
-		} else if (didLock) {
+			unlock = lockBodyScroll();
+		} else if (unlock) {
 			// Only unlock a lock we actually took. This effect also runs on mount
 			// with `open` false, and unconditionally restoring would clear styles
 			// we never set and scroll the page to 0 — visible on any page that
 			// mounts a closed sheet, and the Library mounts three.
-			didLock = false;
-			document.body.style.position = '';
-			document.body.style.top = '';
-			document.body.style.left = '';
-			document.body.style.right = '';
-			document.body.style.overflow = '';
-			window.scrollTo(0, savedScrollY);
+			unlock();
+			unlock = null;
 		}
 	});
 </script>

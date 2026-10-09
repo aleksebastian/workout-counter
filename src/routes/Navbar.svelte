@@ -12,10 +12,9 @@
 	interface Props {
 		hasUser: boolean;
 		ready: boolean;
-		signOut: () => void;
 	}
 
-	let { hasUser, ready, signOut }: Props = $props();
+	let { hasUser, ready }: Props = $props();
 
 	let animated = $state(false);
 	$effect(() => {
@@ -137,12 +136,7 @@
 
 	<!-- Right slot: always Avatar -->
 	<div>
-		<Avatar
-			{hasUser}
-			user={session.user}
-			username={session.data?.username}
-			signOutClick={signOut}
-		/>
+		<Avatar {hasUser} user={session.user} />
 	</div>
 </div>
 

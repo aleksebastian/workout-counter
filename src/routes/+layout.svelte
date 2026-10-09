@@ -9,6 +9,7 @@
 	import Toasts from '$lib/components/Toasts.svelte';
 	import RestTimerBar from '$lib/components/RestTimerBar.svelte';
 	import WorkoutBar from '$lib/components/WorkoutBar.svelte';
+	import AccountScreen from '$lib/components/AccountScreen.svelte';
 	import { handleSignOut, isSigningOut } from '$lib/logic/auth';
 	import { restTimer } from '$lib/logic/restTimer.svelte';
 	import { training } from '$lib/logic/training.svelte';
@@ -148,8 +149,13 @@
 {/if}
 
 <div style={!pwa.online ? 'margin-top: 1.75rem' : ''}>
-	<Navbar {hasUser} ready={hasUser} signOut={handleSignOut} />
+	<Navbar {hasUser} ready={hasUser} />
 </div>
+
+<!-- Outside the navbar: its launch animation leaves a transform that would trap a fixed overlay. -->
+{#if hasUser}
+	<AccountScreen user={session.user} username={session.data?.username} onSignOut={handleSignOut} />
+{/if}
 
 {#snippet banner(
 	title: string,

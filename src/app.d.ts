@@ -13,7 +13,10 @@ declare global {
 			userID: string | null;
 		}
 		// interface PageData {}
-		// interface PageState {}
+		interface PageState {
+			/** The full-screen account screen is open (shallow-routed from the avatar). */
+			account?: boolean;
+		}
 		// interface Platform {}
 	}
 }
