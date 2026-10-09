@@ -35,7 +35,12 @@ export function isSigningOut() {
 	return signingOut;
 }
 
-export async function handleSignIn() {
+/**
+ * Opens Google's sign-in and resolves with the signed-in user. The caller
+ * finishes the session with finishSignIn — the login page checks for a newer
+ * build in between.
+ */
+export async function signInWithGoogle(): Promise<User> {
 	const provider = new GoogleAuthProvider();
 	// Without this, Google silently reuses the only account signed in on the
 	// device (common on iOS), so after signing out there's no way to pick a
@@ -48,7 +53,7 @@ export async function handleSignIn() {
 	// stranded on /login without a server session. Closing the popup rejects on
 	// its own; the login page offers Cancel for a popup that never reports back.
 	const credential = await signInWithPopup(auth, provider);
-	await finishSignIn(credential.user);
+	return credential.user;
 }
 
 let finishing: Promise<void> | null = null;
@@ -57,7 +62,7 @@ let finishing: Promise<void> | null = null;
  * Turns a Firebase sign-in into an app session: mints the server session
  * cookie, then navigates to wherever this user should land.
  *
- * Split out of handleSignIn because on iOS the popup call can reject (Firebase
+ * Separate from signInWithGoogle because on iOS the popup call can reject (Firebase
  * loses track of Google's sheet and reports it closed) while the sign-in still
  * completes behind it. The login page then sees a signed-in user that nothing
  * is finishing, and calls this itself. Concurrent calls share one run.
