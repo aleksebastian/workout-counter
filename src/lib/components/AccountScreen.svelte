@@ -10,14 +10,17 @@
 	interface Props {
 		user: User | null;
 		username?: string | null;
-		onSignOut: () => void;
+		onSignOut: () => void | Promise<void>;
 	}
 
 	let { user, username = null, onSignOut }: Props = $props();
 
 	// Opened with shallow routing (see Avatar), so the history entry is the
 	// source of truth: back, the edge swipe and Done all close it the same way.
-	let open = $derived(!!page.state.account);
+	// `leaving` holds it up while it hands off to another page, so popping its
+	// history entry doesn't flash the page underneath before the next one shows.
+	let leaving = $state(false);
+	let open = $derived(!!page.state.account || leaving);
 
 	let screenEl = $state<HTMLElement>();
 	let scrollEl = $state<HTMLElement>();
@@ -39,9 +42,24 @@
 	// returns to wherever the screen was opened. Replacing the shallow entry with
 	// goto(..., { replaceState }) instead left the page content stuck on the
 	// old route when navigating back to it.
-	function leaveThen(next: () => void) {
+	//
+	// The screen stays up until the navigation has rendered: the view transition
+	// then cross-fades from it straight to the next page.
+	function leaveThen(next: () => void | Promise<void>) {
 		if (!page.state.account) return next();
-		addEventListener('popstate', () => setTimeout(next), { once: true });
+		leaving = true;
+		addEventListener(
+			'popstate',
+			() =>
+				setTimeout(async () => {
+					try {
+						await next();
+					} finally {
+						leaving = false;
+					}
+				}),
+			{ once: true }
+		);
 		history.back();
 	}
 
@@ -88,7 +106,10 @@
 
 	$effect(() => {
 		if (!open) return;
-		return lockBodyScroll();
+		const unlock = lockBodyScroll();
+		// After handing off to another page, restoring this page's scroll offset
+		// would land the new page partway down.
+		return () => unlock(!leaving);
 	});
 </script>
 

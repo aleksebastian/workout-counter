@@ -1,9 +1,10 @@
 /**
  * iOS-safe scroll lock: `overflow: hidden` alone doesn't stop touch-scrolling the
  * page behind an overlay on iOS, so pin the body with position:fixed at its
- * current offset. Returns the unlock, which restores the scroll position.
+ * current offset. Returns the unlock, which restores the scroll position
+ * unless told not to (when a navigation has replaced the page meanwhile).
  */
-export function lockBodyScroll(): () => void {
+export function lockBodyScroll(): (restoreScroll?: boolean) => void {
 	const scrollY = window.scrollY;
 	const style = document.body.style;
 	style.position = 'fixed';
@@ -12,12 +13,12 @@ export function lockBodyScroll(): () => void {
 	style.right = '0';
 	style.overflow = 'hidden';
 
-	return () => {
+	return (restoreScroll = true) => {
 		style.position = '';
 		style.top = '';
 		style.left = '';
 		style.right = '';
 		style.overflow = '';
-		window.scrollTo(0, scrollY);
+		if (restoreScroll) window.scrollTo(0, scrollY);
 	};
 }
