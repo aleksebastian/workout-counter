@@ -83,8 +83,7 @@ export function itemsForDay(program: Program, day: number): ProgramItem[] {
 
 /** What a guided session is running: one routine, or one day of a program. */
 export type SessionSource =
-	| { type: 'routine'; routineId: string }
-	| { type: 'program'; programId: string; day: number };
+	{ type: 'routine'; routineId: string } | { type: 'program'; programId: string; day: number };
 
 /**
  * The workout in progress, kept on the user document so it survives leaving

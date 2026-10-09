@@ -1,9 +1,6 @@
 import webpush from 'web-push';
 import { adminDB } from '$lib/server/admin';
-import {
-	VAPID_PRIVATE_KEY,
-	VAPID_SUBJECT
-} from '$env/static/private';
+import { VAPID_PRIVATE_KEY, VAPID_SUBJECT } from '$env/static/private';
 import { PUBLIC_VAPID_PUBLIC_KEY } from '$env/static/public';
 
 export async function sendPushToUser(uid: string): Promise<void> {
