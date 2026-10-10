@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { cubicIn, cubicOut } from 'svelte/easing';
+	import type { TransitionConfig } from 'svelte/transition';
 	import { restTimer } from '$lib/logic/restTimer.svelte';
 	import { HAPTIC } from '$lib/haptic';
 	import RestCard from '$lib/components/RestCard.svelte';
@@ -38,6 +40,35 @@
 		next,
 		keyboardUp = false
 	}: Props = $props();
+
+	/**
+	 * Up next and the rest countdown take turns in the same place, so they
+	 * roll like a ticker rather than dissolving: the newcomer rises in from
+	 * just below as the other rises out. Both directions read "what's on now
+	 * changed". Reduced motion keeps only the crossfade.
+	 */
+	const SHIFT = 8;
+	const reducedMotion = () =>
+		typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+	function rollIn(_node: Element): TransitionConfig {
+		const shift = reducedMotion() ? 0 : SHIFT;
+		return {
+			duration: 260,
+			delay: 60,
+			easing: cubicOut,
+			css: (t, u) => `opacity: ${t}; transform: translateY(${u * shift}px)`
+		};
+	}
+
+	function rollOut(_node: Element): TransitionConfig {
+		const shift = reducedMotion() ? 0 : SHIFT;
+		return {
+			duration: 180,
+			easing: cubicIn,
+			css: (t, u) => `opacity: ${t}; transform: translateY(${-u * shift}px)`
+		};
+	}
 
 	let field = $state<HTMLInputElement>();
 	let hasDraft = $derived(notes.trim() !== '');
@@ -132,10 +163,17 @@
 			style:width={canNote ? 'calc(100cqw - 3.25rem)' : '100cqw'}
 			aria-hidden={expanded}
 		>
+			<!-- Stacked, so the outgoing one can roll away while the other rolls in. -->
 			{#if restTimer.active}
-				<RestCard compact />
+				<div class="absolute inset-0" in:rollIn out:rollOut>
+					<RestCard compact />
+				</div>
 			{:else}
-				<div class="flex h-11 items-center gap-2.5 px-4 text-sm whitespace-nowrap">
+				<div
+					class="absolute inset-0 flex h-11 items-center gap-2.5 px-4 text-sm whitespace-nowrap"
+					in:rollIn
+					out:rollOut
+				>
 					{#if next}
 						<span
 							class="text-base-content/50 shrink-0 text-xs font-semibold tracking-widest uppercase"
@@ -169,17 +207,23 @@
 			onclick={close}
 		>
 			{#if restTimer.active}
-				<span class="text-primary font-black tabular-nums">{restTimer.display}</span>
-				<span class="bg-base-content/10 absolute inset-x-3 bottom-1.5 h-0.5 rounded-full">
-					<span
-						class="bg-primary block h-full rounded-full transition-[width] duration-1000 ease-linear"
-						style="width: {restTimer.progress}%"
-					></span>
+				<span class="absolute inset-0 flex items-center justify-center" in:rollIn out:rollOut>
+					<span class="text-primary font-black tabular-nums">{restTimer.display}</span>
+					<span class="bg-base-content/10 absolute inset-x-3 bottom-1.5 h-0.5 rounded-full">
+						<span
+							class="bg-primary block h-full rounded-full transition-[width] duration-1000 ease-linear"
+							style="width: {restTimer.progress}%"
+						></span>
+					</span>
 				</span>
-			{:else if next}
-				Up next
 			{:else}
-				{@render checkIcon()}
+				<span class="absolute inset-0 flex items-center justify-center" in:rollIn out:rollOut>
+					{#if next}
+						Up next
+					{:else}
+						{@render checkIcon()}
+					{/if}
+				</span>
 			{/if}
 		</button>
 	</div>
