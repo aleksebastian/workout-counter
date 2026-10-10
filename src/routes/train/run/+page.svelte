@@ -133,7 +133,7 @@
 	let previous = $derived(previousSets(currentWorkout, startedAt));
 	let setsDone = $derived(logged.length);
 	let hitTarget = $derived(!!currentEntry && !isFreeForm && setsDone >= targetSets);
-	/** Set when the user chooses to keep going past the target on this exercise. */
+	/** Set while entering one extra set past the target; logging it ends it. */
 	let recordingExtra = $state(false);
 	let exerciseComplete = $derived(hitTarget && !recordingExtra);
 	let isLastEntry = $derived(currentIndex >= entries.length - 1);
@@ -306,6 +306,10 @@
 		// Routine timer beats the global default — resolved inside restTimer. A
 		// program-day exercise outside any routine gets the global timer.
 		pwa.noteSetRecorded(restTimer.start({ routineId: currentEntry.routineId }));
+		// An extra set past the target is one set, not a way out of "done": back
+		// to the complete card, which offers another. Not after the await — that
+		// waits for the server, so offline it would never come back.
+		recordingExtra = false;
 
 		const ok = await exercises.addSet(currentWorkout.id, set);
 		if (ok) {
