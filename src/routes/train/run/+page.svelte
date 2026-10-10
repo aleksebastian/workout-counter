@@ -27,7 +27,6 @@
 	import SetAdjuster from './SetAdjuster.svelte';
 	import RunFooter from './RunFooter.svelte';
 	import HowToSheet from './HowToSheet.svelte';
-	import NotesIcon from '$lib/icons/notes.svg?raw';
 	import EditIcon from '$lib/icons/edit.svg?raw';
 	import type { Set } from '$lib/types';
 
@@ -191,7 +190,8 @@
 	let reps = $state(10);
 	let weight = $state(0);
 	let notes = $state('');
-	let showNotes = $state(false);
+	/** The note field in the footer is open. */
+	let noteOpen = $state(false);
 
 	// Seed from the last recorded set whenever the exercise changes; a first
 	// ever set starts at the bottom of the routine's rep range.
@@ -205,7 +205,35 @@
 		reps = last?.reps ?? currentEntry?.minReps ?? 10;
 		weight = last?.weight ?? 0;
 		notes = '';
-		showNotes = false;
+		noteOpen = false;
+	});
+
+	// ── Keyboard ────────────────────────────────────────────────────────────────
+	/**
+	 * The part of the screen the keyboard leaves visible, while it's up. iOS
+	 * doesn't shrink the layout for the keyboard, and only scrolls a focused
+	 * field into view when it can find one — the note field is focused while
+	 * still zero-width, so the keyboard simply covered it. Fitting the column
+	 * to the visible area keeps the footer on top of the keyboard, with the
+	 * set list giving up the room.
+	 */
+	let keyboardView = $state<{ top: number; height: number } | null>(null);
+
+	$effect(() => {
+		const vv = window.visualViewport;
+		if (!vv) return;
+		const update = () => {
+			// Well short of the window: a keyboard, not a rounding difference.
+			keyboardView =
+				vv.height < window.innerHeight - 120 ? { top: vv.offsetTop, height: vv.height } : null;
+		};
+		update();
+		vv.addEventListener('resize', update);
+		vv.addEventListener('scroll', update);
+		return () => {
+			vv.removeEventListener('resize', update);
+			vv.removeEventListener('scroll', update);
+		};
 	});
 
 	// ── Set list scrolling ──────────────────────────────────────────────────────
@@ -271,7 +299,7 @@
 		const ok = await exercises.addSet(currentWorkout.id, set);
 		if (ok) {
 			notes = '';
-			showNotes = false;
+			noteOpen = false;
 		}
 	}
 
@@ -313,15 +341,6 @@
 	const SkipIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5l9 7-9 7z" /><path d="M19 5v14" /></svg>`;
 
 	let menuActions = $derived<SheetAction[]>([
-		...(!exerciseComplete
-			? [
-					{
-						label: notes.trim() ? 'Edit note' : 'Add a note to this set',
-						icon: NotesIcon,
-						onSelect: () => (showNotes = true)
-					}
-				]
-			: []),
 		...(!isLastEntry
 			? [{ label: 'Skip to next exercise', icon: SkipIcon, onSelect: () => advance() }]
 			: []),
@@ -438,7 +457,12 @@
 {:else}
 	<!-- Logging: one screen-high column. Only the set list scrolls; the
 	     controls touched every set stay put above the button. -->
-	<div class="bg-base-100 fixed inset-0 flex flex-col">
+	<div
+		class="bg-base-100 fixed inset-x-0 flex flex-col"
+		style:top="{keyboardView?.top ?? 0}px"
+		style:bottom={keyboardView ? 'auto' : '0px'}
+		style:height={keyboardView ? `${keyboardView.height}px` : undefined}
+	>
 		<SessionHeader
 			class="mx-auto w-full max-w-lg shrink-0"
 			title={sourceName || 'Workout'}
@@ -446,7 +470,13 @@
 			onFinish={requestFinish}
 		/>
 
-		<div class="mx-auto flex min-h-0 w-full max-w-lg flex-1 flex-col gap-5 px-4 pt-2">
+		<!-- With the keyboard up there's only room for what's being typed into:
+		     the set controls, the note and the button stay above the keyboard,
+		     and this steps aside rather than being cut off mid-row. -->
+		<div
+			class="mx-auto flex min-h-0 w-full max-w-lg flex-1 flex-col gap-5 overflow-hidden px-4 pt-2"
+			class:invisible={keyboardView !== null}
+		>
 			<SessionProgress {fills} index={currentIndex} detail={progressDetail} />
 
 			<!-- Current exercise -->
@@ -518,7 +548,7 @@
 					{logged}
 					{previous}
 					{rows}
-					draft={exerciseComplete ? null : { reps, weight }}
+					draft={exerciseComplete ? null : { reps, weight, hasNote: notes.trim() !== '' }}
 					unit={unitLabel}
 					onLog={recordSet}
 					onEdit={editSet}
@@ -526,7 +556,13 @@
 			</div>
 		</div>
 
-		<RunFooter next={upNext}>
+		<RunFooter
+			next={upNext}
+			bind:notes
+			bind:noteOpen
+			setNumber={exerciseComplete ? null : setsDone + 1}
+			keyboardUp={keyboardView !== null}
+		>
 			{#snippet controls()}
 				{#if exerciseComplete}
 					<div class="bg-base-200 flex items-center gap-4 rounded-2xl px-5 py-4">
@@ -560,7 +596,7 @@
 						>
 					</div>
 				{:else}
-					<SetAdjuster bind:reps bind:weight bind:notes {showNotes} />
+					<SetAdjuster bind:reps bind:weight />
 				{/if}
 			{/snippet}
 

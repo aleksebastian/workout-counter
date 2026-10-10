@@ -14,16 +14,9 @@
 	interface Props {
 		reps: number;
 		weight: number;
-		notes: string;
-		showNotes: boolean;
 	}
 
-	let {
-		reps = $bindable(10),
-		weight = $bindable(0),
-		notes = $bindable(''),
-		showNotes
-	}: Props = $props();
+	let { reps = $bindable(10), weight = $bindable(0) }: Props = $props();
 
 	let unit = $derived(session.prefs.weightUnit);
 	let unitLabel = $derived(unit === 'kg' ? 'kg' : 'lb');
@@ -131,14 +124,4 @@
 			</div>
 		</div>
 	</div>
-
-	{#if showNotes}
-		<input
-			type="text"
-			class="input bg-base-100 mt-4 w-full"
-			placeholder="e.g. felt heavy, form off, easy…"
-			aria-label="Set notes"
-			bind:value={notes}
-		/>
-	{/if}
 </div>
