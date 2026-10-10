@@ -183,8 +183,7 @@
 			name: workout?.name ?? '—',
 			detail: [targetLabel(nextEntry) ?? 'Free-form', lastWeight && `${lastWeight} ${unitLabel}`]
 				.filter(Boolean)
-				.join(' · '),
-			group: nextEntry.groupLabel
+				.join(' · ')
 		};
 	});
 
@@ -207,6 +206,35 @@
 		weight = last?.weight ?? 0;
 		notes = '';
 		showNotes = false;
+	});
+
+	// ── Set list scrolling ──────────────────────────────────────────────────────
+	let tableScroller = $state<HTMLElement>();
+	let scrolledFor: string | null = null;
+
+	// Keeps the set being entered in view as sets are logged; a new exercise
+	// starts back at the top.
+	$effect(() => {
+		const el = tableScroller;
+		const id = currentWorkout?.id ?? null;
+		void setsDone;
+		void exerciseComplete;
+		if (!el) return;
+		if (id !== scrolledFor) {
+			scrolledFor = id;
+			el.scrollTop = 0;
+			return;
+		}
+		const row = el.querySelector<HTMLElement>('[aria-current="step"]');
+		if (!row) return;
+		const top = row.offsetTop;
+		const bottom = top + row.offsetHeight;
+		// The extra room clears the fade where the list meets the footer.
+		if (bottom + 24 > el.scrollTop + el.clientHeight) {
+			el.scrollTo({ top: bottom + 24 - el.clientHeight, behavior: 'smooth' });
+		} else if (top < el.scrollTop) {
+			el.scrollTo({ top, behavior: 'smooth' });
+		}
 	});
 
 	let draftLabel = $derived(
@@ -385,7 +413,7 @@
 		<div class="skeleton h-64 w-full rounded-2xl"></div>
 		<div class="skeleton h-14 w-full rounded-2xl"></div>
 	</div>
-{:else}
+{:else if planEntries === null || entries.length === 0}
 	<SessionHeader
 		title={sourceName || 'Workout'}
 		startedAt={active.startedAt}
@@ -398,7 +426,7 @@
 			<p class="text-base-content/50 text-sm">It may have been deleted on another device.</p>
 			<button class="btn btn-primary btn-sm" onclick={finish}>End workout</button>
 		</div>
-	{:else if entries.length === 0}
+	{:else}
 		<div class="mx-auto flex max-w-lg flex-col items-center gap-4 py-16 text-center">
 			<p class="font-semibold">Nothing scheduled here yet</p>
 			<p class="text-base-content/50 max-w-xs text-sm">
@@ -406,8 +434,19 @@
 			</p>
 			<a class="btn btn-primary btn-sm" href={backHref}>Set it up</a>
 		</div>
-	{:else}
-		<div class="mx-auto flex w-full max-w-lg flex-col gap-5">
+	{/if}
+{:else}
+	<!-- Logging: one screen-high column. Only the set list scrolls; the
+	     controls touched every set stay put above the button. -->
+	<div class="bg-base-100 fixed inset-0 flex flex-col">
+		<SessionHeader
+			class="mx-auto w-full max-w-lg shrink-0"
+			title={sourceName || 'Workout'}
+			startedAt={active.startedAt}
+			onFinish={requestFinish}
+		/>
+
+		<div class="mx-auto flex min-h-0 w-full max-w-lg flex-1 flex-col gap-5 px-4 pt-2">
 			<SessionProgress {fills} index={currentIndex} detail={progressDetail} />
 
 			<!-- Current exercise -->
@@ -471,53 +510,60 @@
 				</div>
 			</div>
 
-			<SetTable
-				{logged}
-				{previous}
-				{rows}
-				draft={exerciseComplete ? null : { reps, weight }}
-				unit={unitLabel}
-				onLog={recordSet}
-				onEdit={editSet}
-			/>
-
-			{#if exerciseComplete}
-				<div class="bg-base-200 flex items-center gap-4 rounded-2xl px-5 py-4">
-					<div
-						class="bg-primary text-primary-content flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
-						aria-hidden="true"
-					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-5 w-5"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-							stroke-width="3"
-						>
-							<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-						</svg>
-					</div>
-					<div class="min-w-0 flex-1">
-						<p class="font-semibold">Exercise complete</p>
-						<p class="text-base-content/50 text-sm">
-							{counted(setsDone, 'set')} · {counted(
-								logged.reduce((sum, s) => sum + s.reps, 0),
-								'rep'
-							)}
-						</p>
-					</div>
-					<!-- Escape hatch: extra sets beyond target are still allowed. -->
-					<button class="btn btn-ghost btn-sm" onclick={() => (recordingExtra = true)}
-						>Add a set</button
-					>
-				</div>
-			{:else}
-				<SetAdjuster bind:reps bind:weight bind:notes {showNotes} />
-			{/if}
+			<div
+				bind:this={tableScroller}
+				class="relative -mx-4 min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6"
+			>
+				<SetTable
+					{logged}
+					{previous}
+					{rows}
+					draft={exerciseComplete ? null : { reps, weight }}
+					unit={unitLabel}
+					onLog={recordSet}
+					onEdit={editSet}
+				/>
+			</div>
 		</div>
 
 		<RunFooter next={upNext}>
+			{#snippet controls()}
+				{#if exerciseComplete}
+					<div class="bg-base-200 flex items-center gap-4 rounded-2xl px-5 py-4">
+						<div
+							class="bg-primary text-primary-content flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+							aria-hidden="true"
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-5 w-5"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+								stroke-width="3"
+							>
+								<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+							</svg>
+						</div>
+						<div class="min-w-0 flex-1">
+							<p class="font-semibold">Exercise complete</p>
+							<p class="text-base-content/50 text-sm">
+								{counted(setsDone, 'set')} · {counted(
+									logged.reduce((sum, s) => sum + s.reps, 0),
+									'rep'
+								)}
+							</p>
+						</div>
+						<!-- Escape hatch: extra sets beyond target are still allowed. -->
+						<button class="btn btn-ghost btn-sm" onclick={() => (recordingExtra = true)}
+							>Add a set</button
+						>
+					</div>
+				{:else}
+					<SetAdjuster bind:reps bind:weight bind:notes {showNotes} />
+				{/if}
+			{/snippet}
+
 			{#if exerciseComplete}
 				<button class="btn btn-primary btn-lg h-14 flex-1 gap-2 rounded-2xl" onclick={advance}>
 					{#if isLastEntry}
@@ -542,7 +588,7 @@
 				{/if}
 			{/if}
 		</RunFooter>
-	{/if}
+	</div>
 {/if}
 
 <HowToSheet bind:open={howToOpen} workout={currentWorkout} />

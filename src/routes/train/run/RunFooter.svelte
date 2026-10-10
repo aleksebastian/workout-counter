@@ -5,21 +5,25 @@
 	import RestCard from '$lib/components/RestCard.svelte';
 
 	/**
-	 * Pinned to the bottom in place of the tab bar: what's coming (or the rest
-	 * countdown, while resting) above the button that moves the workout on.
+	 * The bottom of the logging view, in place of the tab bar: the reps and
+	 * weight controls, what's coming (or the rest countdown, while resting),
+	 * and the button that moves the workout on. It never scrolls; the set list
+	 * above it does.
 	 *
 	 * It stands in for the bottom nav, so it takes over `--bottom-nav-height`:
-	 * banners and the page's bottom padding already clear that, and so clear
-	 * this footer without knowing it exists.
+	 * banners already clear that, and so clear this footer without knowing it
+	 * exists.
 	 */
 
 	interface Props {
-		next: { name: string; detail: string; group?: string } | null;
+		next: { name: string; detail: string } | null;
+		/** The set entry controls, or what replaces them once the target is met. */
+		controls: Snippet;
 		/** The main button and anything beside it. */
 		children: Snippet;
 	}
 
-	let { next, children }: Props = $props();
+	let { next, controls, children }: Props = $props();
 
 	let height = $state(0);
 	$effect(() => {
@@ -29,34 +33,32 @@
 	});
 </script>
 
-<div
-	class="bg-base-100 fixed inset-x-0 bottom-0 z-500"
-	style="padding-bottom: env(safe-area-inset-bottom, 0px)"
->
-	<!-- Content scrolling under the footer fades out rather than being cut off. -->
+<div class="bg-base-100 relative shrink-0" style="padding-bottom: env(safe-area-inset-bottom, 0px)">
+	<!-- The set list scrolling under the footer fades out rather than being cut off. -->
 	<div
 		class="from-base-100 pointer-events-none absolute inset-x-0 -top-6 h-6 bg-linear-to-t to-transparent"
 		aria-hidden="true"
 	></div>
 
-	<div bind:clientHeight={height} class="mx-auto flex max-w-lg flex-col gap-3 px-4 pt-2 pb-3">
+	<div bind:clientHeight={height} class="mx-auto flex max-w-lg flex-col gap-3 px-4 pt-1 pb-3">
+		{@render controls()}
+
 		{#if restTimer.barVisible}
 			<div in:fade={{ duration: 150 }}>
-				<RestCard />
+				<RestCard compact />
 			</div>
 		{:else if next}
-			<div class="bg-base-200 rounded-2xl px-4 py-3" in:fade={{ duration: 150 }}>
-				<p class="text-base-content/50 text-xs font-semibold tracking-widest uppercase">Up next</p>
-				<p class="mt-0.5 truncate text-sm">
-					{#if next.group}
-						<span
-							class="bg-primary/15 text-primary-strong mr-1 rounded px-1.5 py-0.5 text-xs font-semibold"
-							>{next.group}</span
-						>
-					{/if}
+			<div
+				class="bg-base-200 flex h-11 items-center gap-2.5 rounded-2xl px-4 text-sm"
+				in:fade={{ duration: 150 }}
+			>
+				<span class="text-base-content/50 shrink-0 text-xs font-semibold tracking-widest uppercase"
+					>Up next</span
+				>
+				<span class="min-w-0 truncate">
 					<span class="font-bold">{next.name}</span>
 					<span class="text-base-content/60">· {next.detail}</span>
-				</p>
+				</span>
 			</div>
 		{/if}
 

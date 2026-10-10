@@ -14,9 +14,20 @@
 		startedAt?: number;
 		/** Shows the Finish button when set. */
 		onFinish?: () => void;
+		/**
+		 * Placement. By default it sticks to the top of a scrolling page, cancelling
+		 * the layout's padding; the logging view places it at the top of its
+		 * fixed column instead.
+		 */
+		class?: string;
 	}
 
-	let { title, startedAt, onFinish }: Props = $props();
+	let {
+		title,
+		startedAt,
+		onFinish,
+		class: className = 'sticky top-0 -mx-4 -mt-4 mb-2'
+	}: Props = $props();
 
 	let now = $state(Date.now());
 	$effect(() => {
@@ -38,13 +49,13 @@
 	}
 </script>
 
-<!-- Sticky, so Finish stays in reach on a long set list. Starts where the
-     navbar would, below the status bar and any offline notice. -->
+<!-- Starts where the navbar would, below the status bar — and below the
+     offline notice, which is fixed over the top of the screen. -->
 <header
-	class="bg-base-100 sticky z-100 -mx-4 -mt-4 mb-2 grid grid-cols-[minmax(2.75rem,1fr)_minmax(0,auto)_minmax(2.75rem,1fr)] items-center gap-2 px-4 pb-2"
-	style:top={pwa.online ? '0px' : '1.75rem'}
-	style:margin-top={pwa.online ? undefined : '0.75rem'}
-	style:padding-top="max(calc(1rem + env(safe-area-inset-top)), var(--app-inset-top))"
+	class="bg-base-100 z-100 grid grid-cols-[minmax(2.75rem,1fr)_minmax(0,auto)_minmax(2.75rem,1fr)] items-center gap-2 px-4 pb-2 {className}"
+	style:padding-top="calc(max(calc(1rem + env(safe-area-inset-top)), var(--app-inset-top)) + {pwa.online
+		? '0px'
+		: '1.75rem'})"
 >
 	<button
 		class="btn btn-circle btn-ghost justify-self-start"

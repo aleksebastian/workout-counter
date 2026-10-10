@@ -95,7 +95,7 @@
 	</div>
 {/snippet}
 
-<div class="bg-base-200 flex flex-col rounded-2xl p-5">
+<div class="bg-base-200 flex flex-col rounded-2xl p-4">
 	<div class="flex items-center justify-between gap-3">
 		<div class="flex min-w-0 flex-col gap-1">
 			<span class="text-base-content/55 text-xs font-semibold tracking-widest uppercase">Reps</span>
@@ -109,7 +109,7 @@
 		)}
 	</div>
 
-	<hr class="border-base-300 my-4" />
+	<hr class="border-base-300 my-3" />
 
 	<div class="flex items-center justify-between gap-3">
 		<div class="flex min-w-0 flex-col gap-1">

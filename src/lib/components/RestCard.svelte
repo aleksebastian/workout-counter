@@ -16,9 +16,14 @@
 		resumable?: boolean;
 		/** Surface classes on top of the shared card shape. */
 		class?: string;
+		/**
+		 * One row, the height of the run screen's Up next line it replaces, so
+		 * the set list above doesn't shrink and grow with every rest.
+		 */
+		compact?: boolean;
 	}
 
-	let { resumable = false, class: className = '' }: Props = $props();
+	let { resumable = false, class: className = '', compact = false }: Props = $props();
 </script>
 
 {#snippet dismissIcon()}
@@ -60,6 +65,31 @@
 		>
 			{@render dismissIcon()}
 		</button>
+	</div>
+{:else if restTimer.active && compact}
+	<div class="bg-base-200 relative overflow-hidden rounded-2xl {className}">
+		<div class="flex items-center gap-2 py-1.5 pr-1.5 pl-4">
+			<span class="text-base-content/50 shrink-0 text-xs font-semibold tracking-widest uppercase"
+				>Rest</span
+			>
+			<span class="text-base-content/55 min-w-0 flex-1 truncate text-sm">
+				{restTimer.source ? `${restTimer.source} timer` : 'Next set coming up'}
+			</span>
+			<span class="text-primary text-xl font-black tabular-nums">{restTimer.display}</span>
+			<button
+				class="btn btn-circle btn-ghost btn-sm text-base-content/30"
+				onclick={() => restTimer.stop()}
+				aria-label="Dismiss rest timer"
+			>
+				{@render dismissIcon()}
+			</button>
+		</div>
+		<div class="bg-base-content/10 absolute inset-x-0 bottom-0 h-0.5">
+			<div
+				class="bg-primary h-full transition-[width] duration-1000 ease-linear"
+				style="width: {restTimer.progress}%"
+			></div>
+		</div>
 	</div>
 {:else if restTimer.active}
 	<div class="bg-base-200 overflow-hidden rounded-2xl {className}">

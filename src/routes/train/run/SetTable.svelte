@@ -48,7 +48,7 @@
 
 <div class="flex flex-col">
 	<div
-		class="text-base-content/50 grid grid-cols-[2.25rem_1fr_3.25rem_3.25rem_2.75rem] items-center px-3 pb-1 text-xs font-semibold tracking-wider uppercase"
+		class="text-base-content/50 bg-base-100 sticky top-0 z-10 grid grid-cols-[2.25rem_1fr_3.25rem_3.25rem_2.75rem] items-center px-3 pb-1 text-xs font-semibold tracking-wider uppercase"
 		aria-hidden="true"
 	>
 		<span>Set</span>
