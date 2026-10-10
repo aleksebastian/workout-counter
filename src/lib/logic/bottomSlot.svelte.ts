@@ -25,5 +25,14 @@ export const bottomSlot = {
 
 	get occupied() {
 		return this.showsRest || this.showsWorkout;
+	},
+
+	/**
+	 * How long a bar takes to slide away. None when it's leaving because the
+	 * run screen opened: the view transition captures the new page while the
+	 * bar is still fading, which left it ghosted over the rising screen.
+	 */
+	get exitMs() {
+		return isRunPath(page.url.pathname) ? 0 : 200;
 	}
 };

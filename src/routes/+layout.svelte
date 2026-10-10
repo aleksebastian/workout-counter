@@ -136,7 +136,12 @@
 			return;
 		}
 
-		document.documentElement.dataset.navDirection = 'forward';
+		// The run screen comes and goes like the full-screen modals: up from the
+		// bottom, and back down over the page it returns to.
+		const fromRun = isRunPath(navigation.from?.url.pathname ?? '');
+		const toRun = isRunPath(navigation.to?.url.pathname ?? '');
+		document.documentElement.dataset.navDirection =
+			toRun && !fromRun ? 'sheet-up' : fromRun && !toRun ? 'sheet-down' : 'forward';
 
 		return new Promise((resolve) => {
 			document.startViewTransition(async () => {
@@ -304,8 +309,14 @@
 {/if}
 
 <style>
-	:global(.bottom-nav) {
+	/* Kept out of the sliding root, except when the run screen opens or closes:
+	   then it belongs to the page being covered or uncovered and moves with it. */
+	:global(html:not([data-nav-direction^='sheet']) .bottom-nav) {
 		view-transition-name: bottom-nav;
+	}
+
+	:global(html[data-nav-direction^='sheet'] .rest-timer-bar) {
+		view-transition-name: none !important;
 	}
 
 	@keyframes fade-in {
@@ -358,7 +369,9 @@
 
 	/* Forward navigation — slide left */
 	:global(
-		html:not([data-nav-direction='back']):not([data-nav-direction='tab'])
+		html:not([data-nav-direction='back']):not([data-nav-direction='tab']):not(
+				[data-nav-direction^='sheet']
+			)
 	)::view-transition-old(root) {
 		animation:
 			90ms cubic-bezier(0.4, 0, 1, 1) both fade-out,
@@ -366,7 +379,9 @@
 	}
 
 	:global(
-		html:not([data-nav-direction='back']):not([data-nav-direction='tab'])
+		html:not([data-nav-direction='back']):not([data-nav-direction='tab']):not(
+				[data-nav-direction^='sheet']
+			)
 	)::view-transition-new(root) {
 		animation:
 			210ms cubic-bezier(0, 0, 0.2, 1) 90ms both fade-in,
@@ -384,5 +399,39 @@
 		animation:
 			210ms cubic-bezier(0, 0, 0.2, 1) 90ms both fade-in,
 			300ms cubic-bezier(0.4, 0, 0.2, 1) both slide-from-left;
+	}
+
+	/*
+	 * Into and out of the run screen. It's a route, but it moves like the
+	 * account screen's overlay (AccountScreen.svelte: fly 350ms cubicOut in,
+	 * 300ms cubicIn out) so the app's full-screen views all open and close
+	 * the same way. The page underneath holds still.
+	 */
+	@keyframes sheet-in {
+		from {
+			transform: translateY(100%);
+		}
+	}
+
+	@keyframes sheet-out {
+		to {
+			transform: translateY(100%);
+		}
+	}
+
+	:global(html[data-nav-direction^='sheet'])::view-transition-old(root),
+	:global(html[data-nav-direction^='sheet'])::view-transition-new(root) {
+		/* Both pages are opaque; the default blend for a cross-fade lightens the overlap. */
+		mix-blend-mode: normal;
+		animation: none;
+	}
+
+	:global(html[data-nav-direction='sheet-up'])::view-transition-new(root) {
+		animation: 350ms cubic-bezier(0.33, 1, 0.68, 1) both sheet-in;
+	}
+
+	:global(html[data-nav-direction='sheet-down'])::view-transition-old(root) {
+		z-index: 1;
+		animation: 300ms cubic-bezier(0.32, 0, 0.67, 0) both sheet-out;
 	}
 </style>
