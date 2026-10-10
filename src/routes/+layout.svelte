@@ -15,7 +15,7 @@
 	import { training } from '$lib/logic/training.svelte';
 	import { bottomSlot } from '$lib/logic/bottomSlot.svelte';
 	import { pwa } from '$lib/logic/pwa.svelte';
-	import { applyTheme } from '$lib/logic/theme';
+	import { applyTheme, rememberTheme } from '$lib/logic/theme';
 	import { session } from '$lib/session.svelte';
 	import { toaster } from '$lib/toast.svelte';
 	import { TAB_ROUTES, isRunPath } from '$lib/routes';
@@ -90,7 +90,13 @@
 		}
 	});
 
-	$effect(() => applyTheme(session.prefs.theme));
+	// Only once the profile has loaded: before that, `prefs` is the defaults,
+	// and applying their `system` would undo the remembered theme app.html set.
+	$effect(() => {
+		if (!session.data) return;
+		applyTheme(session.prefs.theme);
+		rememberTheme(session.prefs.theme);
+	});
 
 	// Close a workout left idle too long, once the data needed to judge it (its
 	// sets count as activity) has loaded. `training.init` re-checks on return
