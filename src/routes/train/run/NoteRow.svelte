@@ -97,7 +97,8 @@
 				class:shown={expanded}
 				tabindex={expanded ? 0 : -1}
 				aria-hidden={!expanded}
-				placeholder="Note for set {setNumber}"
+				placeholder="Notes"
+				aria-label="Note for set {setNumber}"
 				onblur={() => (open = false)}
 				onkeydown={(e) => {
 					if (e.key === 'Enter' || e.key === 'Escape') field?.blur();
