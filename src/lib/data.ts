@@ -295,6 +295,27 @@ export const sessions = {
 			batch.update(doc(db, 'users', uid), { activeSession: deleteField() });
 			return batch.commit();
 		});
+	},
+
+	/**
+	 * Throws the workout in progress away: its sets come off their exercises
+	 * and nothing goes into the history — in one batch, so a failure leaves
+	 * the workout exactly as it was rather than half deleted.
+	 */
+	discard(logged: { workoutId: string; sets: Set[] }[]) {
+		const uid = requireUid();
+		return mutate('discard workout', () => {
+			const batch = writeBatch(db);
+			for (const { workoutId, sets } of logged) {
+				if (sets.length) {
+					batch.update(doc(db, 'users', uid, 'workouts', workoutId), {
+						sets: arrayRemove(...sets)
+					});
+				}
+			}
+			batch.update(doc(db, 'users', uid), { activeSession: deleteField() });
+			return batch.commit();
+		});
 	}
 };
 

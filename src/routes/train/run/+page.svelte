@@ -18,6 +18,7 @@
 	import { formatDuration as formatRest, pickRest } from '$lib/logic/rest';
 	import { pwa } from '$lib/logic/pwa.svelte';
 	import { HAPTIC } from '$lib/haptic';
+	import { toaster } from '$lib/toast.svelte';
 	import ActionSheet, { type SheetAction } from '$lib/components/ActionSheet.svelte';
 	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
 	import EditSetSheet from '$lib/components/EditSetSheet.svelte';
@@ -341,6 +342,24 @@
 	}
 
 	let exercisesDone = $derived(fills.filter((f) => f >= 1).length);
+
+	// Discarding deletes sets, so it's never one tap: Finish early offers it,
+	// and this asks again, saying exactly what goes.
+	let discardDialog = $state<HTMLDialogElement>()!;
+	let setsToDiscard = $state(0);
+
+	function requestDiscard() {
+		setsToDiscard = training.loggedSets.reduce((n, e) => n + e.sets.length, 0);
+		discardDialog?.showModal();
+	}
+
+	function discard() {
+		HAPTIC.heavy();
+		// Gone from the store at once; the "ended elsewhere" redirect then
+		// takes this screen down to Train.
+		training.discard();
+		toaster.show({ type: 'info', message: 'Workout discarded', timeout: 2500 });
+	}
 
 	// ── Sheets ──────────────────────────────────────────────────────────────────
 	let howToOpen = $state(false);
@@ -673,7 +692,24 @@
 		'exercise'
 	)} done. Your sets are saved, and it's added to your history."
 	actionLabel="Finish"
+	secondaryLabel="Discard workout"
 	onclose={(e) => {
-		if ((e.target as HTMLDialogElement).returnValue === 'default') finish();
+		const choice = (e.target as HTMLDialogElement).returnValue;
+		if (choice === 'default') finish();
+		else if (choice === 'secondary') requestDiscard();
+	}}
+/>
+
+<ConfirmationDialog
+	bind:dialog={discardDialog}
+	destructive
+	header="Discard this workout?"
+	content={setsToDiscard
+		? `The ${counted(setsToDiscard, 'set')} you logged will be deleted and it won't be added to your history. This can't be undone.`
+		: "Nothing's been logged yet, so there's nothing to lose."}
+	actionLabel="Discard workout"
+	cancelLabel="Keep workout"
+	onclose={(e) => {
+		if ((e.target as HTMLDialogElement).returnValue === 'default') discard();
 	}}
 />

@@ -11,12 +11,13 @@ import {
 	lastActivity,
 	resolveIndex,
 	sameSource,
+	setsSince,
 	sourceName,
 	summarize,
 	type Lookups,
 	type PlanEntry
 } from '$lib/logic/training';
-import type { ActiveSession, SessionLog, SessionSource } from '$lib/types';
+import type { ActiveSession, SessionLog, SessionSource, Set } from '$lib/types';
 
 /**
  * The workout in progress. It's stored on the user document (see
@@ -150,6 +151,24 @@ export const training = {
 			reps: log?.totals.reps ?? 0,
 			complete: isPlanComplete(buildPlan(s.source, lookups) ?? [], lookups, s.startedAt)
 		};
+	},
+
+	/** The sets logged in this workout, per planned exercise, for discarding. */
+	get loggedSets(): { workoutId: string; sets: Set[] }[] {
+		const s = this.session;
+		if (!s) return [];
+		const ids = new globalThis.Set((this.plan ?? []).map((e) => e.workoutId));
+		return [...ids].map((workoutId) => ({
+			workoutId,
+			sets: setsSince(session.workout(workoutId), s.startedAt)
+		}));
+	},
+
+	/** Ends the workout without keeping it: no history, and its sets deleted. */
+	discard() {
+		if (!this.session) return;
+		repo.discard(this.loggedSets);
+		restTimer.stop();
 	},
 
 	/**
