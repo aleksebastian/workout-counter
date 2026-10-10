@@ -221,18 +221,29 @@
 
 	$effect(() => {
 		const vv = window.visualViewport;
-		if (!vv) return;
+		// A touch screen shows a keyboard for any focused text field; a desktop
+		// browser shows none, so its layout is left alone.
+		if (!vv || !matchMedia('(pointer: coarse)').matches) return;
+		// Up whenever a text field has focus. Measuring for it instead failed:
+		// with the number pad, iOS shrank innerHeight along with the viewport.
 		const update = () => {
-			// Well short of the window: a keyboard, not a rounding difference.
-			keyboardView =
-				vv.height < window.innerHeight - 120 ? { top: vv.offsetTop, height: vv.height } : null;
+			const el = document.activeElement;
+			const typing = el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement;
+			keyboardView = typing ? { top: vv.offsetTop, height: vv.height } : null;
 		};
+		// Moving between fields with the keyboard's arrows blurs one a moment
+		// before focusing the next; checking after that keeps the layout still.
+		const afterBlur = () => setTimeout(update);
 		update();
 		vv.addEventListener('resize', update);
 		vv.addEventListener('scroll', update);
+		document.addEventListener('focusin', update);
+		document.addEventListener('focusout', afterBlur);
 		return () => {
 			vv.removeEventListener('resize', update);
 			vv.removeEventListener('scroll', update);
+			document.removeEventListener('focusin', update);
+			document.removeEventListener('focusout', afterBlur);
 		};
 	});
 

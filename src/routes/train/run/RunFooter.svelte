@@ -69,7 +69,7 @@
 				<RestCard />
 			</div>
 		{:else}
-			<NoteRow bind:notes bind:open={noteOpen} {setNumber} {next} />
+			<NoteRow bind:notes bind:open={noteOpen} {setNumber} {next} {keyboardUp} />
 		{/if}
 
 		<div class="flex gap-2">

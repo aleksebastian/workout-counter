@@ -23,14 +23,26 @@
 		setNumber: number | null;
 		/** `null` on the last exercise. */
 		next: { name: string; detail: string } | null;
+		/**
+		 * The keyboard is up, e.g. typing reps or weight. The note opens too, so
+		 * it's one tap (or the keyboard's arrows) away while the set is being
+		 * typed in, and closes again with the keyboard.
+		 */
+		keyboardUp?: boolean;
 	}
 
-	let { notes = $bindable(''), open = $bindable(false), setNumber, next }: Props = $props();
+	let {
+		notes = $bindable(''),
+		open = $bindable(false),
+		setNumber,
+		next,
+		keyboardUp = false
+	}: Props = $props();
 
 	let field = $state<HTMLInputElement>();
 	let hasDraft = $derived(notes.trim() !== '');
 	let canNote = $derived(setNumber !== null);
-	let expanded = $derived(open && canNote);
+	let expanded = $derived((open || keyboardUp) && canNote);
 
 	function openNote() {
 		HAPTIC.tap();
@@ -41,10 +53,11 @@
 	}
 
 	// Idempotent rather than a toggle: tapping the pill blurs the field first,
-	// which has already closed it.
+	// which has already closed it. Whatever has focus lets go — a reps or
+	// weight field too — so the keyboard that's holding the row open goes.
 	function close() {
 		open = false;
-		field?.blur();
+		if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
 	}
 </script>
 
