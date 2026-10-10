@@ -559,7 +559,7 @@
 					{logged}
 					{previous}
 					{rows}
-					draft={exerciseComplete ? null : { reps, weight, hasNote: notes.trim() !== '' }}
+					draft={exerciseComplete ? null : { reps, weight, note: notes }}
 					unit={unitLabel}
 					onLog={recordSet}
 					onEdit={editSet}
