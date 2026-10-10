@@ -67,7 +67,7 @@
 		<!-- The note: a circle that stretches into a field. -->
 		<div
 			class="shape bg-base-200 absolute inset-y-0 left-0 overflow-hidden rounded-full"
-			style:width={expanded ? 'calc(100% - 4.5rem - 0.5rem)' : '2.75rem'}
+			style:width={expanded ? 'calc(100% - 5.5rem - 0.5rem)' : '2.75rem'}
 		>
 			<button
 				type="button"
@@ -109,7 +109,7 @@
 	<!-- What's next: Up next or the rest countdown, shrinking to a pill. -->
 	<div
 		class="shape bg-base-200 absolute inset-y-0 right-0 overflow-hidden rounded-full"
-		style:width={expanded ? '4.5rem' : canNote ? 'calc(100% - 2.75rem - 0.5rem)' : '100%'}
+		style:width={expanded ? '5.5rem' : canNote ? 'calc(100% - 2.75rem - 0.5rem)' : '100%'}
 	>
 		<!-- Full-width contents, pinned right and clipped as the shape shrinks. -->
 		<div
@@ -143,7 +143,7 @@
 		<!-- The pill: closes the note, and keeps the countdown in view. -->
 		<button
 			type="button"
-			class="layer absolute inset-y-0 right-0 flex w-18 items-center justify-center text-sm font-semibold"
+			class="layer absolute inset-y-0 right-0 flex w-22 items-center justify-center text-sm font-semibold whitespace-nowrap"
 			class:shown={expanded}
 			tabindex={expanded ? 0 : -1}
 			aria-hidden={!expanded}
@@ -163,7 +163,7 @@
 					></span>
 				</span>
 			{:else if next}
-				Next
+				Up next
 			{:else}
 				{@render checkIcon()}
 			{/if}
