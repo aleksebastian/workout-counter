@@ -69,6 +69,7 @@ function session(extra: Partial<ActiveSession> = {}): ActiveSession {
 		lastActiveAt: T0,
 		currentWorkoutId: 'bench',
 		currentIndex: 0,
+		pausedMs: 0,
 		...extra
 	};
 }

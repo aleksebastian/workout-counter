@@ -122,7 +122,8 @@ export const training = {
 			startedAt: now,
 			lastActiveAt: now,
 			currentWorkoutId: plan[0]?.workoutId ?? null,
-			currentIndex: 0
+			currentIndex: 0,
+			pausedMs: 0
 		};
 		repo.start(s);
 		return s;
