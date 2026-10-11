@@ -5,8 +5,8 @@
 	/**
 	 * This exercise's sets for the session, one row each: logged, the one being
 	 * entered, then the rest of the target. Last time's set at the same
-	 * position sits alongside as the number to beat. A row's notes — this
-	 * set's, and last time's — read as a second line under it.
+	 * position sits alongside as the number to beat. A set's note reads as a
+	 * second line under it.
 	 */
 
 	interface Props {
@@ -49,21 +49,15 @@
 	</svg>
 {/snippet}
 
-<!-- Under the numbers, lined up with the Previous column: this set's note,
-     then last time's. Nothing at all when neither has one, so plain rows
-     keep their height. -->
-{#snippet notes(own: string | undefined, last: string | undefined)}
-	{#if own?.trim() || last}
-		<span class="-mt-2 flex flex-col gap-0.5 pb-2.5 pl-9 text-left text-sm leading-snug">
-			{#if own?.trim()}
-				<span class="text-base-content/80 line-clamp-2 break-words">{own.trim()}</span>
-			{/if}
-			{#if last}
-				<span class="text-base-content/50 line-clamp-2 break-words"
-					><span class="text-base-content/40">Last time:</span> {last}</span
-				>
-			{/if}
-		</span>
+<!-- Under the numbers, lined up with the Previous column. Nothing at all
+     without a note, so plain rows keep their height. Past notes live in the
+     exercise's history. -->
+{#snippet notes(own: string | undefined)}
+	{#if own?.trim()}
+		<span
+			class="text-base-content/80 -mt-2 line-clamp-2 pb-2.5 pl-9 text-left text-sm leading-snug break-words"
+			>{own.trim()}</span
+		>
 	{/if}
 {/snippet}
 
@@ -107,7 +101,7 @@
 								</span>
 							</span>
 						</span>
-						{@render notes(set.notes, previous[i]?.notes)}
+						{@render notes(set.notes)}
 					</button>
 				{:else if open && draft}
 					<div class="bg-primary/10 flex flex-col rounded-xl px-3" aria-current="step">
@@ -126,7 +120,7 @@
 								></button>
 							</span>
 						</div>
-						{@render notes(draft.note, previous[i]?.notes)}
+						{@render notes(draft.note)}
 					</div>
 				{:else}
 					<div class="text-base-content/40 flex flex-col px-3">
@@ -139,7 +133,6 @@
 								<span class="border-base-300 h-8 w-8 rounded-full border-2"></span>
 							</span>
 						</div>
-						{@render notes(undefined, previous[i]?.notes)}
 					</div>
 				{/if}
 			</li>

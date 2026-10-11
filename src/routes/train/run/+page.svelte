@@ -28,6 +28,7 @@
 	import SetAdjuster from './SetAdjuster.svelte';
 	import RunFooter from './RunFooter.svelte';
 	import HowToSheet from './HowToSheet.svelte';
+	import HistorySheet from './HistorySheet.svelte';
 	import EditIcon from '$lib/icons/edit.svg?raw';
 	import type { Set } from '$lib/types';
 
@@ -392,6 +393,7 @@
 
 	// ── Sheets ──────────────────────────────────────────────────────────────────
 	let howToOpen = $state(false);
+	let historyOpen = $state(false);
 	let menuOpen = $state(false);
 	let editOpen = $state(false);
 	let editing = $state<Set | undefined>(undefined);
@@ -567,65 +569,89 @@
 		>
 			<SessionProgress {fills} index={currentIndex} detail={progressDetail} />
 
-			<!-- Current exercise -->
-			<div class="flex items-start justify-between gap-3">
-				<div class="flex min-w-0 flex-col gap-1">
-					{#if currentEntry?.groupLabel}
-						<div class="flex items-center gap-2">
-							<span
-								class="bg-primary/15 text-primary-strong rounded px-2 py-0.5 text-xs font-semibold"
-								>{currentEntry.groupLabel}</span
+			<!-- Current exercise. The actions share the routine label's line, so
+			     the name and target get the full width and don't wrap. -->
+			<div class="flex flex-col gap-1">
+				<div class="flex min-h-10 items-center justify-between gap-2">
+					<div class="flex min-w-0 items-center gap-2">
+						{#if currentEntry?.groupLabel}
+							<div class="flex items-center gap-2">
+								<span
+									class="bg-primary/15 text-primary-strong rounded px-2 py-0.5 text-xs font-semibold"
+									>{currentEntry.groupLabel}</span
+								>
+								{#if currentEntry.groupProgress}
+									<span class="text-base-content/40 text-xs">
+										{currentEntry.groupProgress.current}/{currentEntry.groupProgress.total}
+									</span>
+								{/if}
+							</div>
+						{/if}
+					</div>
+					<div class="flex shrink-0 items-center gap-2">
+						<button
+							class="btn bg-base-200 h-10 gap-1.5 rounded-full border-none px-3 text-sm font-semibold shadow-none"
+							onclick={() => (historyOpen = true)}
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-4 w-4"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+								stroke-width="2.25"
+								aria-hidden="true"
 							>
-							{#if currentEntry.groupProgress}
-								<span class="text-base-content/40 text-xs">
-									{currentEntry.groupProgress.current}/{currentEntry.groupProgress.total}
-								</span>
-							{/if}
-						</div>
-					{/if}
-					<h1 class="text-3xl leading-tight font-black">{currentWorkout?.name ?? '—'}</h1>
-					<p class="text-base-content/60 text-sm">{targetLine}</p>
-				</div>
-				<div class="flex shrink-0 items-center gap-2 pt-0.5">
-					<button
-						class="btn bg-base-200 h-11 gap-1.5 rounded-full border-none px-4 font-semibold shadow-none"
-						onclick={() => (howToOpen = true)}
-					>
-						How to
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-4 w-4"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-							stroke-width="2.25"
-							aria-hidden="true"
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									d="M3 12a9 9 0 1 0 3-6.7M3 4v4h4M12 7v5l3 2"
+								/>
+							</svg>
+							History
+						</button>
+						<button
+							class="btn bg-base-200 h-10 gap-1.5 rounded-full border-none px-3 text-sm font-semibold shadow-none"
+							onclick={() => (howToOpen = true)}
 						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"
-							/>
-						</svg>
-					</button>
-					<button
-						class="btn btn-circle bg-base-200 h-11 w-11 border-none shadow-none"
-						onclick={() => (menuOpen = true)}
-						aria-label="More options"
-					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-5 w-5"
-							viewBox="0 0 24 24"
-							fill="currentColor"
-							aria-hidden="true"
+							How to
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-4 w-4"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+								stroke-width="2.25"
+								aria-hidden="true"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"
+								/>
+							</svg>
+						</button>
+						<button
+							class="btn btn-circle bg-base-200 h-10 w-10 border-none shadow-none"
+							onclick={() => (menuOpen = true)}
+							aria-label="More options"
 						>
-							<circle cx="5" cy="12" r="1.75" />
-							<circle cx="12" cy="12" r="1.75" />
-							<circle cx="19" cy="12" r="1.75" />
-						</svg>
-					</button>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-5 w-5"
+								viewBox="0 0 24 24"
+								fill="currentColor"
+								aria-hidden="true"
+							>
+								<circle cx="5" cy="12" r="1.75" />
+								<circle cx="12" cy="12" r="1.75" />
+								<circle cx="19" cy="12" r="1.75" />
+							</svg>
+						</button>
+					</div>
 				</div>
+				<h1 class="text-3xl leading-tight font-black">{currentWorkout?.name ?? '—'}</h1>
+				<p class="text-base-content/60 text-sm">{targetLine}</p>
 			</div>
 
 			<div
@@ -716,6 +742,12 @@
 {/if}
 
 <HowToSheet bind:open={howToOpen} workout={currentWorkout} />
+
+<HistorySheet
+	bind:open={historyOpen}
+	workout={currentWorkout}
+	routineId={currentEntry?.routineId}
+/>
 
 <ActionSheet bind:open={menuOpen} title={currentWorkout?.name} actions={menuActions} />
 
