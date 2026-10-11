@@ -341,7 +341,8 @@
 			<RowMenuButton label="Program options" onclick={() => (showProgramMenu = true)} />
 		</div>
 
-		<!-- Day picker -->
+		<!-- Day picker. Today's ring is inset: the row scrolls sideways, which
+		     clips anything drawn outside a button's edge. -->
 		<div class="-mr-2 flex items-center gap-1.5 overflow-x-auto pr-2 pb-0.5">
 			{#each [0, 1, 2, 3, 4, 5, 6] as dayNum (dayNum)}
 				{@const count = exerciseCount(dayNum)}
@@ -351,6 +352,7 @@
 						class:btn-primary={selectedDay === dayNum}
 						class:btn-ghost={selectedDay !== dayNum}
 						class:ring-2={dayNum === todayDow && selectedDay !== dayNum}
+						class:ring-inset={dayNum === todayDow && selectedDay !== dayNum}
 						class:ring-primary={dayNum === todayDow && selectedDay !== dayNum}
 						aria-label="{DAY_FULL[dayNum]} — {counted(count, 'exercise')}"
 						onclick={() => {
