@@ -6,6 +6,8 @@
 		header?: string;
 		actionLabel?: string;
 		cancelLabel?: string;
+		/** A third, destructive choice under the main one; closes with returnValue `secondary`. */
+		secondaryLabel?: string;
 		content?: string | undefined;
 		destructive?: boolean;
 		dialog: HTMLDialogElement;
@@ -17,6 +19,7 @@
 		header = 'Are you sure?',
 		actionLabel = 'Ok',
 		cancelLabel = 'Cancel',
+		secondaryLabel,
 		content = undefined,
 		destructive = false,
 		dialog = $bindable(),
@@ -58,6 +61,9 @@
 			>
 				{actionLabel}
 			</button>
+			{#if secondaryLabel}
+				<button class="btn btn-ghost text-error w-full" value="secondary">{secondaryLabel}</button>
+			{/if}
 			<button class="btn btn-ghost w-full" value="cancel">{cancelLabel}</button>
 		</div>
 	</form>

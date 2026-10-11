@@ -47,3 +47,25 @@ export function matchExercise(exercise: CatalogExercise, workouts: Workout[]): M
 	const best = candidates.reduce((a, b) => (b.sets.length > a.sets.length ? b : a));
 	return { workout: best, confidence: 'alias' };
 }
+
+/**
+ * `matchExercise` the other way round: which catalog exercise a library one
+ * is, so its instructions can be shown mid-workout. A stamp wins, then the
+ * name, then an alias — though, as above, never an alias for an exercise
+ * stamped as something else.
+ */
+export function catalogExerciseFor(
+	workout: Workout,
+	exercises: CatalogExercise[]
+): CatalogExercise | null {
+	const stampedId = workout.source?.catalogId;
+	const stamped = stampedId && exercises.find((e) => e.id === stampedId);
+	if (stamped) return stamped;
+
+	const name = normalizeName(workout.name);
+	const named = exercises.find((e) => normalizeName(e.name) === name);
+	if (named) return named;
+	if (workout.source) return null;
+
+	return exercises.find((e) => e.aliases?.some((a) => normalizeName(a) === name)) ?? null;
+}

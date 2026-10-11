@@ -53,12 +53,27 @@ export function libraryItemHref(kind: 'exercise' | 'routine' | 'program', id: st
 	return kind === 'routine' ? `/routines/${id}` : `/programs/${id}`;
 }
 
+/** The guided session screen, which runs full-screen without the tab chrome. */
+export function isRunPath(pathname: string): boolean {
+	return pathname.startsWith('/train/run');
+}
+
+/**
+ * For a workout that ended earlier today: `resume` picks it back up and
+ * `fresh` starts a new one, for the cards that show both. With neither, the
+ * session screen asks.
+ */
+type RunOptions = { fresh?: boolean; resume?: boolean };
+
+const freshParam = (opts?: RunOptions) =>
+	opts?.resume ? '&resume=1' : opts?.fresh ? '&fresh=1' : '';
+
 /** Guided session for one day of a program. */
-export function runProgramHref(programId: string, day: number): string {
-	return `/train/run?program=${programId}&day=${day}`;
+export function runProgramHref(programId: string, day: number, opts?: RunOptions): string {
+	return `/train/run?program=${programId}&day=${day}${freshParam(opts)}`;
 }
 
 /** Guided session for a routine, start to finish. */
-export function runRoutineHref(routineId: string): string {
-	return `/train/run?routine=${routineId}`;
+export function runRoutineHref(routineId: string, opts?: RunOptions): string {
+	return `/train/run?routine=${routineId}${freshParam(opts)}`;
 }

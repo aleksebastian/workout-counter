@@ -75,7 +75,7 @@
 				>
 			</div>
 		{:else}
-			<SetEntry bind:reps bind:weight size="md" fadeClass="from-base-100" />
+			<SetEntry bind:reps bind:weight fadeClass="from-base-100" />
 
 			<div class="flex flex-col gap-1.5">
 				<label

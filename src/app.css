@@ -76,6 +76,15 @@ svg:not([fill]) {
 	fill: currentColor;
 }
 
+/*
+ * Primary as text on a pale primary tint. Emerald's primary is too light to
+ * read on white and primary-content too dark on Dracula; pulling primary
+ * toward the theme's own text colour reads in both.
+ */
+@utility text-primary-strong {
+	color: color-mix(in oklab, var(--color-primary) 55%, var(--color-base-content));
+}
+
 @layer utilities {
 	.scrollbar-none {
 		scrollbar-width: none; /* Firefox */

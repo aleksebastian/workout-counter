@@ -1,6 +1,8 @@
+import { counted } from '$lib/utils';
 import {
 	itemsForDay,
 	type ActiveSession,
+	type EndedSession,
 	type Program,
 	type Routine,
 	type SessionLog,
@@ -24,6 +26,7 @@ export type PlanEntry = {
 	targetSets?: number;
 	/** Bottom of the routine's rep range — where a first set starts. */
 	minReps?: number;
+	maxReps?: number;
 	groupLabel?: string;
 	groupProgress?: { current: number; total: number };
 	/** The routine this entry comes from, whose rest timer applies. */
@@ -41,6 +44,7 @@ function expandRoutine(routine: Routine, grouped: boolean): PlanEntry[] {
 		workoutId: ex.workoutId,
 		targetSets: ex.targetSets,
 		...(ex.minReps !== undefined && { minReps: ex.minReps }),
+		...(ex.maxReps !== undefined && { maxReps: ex.maxReps }),
 		routineId: routine.id,
 		...(grouped
 			? {
@@ -120,6 +124,42 @@ export function setsSince(workout: Workout | null, since: number): Set[] {
 	return workout?.sets.filter((s) => new Date(s.date).getTime() >= since) ?? [];
 }
 
+const timeOf = (set: Set) => new Date(set.date).getTime();
+
+/**
+ * What the user did on this exercise last time: the sets from the most recent
+ * day before this session started, in order. The run screen shows set *i* of
+ * it next to set *i* of this session, as the number to beat.
+ */
+export function previousSets(workout: Workout | null, since: number): Set[] {
+	const before = workout?.sets.filter((s) => timeOf(s) < since) ?? [];
+	if (before.length === 0) return [];
+	const latest = before.reduce((a, b) => (timeOf(b) > timeOf(a) ? b : a));
+	const day = new Date(latest.date).toDateString();
+	return before
+		.filter((s) => new Date(s.date).toDateString() === day)
+		.sort((a, b) => timeOf(a) - timeOf(b));
+}
+
+/** "3 × 10", "3 × 8–12", or "3 sets" without a rep range; `null` for free-form. */
+export function targetLabel(
+	entry: Pick<PlanEntry, 'targetSets' | 'minReps' | 'maxReps'>
+): string | null {
+	const { targetSets, minReps: lo, maxReps: hi } = entry;
+	if (targetSets === undefined) return null;
+	const reps = lo !== undefined && hi !== undefined && lo !== hi ? `${lo}–${hi}` : (lo ?? hi);
+	return reps === undefined ? counted(targetSets, 'set') : `${targetSets} × ${reps}`;
+}
+
+/** A running clock: "1:05", or "1:02:05" past the hour. */
+export function formatClock(ms: number): string {
+	const s = Math.max(0, Math.floor(ms / 1000));
+	const h = Math.floor(s / 3600);
+	const m = Math.floor((s % 3600) / 60);
+	const sec = (s % 60).toString().padStart(2, '0');
+	return h > 0 ? `${h}:${m.toString().padStart(2, '0')}:${sec}` : `${m}:${sec}`;
+}
+
 /** The latest sign of life: a move between exercises, or a set logged on a planned exercise. */
 export function lastActivity(session: ActiveSession, plan: PlanEntry[], lookups: Lookups): number {
 	let latest = session.lastActiveAt;
@@ -189,5 +229,75 @@ export function summarize(
 			sets: exercises.reduce((sum, e) => sum + e.sets, 0),
 			reps: exercises.reduce((sum, e) => sum + e.reps, 0)
 		}
+	};
+}
+
+// ── Ending and resuming ──────────────────────────────────────────────────────
+
+/** Time spent training: since the start, less any stretch spent ended before a resume. */
+export function elapsedMs(session: Pick<ActiveSession, 'startedAt' | 'pausedMs'>, now: number) {
+	return Math.max(0, now - session.startedAt - session.pausedMs);
+}
+
+/**
+ * The first exercise that still needs sets — where a resumed workout picks up.
+ * An exercise planned twice needs both targets' worth before its second
+ * entry counts as done. Past the end (everything done) it's the last entry.
+ */
+export function firstIncomplete(plan: PlanEntry[], lookups: Lookups, since: number): number {
+	const done = entriesDone(plan, lookups, since);
+	const i = done.indexOf(false);
+	return i === -1 ? Math.max(0, plan.length - 1) : i;
+}
+
+/**
+ * Whether each plan entry has had its sets. An exercise planned twice needs
+ * both targets' worth before its second entry counts — the rule
+ * `isPlanComplete` uses, so "2 of 5 done" and where Resume lands agree.
+ */
+export function entriesDone(plan: PlanEntry[], lookups: Lookups, since: number): boolean[] {
+	const needed = new Map<string, number>();
+	return plan.map((e) => {
+		const total = (needed.get(e.workoutId) ?? 0) + (e.targetSets ?? 1);
+		needed.set(e.workoutId, total);
+		return setsSince(lookups.workout(e.workoutId), since).length >= total;
+	});
+}
+
+/**
+ * The workout that ended earlier today for this routine or program day, if
+ * any — the one a Start button should offer to resume. Only the same
+ * calendar day: picking up yesterday's would merge two days into one.
+ */
+export function endedToday(
+	last: EndedSession | null | undefined,
+	source: SessionSource,
+	now: number
+): EndedSession | null {
+	if (!last || !sameSource(last.source, source)) return null;
+	return new Date(last.endedAt).toDateString() === new Date(now).toDateString() ? last : null;
+}
+
+/**
+ * The ended workout back in progress: same id and start, so its sets are its
+ * own again, on the first exercise still to do. The time it spent ended is
+ * added to `pausedMs`, so elapsed time and the duration skip the break.
+ */
+export function resumedSession(
+	last: EndedSession,
+	plan: PlanEntry[],
+	lookups: Lookups,
+	now: number
+): ActiveSession {
+	const index = firstIncomplete(plan, lookups, last.startedAt);
+	return {
+		id: last.id,
+		source: last.source,
+		name: last.name,
+		startedAt: last.startedAt,
+		lastActiveAt: now,
+		currentWorkoutId: plan[index]?.workoutId ?? last.currentWorkoutId,
+		currentIndex: plan[index] ? index : last.currentIndex,
+		pausedMs: last.pausedMs + Math.max(0, now - last.endedAt)
 	};
 }

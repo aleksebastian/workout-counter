@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { matchExercise, normalizeName } from './match';
+import { catalogExerciseFor, matchExercise, normalizeName } from './match';
 import type { CatalogExercise } from './types';
 import type { Set, Workout } from '$lib/types';
 
@@ -61,5 +61,38 @@ describe('matchExercise', () => {
 
 	it('returns null when nothing lines up', () => {
 		expect(matchExercise(benchPress, [workout('w1', 'Incline Bench Press')])).toBeNull();
+	});
+});
+
+describe('catalogExerciseFor', () => {
+	const pushUp: CatalogExercise = {
+		id: 'push-up',
+		name: 'Push-Up',
+		muscles: ['chest'],
+		equipment: 'bodyweight',
+		instructions: '…'
+	};
+	const catalog = [pushUp, benchPress];
+
+	it('follows a stamp, even after a rename', () => {
+		const renamed = workout('w1', 'Heavy Bench', { source: { catalogId: benchPress.id } });
+		expect(catalogExerciseFor(renamed, catalog)).toBe(benchPress);
+	});
+
+	it('matches by name, ignoring case and punctuation', () => {
+		expect(catalogExerciseFor(workout('w1', 'push up'), catalog)).toBe(pushUp);
+	});
+
+	it('matches an unstamped exercise by alias', () => {
+		expect(catalogExerciseFor(workout('w1', 'Bench'), catalog)).toBe(benchPress);
+	});
+
+	it('never aliases an exercise stamped as something else', () => {
+		const other = workout('w1', 'Bench', { source: { catalogId: 'removed-from-catalog' } });
+		expect(catalogExerciseFor(other, catalog)).toBeNull();
+	});
+
+	it('is null for a custom exercise', () => {
+		expect(catalogExerciseFor(workout('w1', 'Farmer Carry'), catalog)).toBeNull();
 	});
 });

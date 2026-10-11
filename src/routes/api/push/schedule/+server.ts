@@ -3,7 +3,7 @@ import { dev } from '$app/environment';
 import { Client } from '@upstash/qstash';
 import { QSTASH_TOKEN, QSTASH_URL } from '$env/static/private';
 import type { RequestHandler } from './$types';
-import { sendPushToUser } from '../_push';
+import { scheduleDevPush } from '../_devTimers';
 
 export const POST: RequestHandler = async ({ request, locals, url }) => {
 	const uid = locals.userID;
@@ -17,10 +17,8 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 	const delay = Math.max(1000, expiresAt - Date.now());
 
 	if (dev) {
-		// In dev: fire directly via setTimeout — no QStash needed
-		const delaySecs = Math.round(delay / 1000);
-		setTimeout(() => sendPushToUser(uid), delay);
-		return json({ messageId: `dev-${uid}-${delaySecs}` });
+		// In dev: fire from this process — no QStash needed
+		return json({ messageId: scheduleDevPush(uid, delay) });
 	}
 
 	// In production: schedule via QStash

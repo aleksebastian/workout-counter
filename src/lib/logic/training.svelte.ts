@@ -6,17 +6,22 @@ import { toaster } from '$lib/toast.svelte';
 import { restTimer } from '$lib/logic/restTimer.svelte';
 import {
 	buildPlan,
+	elapsedMs,
+	endedToday,
+	entriesDone,
 	isPlanComplete,
 	isStale,
 	lastActivity,
 	resolveIndex,
+	resumedSession,
 	sameSource,
+	setsSince,
 	sourceName,
 	summarize,
 	type Lookups,
 	type PlanEntry
 } from '$lib/logic/training';
-import type { ActiveSession, SessionLog, SessionSource } from '$lib/types';
+import type { ActiveSession, EndedSession, SessionLog, SessionSource, Set } from '$lib/types';
 
 /**
  * The workout in progress. It's stored on the user document (see
@@ -59,11 +64,40 @@ function toLog(
 		startedAt: s.startedAt,
 		endedAt,
 		endReason,
+		...(s.pausedMs > 0 && { pausedMs: s.pausedMs }),
 		exercises,
 		totals,
 		createdAt: endedAt
 	};
 }
+
+/**
+ * What's kept of a workout once it ends, so it can be resumed later the
+ * same day. Nothing for one that logged no sets: there's nothing to go
+ * back to.
+ */
+function toEnded(
+	s: ActiveSession,
+	endedAt: number,
+	log: SessionLog | null,
+	complete: boolean
+): EndedSession | null {
+	if (!log) return null;
+	return {
+		id: s.id,
+		source: s.source,
+		name: s.name,
+		startedAt: s.startedAt,
+		currentWorkoutId: s.currentWorkoutId,
+		currentIndex: s.currentIndex,
+		pausedMs: s.pausedMs,
+		endedAt,
+		complete
+	};
+}
+
+/** How far an ended workout got, for the cards that offer to resume it. */
+export type EndedToday = { complete: boolean; done: number; total: number };
 
 /** Only one abandoned-session close per session, however many times sweep runs. */
 let sweptId: string | null = null;
@@ -87,11 +121,46 @@ export const training = {
 		return s && plan ? resolveIndex(plan, s) : 0;
 	},
 
+	/** Every planned exercise has had its sets, so finishing needs no "are you sure". */
+	get complete(): boolean {
+		const s = this.session;
+		return !!s && isPlanComplete(this.plan ?? [], lookups, s.startedAt);
+	},
+
 	/** The source's current name, falling back to the one saved when it started. */
 	get name(): string {
 		const s = this.session;
 		if (!s) return '';
 		return sourceName(s.source, lookups) ?? s.name;
+	},
+
+	/** Epoch ms the elapsed clock counts from: the start, moved on by any time spent ended. */
+	get clockStart(): number {
+		const s = this.session;
+		return s ? s.startedAt + s.pausedMs : Date.now();
+	},
+
+	/**
+	 * The workout for `source` that ended earlier today, and how far it got —
+	 * so its Start buttons can offer to pick it back up. `null` if there's
+	 * none, or another workout is in progress.
+	 */
+	endedToday(source: SessionSource, now = Date.now()): EndedToday | null {
+		if (this.session) return null;
+		const last = endedToday(session.data?.lastSession, source, now);
+		if (!last) return null;
+		const plan = buildPlan(last.source, lookups) ?? [];
+		const done = entriesDone(plan, lookups, last.startedAt).filter(Boolean).length;
+		return { complete: last.complete, done, total: plan.length };
+	},
+
+	/** Puts the workout that ended earlier today back in progress, where it left off. */
+	resume(now = Date.now()): boolean {
+		const last = session.data?.lastSession;
+		if (!last || this.session || !endedToday(last, last.source, now)) return false;
+		const plan = buildPlan(last.source, lookups) ?? [];
+		repo.resume(resumedSession(last, plan, lookups, now));
+		return true;
 	},
 
 	/** Whether `source` is the workout in progress, so its Start buttons can say Resume. */
@@ -115,7 +184,8 @@ export const training = {
 			startedAt: now,
 			lastActiveAt: now,
 			currentWorkoutId: plan[0]?.workoutId ?? null,
-			currentIndex: 0
+			currentIndex: 0,
+			pausedMs: 0
 		};
 		repo.start(s);
 		return s;
@@ -134,16 +204,35 @@ export const training = {
 		if (!s) return null;
 		const now = Date.now();
 		const log = toLog(s, now, 'finished');
-		repo.close(log);
+		const complete = isPlanComplete(buildPlan(s.source, lookups) ?? [], lookups, s.startedAt);
+		repo.close(log, toEnded(s, now, log, complete));
 		restTimer.stop();
 		return {
 			name: this.name,
-			durationMs: now - s.startedAt,
+			durationMs: elapsedMs(s, now),
 			exercises: log?.exercises.length ?? 0,
 			sets: log?.totals.sets ?? 0,
 			reps: log?.totals.reps ?? 0,
-			complete: isPlanComplete(buildPlan(s.source, lookups) ?? [], lookups, s.startedAt)
+			complete
 		};
+	},
+
+	/** The sets logged in this workout, per planned exercise, for discarding. */
+	get loggedSets(): { workoutId: string; sets: Set[] }[] {
+		const s = this.session;
+		if (!s) return [];
+		const ids = new globalThis.Set((this.plan ?? []).map((e) => e.workoutId));
+		return [...ids].map((workoutId) => ({
+			workoutId,
+			sets: setsSince(session.workout(workoutId), s.startedAt)
+		}));
+	},
+
+	/** Ends the workout without keeping it: no history, and its sets deleted. */
+	discard() {
+		if (!this.session) return;
+		repo.discard(this.loggedSets);
+		restTimer.stop();
 	},
 
 	/**
@@ -158,7 +247,9 @@ export const training = {
 		const last = lastActivity(s, this.plan ?? [], lookups);
 		if (!isStale(last, now)) return;
 		sweptId = s.id;
-		repo.close(toLog(s, last, 'abandoned'));
+		const log = toLog(s, last, 'abandoned');
+		const complete = isPlanComplete(this.plan ?? [], lookups, s.startedAt);
+		repo.close(log, toEnded(s, last, log, complete));
 		toaster.show({
 			id: `session-abandoned-${s.id}`,
 			type: 'info',

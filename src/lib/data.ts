@@ -16,6 +16,7 @@ import { toaster } from '$lib/toast.svelte';
 import { planSize, type ImportPlan } from '$lib/catalog/plan';
 import type {
 	ActiveSession,
+	EndedSession,
 	SessionLog,
 	Duration,
 	Preferences,
@@ -132,6 +133,26 @@ export const exercises = {
 	/** Whole-array rewrite — used by edit, which has to preserve ordering. */
 	replaceSets(workoutId: string, sets: Set[]) {
 		return mutate('save set', () => updateDoc(ref('workouts', workoutId), { sets }));
+	},
+
+	/** Rewrites one set where it stands, so chronological order survives an edit. */
+	updateSet(
+		workout: Workout,
+		id: string,
+		fields: { reps: number; weight: number; date: string; notes: string }
+	) {
+		const sets = workout.sets.map((set) =>
+			set.id === id
+				? {
+						id,
+						reps: fields.reps,
+						date: fields.date,
+						...(fields.weight > 0 ? { weight: fields.weight } : {}),
+						...(fields.notes.trim() ? { notes: fields.notes.trim() } : {})
+					}
+				: set
+		);
+		return exercises.replaceSets(workout.id, sets);
 	}
 };
 
@@ -265,13 +286,60 @@ export const sessions = {
 	/**
 	 * Ends the workout in progress, saving its log in the same batch — so a
 	 * session is never both still "in progress" and in the history. `null`
-	 * when there's nothing worth keeping (no sets logged).
+	 * when there's nothing worth keeping (no sets logged). `ended` is kept
+	 * on the user document so the workout can be resumed later the same day;
+	 * `null` (nothing logged) leaves any earlier one in place.
 	 */
-	close(log: SessionLog | null) {
+	close(log: SessionLog | null, ended: EndedSession | null) {
 		const uid = requireUid();
 		return mutate('end workout', () => {
 			const batch = writeBatch(db);
 			if (log) batch.set(doc(db, 'users', uid, 'sessions', log.id), log);
+			// Nothing logged means nothing to resume: an earlier workout ended
+			// today stays the one on offer.
+			batch.update(doc(db, 'users', uid), {
+				activeSession: deleteField(),
+				...(ended && { lastSession: ended })
+			});
+			return batch.commit();
+		});
+	},
+
+	/**
+	 * Puts an ended workout back in progress, taking back the history entry
+	 * its ending left — otherwise finishing it again would log it twice.
+	 */
+	resume(session: ActiveSession) {
+		const uid = requireUid();
+		return mutate('resume workout', () => {
+			const batch = writeBatch(db);
+			batch.delete(doc(db, 'users', uid, 'sessions', session.id));
+			batch.update(doc(db, 'users', uid), {
+				activeSession: session,
+				lastSession: deleteField()
+			});
+			return batch.commit();
+		});
+	},
+
+	/**
+	 * Throws the workout in progress away: its sets come off their exercises
+	 * and nothing goes into the history — in one batch, so a failure leaves
+	 * the workout exactly as it was rather than half deleted.
+	 */
+	discard(logged: { workoutId: string; sets: Set[] }[]) {
+		const uid = requireUid();
+		return mutate('discard workout', () => {
+			const batch = writeBatch(db);
+			for (const { workoutId, sets } of logged) {
+				if (sets.length) {
+					batch.update(doc(db, 'users', uid, 'workouts', workoutId), {
+						sets: arrayRemove(...sets)
+					});
+				}
+			}
+			// lastSession is left alone: it's an earlier workout (a resumed one
+			// gave its place up), still resumable whatever happens to this one.
 			batch.update(doc(db, 'users', uid), { activeSession: deleteField() });
 			return batch.commit();
 		});

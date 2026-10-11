@@ -2,17 +2,26 @@ import { describe, it, expect } from 'vitest';
 import {
 	STALE_AFTER_MS,
 	buildPlan,
+	elapsedMs,
+	endedToday,
+	entriesDone,
+	firstIncomplete,
+	formatClock,
 	isDoneToday,
 	isPlanComplete,
 	isStale,
 	lastActivity,
+	previousSets,
 	resolveIndex,
+	resumedSession,
 	sameSource,
 	sourceFromParams,
 	summarize,
-	type Lookups
+	targetLabel,
+	type Lookups,
+	type PlanEntry
 } from './training';
-import type { ActiveSession, Program, Routine, Workout } from '$lib/types';
+import type { ActiveSession, EndedSession, Program, Routine, Workout } from '$lib/types';
 
 const T0 = Date.parse('2026-10-04T18:00:00Z');
 const at = (minutes: number) => new Date(T0 + minutes * 60_000).toISOString();
@@ -66,6 +75,7 @@ function session(extra: Partial<ActiveSession> = {}): ActiveSession {
 		lastActiveAt: T0,
 		currentWorkoutId: 'bench',
 		currentIndex: 0,
+		pausedMs: 0,
 		...extra
 	};
 }
@@ -73,7 +83,7 @@ function session(extra: Partial<ActiveSession> = {}): ActiveSession {
 describe('buildPlan', () => {
 	it('expands a routine', () => {
 		expect(buildPlan({ type: 'routine', routineId: 'push' }, lookups())).toEqual([
-			{ workoutId: 'bench', targetSets: 3, minReps: 6, routineId: 'push' },
+			{ workoutId: 'bench', targetSets: 3, minReps: 6, maxReps: 8, routineId: 'push' },
 			{ workoutId: 'ohp', targetSets: undefined, routineId: 'push' }
 		]);
 	});
@@ -209,5 +219,131 @@ describe('isDoneToday', () => {
 	it('counts a free-form exercise done after one set', () => {
 		expect(isDoneToday(workout('ohp', [5]), undefined, now)).toBe(true);
 		expect(isDoneToday(workout('ohp', []), undefined, now)).toBe(false);
+	});
+});
+
+describe('previousSets', () => {
+	// Local noon, so "the same day" holds whatever timezone the tests run in.
+	const NOON = new Date(2026, 9, 4, 12).getTime();
+	const DAY = 24 * 60;
+	const bench = (minutes: number[]): Workout => ({
+		id: 'bench',
+		name: 'BENCH',
+		sets: minutes.map((m, i) => ({
+			id: `s${i}`,
+			date: new Date(NOON + m * 60_000).toISOString(),
+			reps: 10
+		})),
+		createdAt: 0
+	});
+
+	it("takes the latest earlier day's sets, in order, ignoring this session's", () => {
+		const w = bench([-2 * DAY, -DAY - 5, -DAY - 30, -DAY - 20, 3]);
+		expect(previousSets(w, NOON).map((s) => s.id)).toEqual(['s2', 's3', 's1']);
+	});
+
+	it('counts an earlier session the same day as last time', () => {
+		const w = bench([-DAY, -90, -80, 2]);
+		expect(previousSets(w, NOON).map((s) => s.id)).toEqual(['s1', 's2']);
+	});
+
+	it('is empty for a first session', () => {
+		expect(previousSets(bench([1, 2]), NOON)).toEqual([]);
+		expect(previousSets(null, NOON)).toEqual([]);
+	});
+});
+
+describe('targetLabel', () => {
+	it('shows sets by reps, or the rep range', () => {
+		expect(targetLabel({ targetSets: 3, minReps: 10, maxReps: 10 })).toBe('3 × 10');
+		expect(targetLabel({ targetSets: 3, minReps: 8, maxReps: 12 })).toBe('3 × 8–12');
+		expect(targetLabel({ targetSets: 4, minReps: 5 })).toBe('4 × 5');
+	});
+
+	it('falls back to a set count without reps, and null for free-form', () => {
+		expect(targetLabel({ targetSets: 1 })).toBe('1 set');
+		expect(targetLabel({ targetSets: 2 })).toBe('2 sets');
+		expect(targetLabel({ minReps: 8, maxReps: 12 })).toBeNull();
+	});
+});
+
+describe('formatClock', () => {
+	it('pads seconds, and minutes once past the hour', () => {
+		expect(formatClock(0)).toBe('0:00');
+		expect(formatClock(105_000)).toBe('1:45');
+		expect(formatClock(3_725_000)).toBe('1:02:05');
+		expect(formatClock(-5_000)).toBe('0:00');
+	});
+});
+
+describe('ending and resuming', () => {
+	const plan = buildPlan({ type: 'program', programId: 'split', day: 1 }, lookups())!;
+	const ended: EndedSession = {
+		id: 's1',
+		source: { type: 'program', programId: 'split', day: 1 },
+		name: 'Split',
+		startedAt: T0,
+		currentWorkoutId: 'curl',
+		currentIndex: 2,
+		pausedMs: 5 * 60_000,
+		endedAt: T0 + 40 * 60_000,
+		complete: false
+	};
+
+	it('leaves time spent ended out of elapsed time', () => {
+		expect(elapsedMs({ startedAt: T0, pausedMs: 0 }, T0 + 90_000)).toBe(90_000);
+		expect(elapsedMs({ startedAt: T0, pausedMs: 60_000 }, T0 + 90_000)).toBe(30_000);
+	});
+
+	it('picks up at the first exercise still short of its target', () => {
+		// bench has its 3, ohp (free-form) has none yet.
+		const lib = lookups([workout('bench', [1, 2, 3]), workout('curl', [9])]);
+		expect(firstIncomplete(plan, lib, T0)).toBe(1);
+		// Sets from before the start don't count.
+		expect(firstIncomplete(plan, lookups([workout('bench', [-9, 1, 2])]), T0)).toBe(0);
+	});
+
+	it('counts an exercise planned twice as needing both targets', () => {
+		const twice: PlanEntry[] = [
+			{ workoutId: 'bench', targetSets: 3 },
+			{ workoutId: 'bench', targetSets: 3 }
+		];
+		const lib = lookups([workout('bench', [1, 2, 3])]);
+		expect(entriesDone(twice, lib, T0)).toEqual([true, false]);
+		expect(firstIncomplete(twice, lib, T0)).toBe(1);
+	});
+
+	it('lands on the last exercise when everything is done', () => {
+		const lib = lookups([
+			workout('bench', [1, 2, 3]),
+			workout('ohp', [4]),
+			workout('curl', [5, 6])
+		]);
+		expect(firstIncomplete(plan, lib, T0)).toBe(2);
+	});
+
+	it('only offers a workout ended today, for the same routine or day', () => {
+		const sameDay = ended.endedAt + 60 * 60_000;
+		expect(endedToday(ended, ended.source, sameDay)).toBe(ended);
+		expect(endedToday(ended, { type: 'program', programId: 'split', day: 2 }, sameDay)).toBeNull();
+		expect(endedToday(ended, ended.source, ended.endedAt + 24 * 60 * 60_000)).toBeNull();
+		expect(endedToday(null, ended.source, sameDay)).toBeNull();
+	});
+
+	it('resumes with the same start, skipping the break', () => {
+		const now = ended.endedAt + 30 * 60_000;
+		const lib = lookups([workout('bench', [1, 2, 3])]);
+		const resumed = resumedSession(ended, plan, lib, now);
+		expect(resumed).toMatchObject({
+			id: 's1',
+			startedAt: T0,
+			lastActiveAt: now,
+			currentWorkoutId: 'ohp',
+			currentIndex: 1,
+			pausedMs: 35 * 60_000
+		});
+		// 40 minutes from start to end, 5 of them already paused: 35 trained,
+		// and the 30-minute break since adds nothing.
+		expect(elapsedMs(resumed, now)).toBe(35 * 60_000);
 	});
 });

@@ -105,6 +105,23 @@ export type ActiveSession = {
 	 */
 	currentWorkoutId: string | null;
 	currentIndex: number;
+	/**
+	 * Time spent ended before being resumed, in ms. Elapsed time and the
+	 * duration leave it out, so a resumed workout doesn't count the break.
+	 */
+	pausedMs: number;
+};
+
+/**
+ * The workout that ended most recently, kept on the user document so it can
+ * be resumed later the same day. Its sets are still the ones logged since
+ * `startedAt`, so resuming only has to restore this.
+ */
+export type EndedSession = Omit<ActiveSession, 'lastActiveAt'> & {
+	/** Epoch ms; for an abandoned workout, its last activity. */
+	endedAt: number;
+	/** Every planned exercise got its sets. */
+	complete: boolean;
 };
 
 /** A finished (or abandoned) session, kept as workout history. */
@@ -116,6 +133,8 @@ export type SessionLog = {
 	endedAt: number;
 	/** `abandoned`: closed automatically after inactivity; `endedAt` is the last activity. */
 	endReason: 'finished' | 'abandoned';
+	/** Time it spent ended before being resumed; the duration is end − start − this. */
+	pausedMs?: number;
 	exercises: { workoutId: string; name: string; sets: number; reps: number }[];
 	totals: { sets: number; reps: number };
 	/** Epoch ms — gives the subcollection a stable insertion order. */
@@ -140,6 +159,7 @@ export type UserData = {
 	activeProgramId?: string | null;
 	preferences?: Partial<Preferences>;
 	activeSession?: ActiveSession | null;
+	lastSession?: EndedSession | null;
 };
 
 export type Toast = {
@@ -249,11 +269,31 @@ export function parseActiveSession(value: unknown): ActiveSession | null {
 		startedAt,
 		lastActiveAt: num(raw.lastActiveAt, startedAt),
 		currentWorkoutId: typeof raw.currentWorkoutId === 'string' ? raw.currentWorkoutId : null,
-		currentIndex: num(raw.currentIndex)
+		currentIndex: num(raw.currentIndex),
+		pausedMs: num(raw.pausedMs)
+	};
+}
+
+/** An ended session that can't be resumed (unknown source, no id) is treated as none. */
+export function parseEndedSession(value: unknown): EndedSession | null {
+	const active = parseActiveSession(value);
+	if (!active) return null;
+	const raw = value as RawDoc;
+	return {
+		id: active.id,
+		source: active.source,
+		name: active.name,
+		startedAt: active.startedAt,
+		currentWorkoutId: active.currentWorkoutId,
+		currentIndex: active.currentIndex,
+		pausedMs: active.pausedMs,
+		endedAt: num(raw.endedAt, active.startedAt),
+		complete: raw.complete === true
 	};
 }
 
 export const parseUserData: Parse<UserData> = (raw) => ({
 	...(raw as UserData),
-	activeSession: parseActiveSession(raw.activeSession)
+	activeSession: parseActiveSession(raw.activeSession),
+	lastSession: parseEndedSession(raw.lastSession)
 });

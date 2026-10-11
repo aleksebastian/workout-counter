@@ -17,9 +17,16 @@
 		/** The routine this exercise was opened from, whose rest timer applies. */
 		routineId?: string;
 		hideFirstHeader?: boolean;
+		/** What to do when there's nothing yet; depends on where the list is shown. */
+		emptyHint?: string;
 	}
 
-	let { workout, routineId, hideFirstHeader = false }: Props = $props();
+	let {
+		workout,
+		routineId,
+		hideFirstHeader = false,
+		emptyHint = 'Tap the + button to record your first set.'
+	}: Props = $props();
 
 	let unit = $derived(session.prefs.weightUnit);
 
@@ -81,19 +88,7 @@
 
 	function saveEdit(reps: number, weight: number, date: string, notes: string) {
 		if (!editing) return;
-		// Rewrite the array in place so chronological order survives an edit.
-		const sets = workout.sets.map((set) =>
-			set.id === editing!.id
-				? {
-						id: set.id,
-						reps,
-						date,
-						...(weight > 0 ? { weight } : {}),
-						...(notes.trim() ? { notes: notes.trim() } : {})
-					}
-				: set
-		);
-		exercises.replaceSets(workout.id, sets);
+		exercises.updateSet(workout, editing.id, { reps, weight, date, notes });
 	}
 </script>
 
@@ -116,7 +111,7 @@
 			</svg>
 		</div>
 		<p class="font-semibold">No sets yet</p>
-		<p class="text-base-content/50 max-w-xs text-sm">Tap the + button to record your first set.</p>
+		<p class="text-base-content/50 max-w-xs text-sm">{emptyHint}</p>
 	</div>
 {:else}
 	{#each sessionDays as group, index (group.date)}
@@ -184,6 +179,12 @@
 									<span class="text-sm">{set.weight ? `${set.weight} ${unit}` : '—'}</span>
 								{/if}
 								<span class="text-base-content/50 text-sm">{time}</span>
+								{#if set.notes}
+									<span
+										class="text-base-content/60 col-span-full -mt-1 line-clamp-2 text-sm break-words"
+										>{set.notes}</span
+									>
+								{/if}
 							</button>
 						</div>
 					</div>

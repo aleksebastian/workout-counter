@@ -5,6 +5,7 @@
 	import { getProgramNameValidationMsg } from '$lib/utils';
 	import { DAY_NAMES, DAY_SHORT } from '$lib/constants';
 	import { discoverHref, runProgramHref } from '$lib/routes';
+	import { training } from '$lib/logic/training.svelte';
 	import { itemsForDay, programDays, type Program } from '$lib/types';
 	import Async from '$lib/components/Async.svelte';
 	import Chevron from '$lib/components/Chevron.svelte';
@@ -158,11 +159,39 @@
 						{/if}
 
 						{#if todayCount > 0}
-							<button
-								class="btn btn-primary btn-sm w-full"
-								onclick={() => goto(runProgramHref(activeProgram.id, todayDow))}
-								>Start today's workout</button
-							>
+							{@const ended = training.endedToday({
+								type: 'program',
+								programId: activeProgram.id,
+								day: todayDow
+							})}
+							{#if ended?.complete}
+								<button
+									class="btn btn-ghost btn-sm w-full"
+									onclick={() => goto(runProgramHref(activeProgram.id, todayDow, { fresh: true }))}
+									>Done today · Start again</button
+								>
+							{:else if ended}
+								<div class="flex gap-2">
+									<button
+										class="btn btn-primary btn-sm flex-1"
+										onclick={() =>
+											goto(runProgramHref(activeProgram.id, todayDow, { resume: true }))}
+										>Resume · {ended.done} of {ended.total} done</button
+									>
+									<button
+										class="btn btn-ghost btn-sm"
+										onclick={() =>
+											goto(runProgramHref(activeProgram.id, todayDow, { fresh: true }))}
+										>Start over</button
+									>
+								</div>
+							{:else}
+								<button
+									class="btn btn-primary btn-sm w-full"
+									onclick={() => goto(runProgramHref(activeProgram.id, todayDow))}
+									>Start today's workout</button
+								>
+							{/if}
 						{:else}
 							<a href={`/programs/${activeProgram.id}`} class="text-base-content/40 text-xs"
 								>Rest day · {DAY_NAMES[todayDow]} — tap to view schedule</a

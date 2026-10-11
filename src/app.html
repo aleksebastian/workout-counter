@@ -35,6 +35,23 @@
 			// iOS-only flag for installed (Home Screen) apps; set before first paint
 			// so the header never jumps. See --app-inset-top in app.css.
 			if (navigator.standalone) document.documentElement.classList.add('ios-standalone');
+
+			// The theme last used on this device, before first paint — the saved
+			// preference only arrives with the user document. Mirrors applyTheme in
+			// src/lib/logic/theme.ts.
+			try {
+				var theme = localStorage.getItem('sc-theme');
+				var daisy = { light: 'emerald', dark: 'dracula' }[theme];
+				if (daisy) {
+					document.documentElement.setAttribute('data-theme', daisy);
+					var color = theme === 'dark' ? '#282a36' : '#ffffff';
+					document.querySelectorAll('meta[name="theme-color"]').forEach(function (m) {
+						m.content = color;
+					});
+				}
+			} catch (e) {
+				// Storage blocked: the system scheme paints first, then the preference.
+			}
 		</script>
 
 		%sveltekit.head%

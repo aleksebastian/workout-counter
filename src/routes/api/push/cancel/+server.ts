@@ -3,6 +3,7 @@ import { dev } from '$app/environment';
 import { Client } from '@upstash/qstash';
 import { QSTASH_TOKEN } from '$env/static/private';
 import type { RequestHandler } from './$types';
+import { cancelDevPush } from '../_devTimers';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.userID) throw error(401, 'Unauthorized');
@@ -12,8 +13,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		throw error(400, 'Invalid messageId');
 	}
 
-	// Dev mode uses setTimeout IDs that can't be cancelled across the network
 	if (dev || messageId.startsWith('dev-')) {
+		cancelDevPush(messageId);
 		return json({ ok: true });
 	}
 

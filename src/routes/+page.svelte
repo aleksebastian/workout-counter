@@ -200,6 +200,12 @@
 	// ── Today's plan ────────────────────────────────────────────────────────────
 	const todayDow = new Date().getDay();
 	let activeProgram = $derived(session.activeProgram);
+	/** Today's program workout, if it ended earlier today — offered back as Resume. */
+	let endedToday = $derived(
+		activeProgram
+			? training.endedToday({ type: 'program', programId: activeProgram.id, day: todayDow })
+			: null
+	);
 	let todayEntry = $derived(
 		activeProgram ? (activeProgram.schedule.find((d) => d.day === todayDow) ?? null) : null
 	);
@@ -472,16 +478,32 @@
 							<span class="text-base-content/60 text-xs">{todayEntry.label}</span>
 						{/if}
 						<span class="text-base-content/40 text-xs">
-							{todayCount > 0
-								? `${todayCount} exercise${todayCount === 1 ? '' : 's'} today`
-								: 'Rest day'}
+							{#if todayCount === 0}
+								Rest day
+							{:else if endedToday?.complete}
+								Done today
+							{:else if endedToday}
+								Ended early · {endedToday.done} of {endedToday.total} done
+							{:else}
+								{counted(todayCount, 'exercise')} today
+							{/if}
 						</span>
 					</div>
-					{#if todayCount > 0}
+					{#if todayCount > 0 && endedToday?.complete}
+						<button
+							class="btn btn-ghost btn-sm"
+							onclick={() => goto(runProgramHref(activeProgram.id, todayDow, { fresh: true }))}
+							>Start again</button
+						>
+					{:else if todayCount > 0}
+						<!-- Resume covers both the workout in progress and one ended early
+						     today; starting over is on the Train tab and the session screen. -->
 						<button
 							class="btn btn-primary btn-sm"
-							onclick={() => goto(runProgramHref(activeProgram.id, todayDow))}
-							>{training.isRunning({ type: 'program', programId: activeProgram.id, day: todayDow })
+							onclick={() =>
+								goto(runProgramHref(activeProgram.id, todayDow, { resume: !!endedToday }))}
+							>{endedToday ||
+							training.isRunning({ type: 'program', programId: activeProgram.id, day: todayDow })
 								? 'Resume'
 								: 'Start'}</button
 						>

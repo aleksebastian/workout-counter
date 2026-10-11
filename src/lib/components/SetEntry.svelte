@@ -7,8 +7,6 @@
 	interface Props {
 		reps: number;
 		weight: number;
-		/** `lg` for the full-page runner, `md` for the bottom sheet. */
-		size?: 'md' | 'lg';
 		/** Background the chip rows fade into — must match the parent surface. */
 		fadeClass?: string;
 	}
@@ -16,18 +14,11 @@
 	let {
 		reps = $bindable(10),
 		weight = $bindable(0),
-		size = 'md',
 		fadeClass = 'from-base-100'
 	}: Props = $props();
 
 	let unit = $derived(session.prefs.weightUnit);
 	let weights = $derived(quickWeights(unit));
-
-	let isLarge = $derived(size === 'lg');
-	let numberClass = $derived(isLarge ? 'text-5xl' : 'text-4xl');
-	let buttonClass = $derived(
-		isLarge ? 'btn btn-circle btn-lg flex-none' : 'btn btn-circle flex-none'
-	);
 
 	// Weight steps in 2.5 increments; round to one decimal so repeated taps
 	// can't accumulate float drift into the stored value.
@@ -54,7 +45,7 @@
 				>{/if}</span
 		>
 		<div class="flex items-center gap-3">
-			<button class={buttonClass} use:holdRepeat={onDown} aria-label="Decrease {name}">
+			<button class="btn btn-circle flex-none" use:holdRepeat={onDown} aria-label="Decrease {name}">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="h-5 w-5"
@@ -69,13 +60,13 @@
 				type="number"
 				inputmode={mode}
 				aria-label={name}
-				class="min-w-0 flex-1 [appearance:textfield] bg-transparent text-center {numberClass} font-black tabular-nums outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+				class="min-w-0 flex-1 [appearance:textfield] bg-transparent text-center text-4xl font-black tabular-nums outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
 				{value}
 				min="0"
 				oninput={(e) => setValue(Number((e.currentTarget as HTMLInputElement).value))}
 				onfocus={(e) => (e.currentTarget as HTMLInputElement).select()}
 			/>
-			<button class={buttonClass} use:holdRepeat={onUp} aria-label="Increase {name}">
+			<button class="btn btn-circle flex-none" use:holdRepeat={onUp} aria-label="Increase {name}">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="h-5 w-5"
@@ -108,7 +99,7 @@
 	</div>
 {/snippet}
 
-<div class={isLarge ? 'flex flex-col gap-5' : 'flex flex-col gap-3'}>
+<div class="flex flex-col gap-3">
 	{@render stepper(
 		'reps',
 		'Reps',
@@ -119,8 +110,6 @@
 		QUICK_REPS,
 		'numeric'
 	)}
-
-	{#if isLarge}<div class="divider my-0"></div>{/if}
 
 	{@render stepper(
 		'weight',
