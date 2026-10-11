@@ -245,14 +245,23 @@ export function elapsedMs(session: Pick<ActiveSession, 'startedAt' | 'pausedMs'>
  * entry counts as done. Past the end (everything done) it's the last entry.
  */
 export function firstIncomplete(plan: PlanEntry[], lookups: Lookups, since: number): number {
+	const done = entriesDone(plan, lookups, since);
+	const i = done.indexOf(false);
+	return i === -1 ? Math.max(0, plan.length - 1) : i;
+}
+
+/**
+ * Whether each plan entry has had its sets. An exercise planned twice needs
+ * both targets' worth before its second entry counts — the rule
+ * `isPlanComplete` uses, so "2 of 5 done" and where Resume lands agree.
+ */
+export function entriesDone(plan: PlanEntry[], lookups: Lookups, since: number): boolean[] {
 	const needed = new Map<string, number>();
-	for (let i = 0; i < plan.length; i++) {
-		const e = plan[i];
+	return plan.map((e) => {
 		const total = (needed.get(e.workoutId) ?? 0) + (e.targetSets ?? 1);
 		needed.set(e.workoutId, total);
-		if (setsSince(lookups.workout(e.workoutId), since).length < total) return i;
-	}
-	return Math.max(0, plan.length - 1);
+		return setsSince(lookups.workout(e.workoutId), since).length >= total;
+	});
 }
 
 /**

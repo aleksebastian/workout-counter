@@ -4,6 +4,7 @@ import {
 	buildPlan,
 	elapsedMs,
 	endedToday,
+	entriesDone,
 	firstIncomplete,
 	formatClock,
 	isDoneToday,
@@ -17,7 +18,8 @@ import {
 	sourceFromParams,
 	summarize,
 	targetLabel,
-	type Lookups
+	type Lookups,
+	type PlanEntry
 } from './training';
 import type { ActiveSession, EndedSession, Program, Routine, Workout } from '$lib/types';
 
@@ -299,6 +301,16 @@ describe('ending and resuming', () => {
 		expect(firstIncomplete(plan, lib, T0)).toBe(1);
 		// Sets from before the start don't count.
 		expect(firstIncomplete(plan, lookups([workout('bench', [-9, 1, 2])]), T0)).toBe(0);
+	});
+
+	it('counts an exercise planned twice as needing both targets', () => {
+		const twice: PlanEntry[] = [
+			{ workoutId: 'bench', targetSets: 3 },
+			{ workoutId: 'bench', targetSets: 3 }
+		];
+		const lib = lookups([workout('bench', [1, 2, 3])]);
+		expect(entriesDone(twice, lib, T0)).toEqual([true, false]);
+		expect(firstIncomplete(twice, lib, T0)).toBe(1);
 	});
 
 	it('lands on the last exercise when everything is done', () => {

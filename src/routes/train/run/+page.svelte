@@ -15,7 +15,7 @@
 		sourceFromParams,
 		targetLabel
 	} from '$lib/logic/training';
-	import { formatDuration as formatRest, pickRest } from '$lib/logic/rest';
+	import { formatDuration, pickRest } from '$lib/logic/rest';
 	import { pwa } from '$lib/logic/pwa.svelte';
 	import { HAPTIC } from '$lib/haptic';
 	import { toaster } from '$lib/toast.svelte';
@@ -200,7 +200,10 @@
 	let targetLine = $derived.by(() => {
 		if (!currentEntry) return '';
 		const target = targetLabel(currentEntry);
-		return [target ? `Target ${target}` : 'Free-form', rest && `Rest ${formatRest(rest.duration)}`]
+		return [
+			target ? `Target ${target}` : 'Free-form',
+			rest && `Rest ${formatDuration(rest.duration)}`
+		]
 			.filter(Boolean)
 			.join(' · ');
 	});
@@ -249,18 +252,27 @@
 	 * set list giving up the room.
 	 */
 	let keyboardView = $state<{ top: number; height: number } | null>(null);
+	/** The logging column; only its own fields count as typing into this screen. */
+	let column = $state<HTMLElement>();
 
 	$effect(() => {
 		const vv = window.visualViewport;
 		// A touch screen shows a keyboard for any focused text field; a desktop
 		// browser shows none, so its layout is left alone.
 		if (!vv || !matchMedia('(pointer: coarse)').matches) return;
-		// Up whenever a text field has focus. Measuring for it instead failed:
-		// with the number pad, iOS shrank innerHeight along with the viewport.
+		// A field in this column has focus *and* the visible area has shrunk
+		// from its full height. Focus alone misfires with a hardware keyboard
+		// or a field in a sheet; height alone missed the number pad, which
+		// shrinks innerHeight along with the visual viewport.
+		let fullHeight = vv.height;
 		const update = () => {
 			const el = document.activeElement;
-			const typing = el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement;
-			keyboardView = typing ? { top: vv.offsetTop, height: vv.height } : null;
+			const typing =
+				(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) &&
+				!!column?.contains(el);
+			if (!typing) fullHeight = Math.max(fullHeight, vv.height);
+			keyboardView =
+				typing && vv.height < fullHeight - 120 ? { top: vv.offsetTop, height: vv.height } : null;
 		};
 		// Moving between fields with the keyboard's arrows blurs one a moment
 		// before focusing the next; checking after that keeps the layout still.
@@ -311,7 +323,8 @@
 		weight > 0 ? `${weight} ${unitLabel} × ${reps}` : `${counted(reps, 'rep')}`
 	);
 
-	function formatDuration(ms: number): string {
+	/** A finished workout's length: "42m 10s", "1h 5m". */
+	function formatLength(ms: number): string {
 		const total = Math.floor(ms / 1000);
 		const h = Math.floor(total / 3600);
 		const m = Math.floor((total % 3600) / 60);
@@ -366,12 +379,17 @@
 	let finishDialog = $state<HTMLDialogElement>()!;
 
 	// A workout that hit every target just finishes; ending one early asks first.
-	function requestFinish() {
-		if (training.complete) finish();
-		else finishDialog?.showModal();
-	}
+	/**
+	 * Taken when the dialog opens: finishing clears the session while the
+	 * dialog is still fading out, and live values would read "0 of 0".
+	 */
+	let finishProgress = $state('');
 
-	let exercisesDone = $derived(fills.filter((f) => f >= 1).length);
+	function requestFinish() {
+		if (training.complete) return finish();
+		finishProgress = `${fills.filter((f) => f >= 1).length} of ${counted(entries.length, 'exercise')}`;
+		finishDialog?.showModal();
+	}
 
 	// Discarding deletes sets, so it's never one tap: Finish early offers it,
 	// and this asks again, saying exactly what goes.
@@ -511,7 +529,7 @@
 			</div>
 		</div>
 
-		<p class="text-base-content/40 text-sm">Duration: {formatDuration(summary.durationMs)}</p>
+		<p class="text-base-content/40 text-sm">Duration: {formatLength(summary.durationMs)}</p>
 
 		<button class="btn btn-primary btn-lg w-full" onclick={() => goto('/train')}>Done</button>
 	</div>
@@ -548,6 +566,7 @@
 	<!-- Logging: one screen-high column. Only the set list scrolls; the
 	     controls touched every set stay put above the button. -->
 	<div
+		bind:this={column}
 		class="bg-base-100 fixed inset-x-0 flex flex-col"
 		style:top="{keyboardView?.top ?? 0}px"
 		style:bottom={keyboardView ? 'auto' : '0px'}
@@ -773,10 +792,7 @@
 <ConfirmationDialog
 	bind:dialog={finishDialog}
 	header="Finish workout early?"
-	content="{exercisesDone} of {counted(
-		entries.length,
-		'exercise'
-	)} done. Your sets are saved, and it's added to your history."
+	content="{finishProgress} done. Your sets are saved, and it's added to your history."
 	actionLabel="Finish"
 	secondaryLabel="Discard workout"
 	onclose={(e) => {

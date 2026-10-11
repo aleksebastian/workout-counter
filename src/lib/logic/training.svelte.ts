@@ -8,6 +8,7 @@ import {
 	buildPlan,
 	elapsedMs,
 	endedToday,
+	entriesDone,
 	isPlanComplete,
 	isStale,
 	lastActivity,
@@ -149,9 +150,7 @@ export const training = {
 		const last = endedToday(session.data?.lastSession, source, now);
 		if (!last) return null;
 		const plan = buildPlan(last.source, lookups) ?? [];
-		const done = plan.filter(
-			(e) => setsSince(session.workout(e.workoutId), last.startedAt).length >= (e.targetSets ?? 1)
-		).length;
+		const done = entriesDone(plan, lookups, last.startedAt).filter(Boolean).length;
 		return { complete: last.complete, done, total: plan.length };
 	},
 

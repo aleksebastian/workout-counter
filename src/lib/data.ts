@@ -287,16 +287,19 @@ export const sessions = {
 	 * Ends the workout in progress, saving its log in the same batch — so a
 	 * session is never both still "in progress" and in the history. `null`
 	 * when there's nothing worth keeping (no sets logged). `ended` is kept
-	 * on the user document so the workout can be resumed later the same day.
+	 * on the user document so the workout can be resumed later the same day;
+	 * `null` (nothing logged) leaves any earlier one in place.
 	 */
 	close(log: SessionLog | null, ended: EndedSession | null) {
 		const uid = requireUid();
 		return mutate('end workout', () => {
 			const batch = writeBatch(db);
 			if (log) batch.set(doc(db, 'users', uid, 'sessions', log.id), log);
+			// Nothing logged means nothing to resume: an earlier workout ended
+			// today stays the one on offer.
 			batch.update(doc(db, 'users', uid), {
 				activeSession: deleteField(),
-				lastSession: ended ?? deleteField()
+				...(ended && { lastSession: ended })
 			});
 			return batch.commit();
 		});
@@ -335,10 +338,9 @@ export const sessions = {
 					});
 				}
 			}
-			batch.update(doc(db, 'users', uid), {
-				activeSession: deleteField(),
-				lastSession: deleteField()
-			});
+			// lastSession is left alone: it's an earlier workout (a resumed one
+			// gave its place up), still resumable whatever happens to this one.
+			batch.update(doc(db, 'users', uid), { activeSession: deleteField() });
 			return batch.commit();
 		});
 	}
