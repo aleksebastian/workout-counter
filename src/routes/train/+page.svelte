@@ -7,6 +7,7 @@
 	import { itemsForDay, type Program } from '$lib/types';
 	import Chevron from '$lib/components/Chevron.svelte';
 	import { training } from '$lib/logic/training.svelte';
+	import { counted } from '$lib/utils';
 
 	/**
 	 * The entry point for actually working out, as opposed to the Library where
@@ -106,10 +107,15 @@
 				</div>
 			</div>
 		{:else if activeProgram && todayCount > 0}
+			{@const today = { type: 'program', programId: activeProgram.id, day: todayDow } as const}
+			{@const ended = training.endedToday(today)}
 			<div class="flex flex-col gap-2">
 				<p class="text-base-content/40 text-xs font-semibold tracking-wider uppercase">Today</p>
 				<div
-					class="border-primary/25 bg-primary/8 rounded-box flex flex-col gap-3 border px-4 py-4"
+					class={[
+						'rounded-box flex flex-col gap-3 border px-4 py-4',
+						ended?.complete ? 'bg-base-200 border-transparent' : 'border-primary/25 bg-primary/8'
+					]}
 				>
 					<div>
 						<p class="text-primary text-xs font-semibold tracking-wide uppercase">
@@ -119,14 +125,42 @@
 							<p class="mt-0.5 font-bold">{todayEntry.label}</p>
 						{/if}
 						<p class="text-base-content/50 text-xs">
-							{todayCount} exercise{todayCount === 1 ? '' : 's'}
+							{#if ended?.complete}
+								Done today · {counted(ended.total, 'exercise')}
+							{:else if ended}
+								Ended early · {ended.done} of {counted(ended.total, 'exercise')} done
+							{:else}
+								{counted(todayCount, 'exercise')}
+							{/if}
 						</p>
 					</div>
-					<button
-						class="btn btn-primary w-full"
-						onclick={() => goto(runProgramHref(activeProgram.id, todayDow))}
-						>Start today's workout</button
-					>
+					{#if ended?.complete}
+						<!-- Done: no big green button asking to do it again. -->
+						<button
+							class="btn btn-ghost btn-sm self-start"
+							onclick={() => goto(runProgramHref(activeProgram.id, todayDow, { fresh: true }))}
+							>Start again</button
+						>
+					{:else if ended}
+						<div class="flex flex-col gap-1">
+							<button
+								class="btn btn-primary w-full"
+								onclick={() => goto(runProgramHref(activeProgram.id, todayDow, { resume: true }))}
+								>Resume workout</button
+							>
+							<button
+								class="btn btn-ghost btn-sm w-full"
+								onclick={() => goto(runProgramHref(activeProgram.id, todayDow, { fresh: true }))}
+								>Start over</button
+							>
+						</div>
+					{:else}
+						<button
+							class="btn btn-primary w-full"
+							onclick={() => goto(runProgramHref(activeProgram.id, todayDow))}
+							>Start today's workout</button
+						>
+					{/if}
 				</div>
 			</div>
 		{:else if activeProgram}

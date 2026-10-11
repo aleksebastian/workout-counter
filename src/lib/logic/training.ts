@@ -2,6 +2,7 @@ import { counted } from '$lib/utils';
 import {
 	itemsForDay,
 	type ActiveSession,
+	type EndedSession,
 	type Program,
 	type Routine,
 	type SessionLog,
@@ -228,5 +229,66 @@ export function summarize(
 			sets: exercises.reduce((sum, e) => sum + e.sets, 0),
 			reps: exercises.reduce((sum, e) => sum + e.reps, 0)
 		}
+	};
+}
+
+// ── Ending and resuming ──────────────────────────────────────────────────────
+
+/** Time spent training: since the start, less any stretch spent ended before a resume. */
+export function elapsedMs(session: Pick<ActiveSession, 'startedAt' | 'pausedMs'>, now: number) {
+	return Math.max(0, now - session.startedAt - session.pausedMs);
+}
+
+/**
+ * The first exercise that still needs sets — where a resumed workout picks up.
+ * An exercise planned twice needs both targets' worth before its second
+ * entry counts as done. Past the end (everything done) it's the last entry.
+ */
+export function firstIncomplete(plan: PlanEntry[], lookups: Lookups, since: number): number {
+	const needed = new Map<string, number>();
+	for (let i = 0; i < plan.length; i++) {
+		const e = plan[i];
+		const total = (needed.get(e.workoutId) ?? 0) + (e.targetSets ?? 1);
+		needed.set(e.workoutId, total);
+		if (setsSince(lookups.workout(e.workoutId), since).length < total) return i;
+	}
+	return Math.max(0, plan.length - 1);
+}
+
+/**
+ * The workout that ended earlier today for this routine or program day, if
+ * any — the one a Start button should offer to resume. Only the same
+ * calendar day: picking up yesterday's would merge two days into one.
+ */
+export function endedToday(
+	last: EndedSession | null | undefined,
+	source: SessionSource,
+	now: number
+): EndedSession | null {
+	if (!last || !sameSource(last.source, source)) return null;
+	return new Date(last.endedAt).toDateString() === new Date(now).toDateString() ? last : null;
+}
+
+/**
+ * The ended workout back in progress: same id and start, so its sets are its
+ * own again, on the first exercise still to do. The time it spent ended is
+ * added to `pausedMs`, so elapsed time and the duration skip the break.
+ */
+export function resumedSession(
+	last: EndedSession,
+	plan: PlanEntry[],
+	lookups: Lookups,
+	now: number
+): ActiveSession {
+	const index = firstIncomplete(plan, lookups, last.startedAt);
+	return {
+		id: last.id,
+		source: last.source,
+		name: last.name,
+		startedAt: last.startedAt,
+		lastActiveAt: now,
+		currentWorkoutId: plan[index]?.workoutId ?? last.currentWorkoutId,
+		currentIndex: plan[index] ? index : last.currentIndex,
+		pausedMs: last.pausedMs + Math.max(0, now - last.endedAt)
 	};
 }

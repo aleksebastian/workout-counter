@@ -19,7 +19,8 @@
 		return () => clearInterval(id);
 	});
 
-	let elapsed = $derived(formatClock(now - (training.session?.startedAt ?? now)));
+	// From `clockStart`, so a workout resumed after a break doesn't count it.
+	let elapsed = $derived(formatClock(now - training.clockStart));
 
 	let progress = $derived.by(() => {
 		const total = training.plan?.length ?? 0;

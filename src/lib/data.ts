@@ -16,6 +16,7 @@ import { toaster } from '$lib/toast.svelte';
 import { planSize, type ImportPlan } from '$lib/catalog/plan';
 import type {
 	ActiveSession,
+	EndedSession,
 	SessionLog,
 	Duration,
 	Preferences,
@@ -285,14 +286,35 @@ export const sessions = {
 	/**
 	 * Ends the workout in progress, saving its log in the same batch — so a
 	 * session is never both still "in progress" and in the history. `null`
-	 * when there's nothing worth keeping (no sets logged).
+	 * when there's nothing worth keeping (no sets logged). `ended` is kept
+	 * on the user document so the workout can be resumed later the same day.
 	 */
-	close(log: SessionLog | null) {
+	close(log: SessionLog | null, ended: EndedSession | null) {
 		const uid = requireUid();
 		return mutate('end workout', () => {
 			const batch = writeBatch(db);
 			if (log) batch.set(doc(db, 'users', uid, 'sessions', log.id), log);
-			batch.update(doc(db, 'users', uid), { activeSession: deleteField() });
+			batch.update(doc(db, 'users', uid), {
+				activeSession: deleteField(),
+				lastSession: ended ?? deleteField()
+			});
+			return batch.commit();
+		});
+	},
+
+	/**
+	 * Puts an ended workout back in progress, taking back the history entry
+	 * its ending left — otherwise finishing it again would log it twice.
+	 */
+	resume(session: ActiveSession) {
+		const uid = requireUid();
+		return mutate('resume workout', () => {
+			const batch = writeBatch(db);
+			batch.delete(doc(db, 'users', uid, 'sessions', session.id));
+			batch.update(doc(db, 'users', uid), {
+				activeSession: session,
+				lastSession: deleteField()
+			});
 			return batch.commit();
 		});
 	},
@@ -313,7 +335,10 @@ export const sessions = {
 					});
 				}
 			}
-			batch.update(doc(db, 'users', uid), { activeSession: deleteField() });
+			batch.update(doc(db, 'users', uid), {
+				activeSession: deleteField(),
+				lastSession: deleteField()
+			});
 			return batch.commit();
 		});
 	}

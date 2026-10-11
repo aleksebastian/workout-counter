@@ -10,7 +10,7 @@
 
 	interface Props {
 		title: string;
-		/** Epoch ms; shows the elapsed clock when set. */
+		/** Epoch ms the elapsed clock counts from; shows the clock when set. */
 		startedAt?: number;
 		/** Shows the Finish button when set. */
 		onFinish?: () => void;

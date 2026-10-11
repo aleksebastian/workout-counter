@@ -2,6 +2,9 @@ import { describe, it, expect } from 'vitest';
 import {
 	STALE_AFTER_MS,
 	buildPlan,
+	elapsedMs,
+	endedToday,
+	firstIncomplete,
 	formatClock,
 	isDoneToday,
 	isPlanComplete,
@@ -9,13 +12,14 @@ import {
 	lastActivity,
 	previousSets,
 	resolveIndex,
+	resumedSession,
 	sameSource,
 	sourceFromParams,
 	summarize,
 	targetLabel,
 	type Lookups
 } from './training';
-import type { ActiveSession, Program, Routine, Workout } from '$lib/types';
+import type { ActiveSession, EndedSession, Program, Routine, Workout } from '$lib/types';
 
 const T0 = Date.parse('2026-10-04T18:00:00Z');
 const at = (minutes: number) => new Date(T0 + minutes * 60_000).toISOString();
@@ -267,5 +271,67 @@ describe('formatClock', () => {
 		expect(formatClock(105_000)).toBe('1:45');
 		expect(formatClock(3_725_000)).toBe('1:02:05');
 		expect(formatClock(-5_000)).toBe('0:00');
+	});
+});
+
+describe('ending and resuming', () => {
+	const plan = buildPlan({ type: 'program', programId: 'split', day: 1 }, lookups())!;
+	const ended: EndedSession = {
+		id: 's1',
+		source: { type: 'program', programId: 'split', day: 1 },
+		name: 'Split',
+		startedAt: T0,
+		currentWorkoutId: 'curl',
+		currentIndex: 2,
+		pausedMs: 5 * 60_000,
+		endedAt: T0 + 40 * 60_000,
+		complete: false
+	};
+
+	it('leaves time spent ended out of elapsed time', () => {
+		expect(elapsedMs({ startedAt: T0, pausedMs: 0 }, T0 + 90_000)).toBe(90_000);
+		expect(elapsedMs({ startedAt: T0, pausedMs: 60_000 }, T0 + 90_000)).toBe(30_000);
+	});
+
+	it('picks up at the first exercise still short of its target', () => {
+		// bench has its 3, ohp (free-form) has none yet.
+		const lib = lookups([workout('bench', [1, 2, 3]), workout('curl', [9])]);
+		expect(firstIncomplete(plan, lib, T0)).toBe(1);
+		// Sets from before the start don't count.
+		expect(firstIncomplete(plan, lookups([workout('bench', [-9, 1, 2])]), T0)).toBe(0);
+	});
+
+	it('lands on the last exercise when everything is done', () => {
+		const lib = lookups([
+			workout('bench', [1, 2, 3]),
+			workout('ohp', [4]),
+			workout('curl', [5, 6])
+		]);
+		expect(firstIncomplete(plan, lib, T0)).toBe(2);
+	});
+
+	it('only offers a workout ended today, for the same routine or day', () => {
+		const sameDay = ended.endedAt + 60 * 60_000;
+		expect(endedToday(ended, ended.source, sameDay)).toBe(ended);
+		expect(endedToday(ended, { type: 'program', programId: 'split', day: 2 }, sameDay)).toBeNull();
+		expect(endedToday(ended, ended.source, ended.endedAt + 24 * 60 * 60_000)).toBeNull();
+		expect(endedToday(null, ended.source, sameDay)).toBeNull();
+	});
+
+	it('resumes with the same start, skipping the break', () => {
+		const now = ended.endedAt + 30 * 60_000;
+		const lib = lookups([workout('bench', [1, 2, 3])]);
+		const resumed = resumedSession(ended, plan, lib, now);
+		expect(resumed).toMatchObject({
+			id: 's1',
+			startedAt: T0,
+			lastActiveAt: now,
+			currentWorkoutId: 'ohp',
+			currentIndex: 1,
+			pausedMs: 35 * 60_000
+		});
+		// 40 minutes from start to end, 5 of them already paused: 35 trained,
+		// and the 30-minute break since adds nothing.
+		expect(elapsedMs(resumed, now)).toBe(35 * 60_000);
 	});
 });

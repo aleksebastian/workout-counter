@@ -7,7 +7,7 @@
 	import { exercises } from '$lib/data';
 	import { session } from '$lib/session.svelte';
 	import { restTimer } from '$lib/logic/restTimer.svelte';
-	import { training, type SessionSummary } from '$lib/logic/training.svelte';
+	import { training, type EndedToday, type SessionSummary } from '$lib/logic/training.svelte';
 	import {
 		previousSets,
 		sameSource,
@@ -47,6 +47,10 @@
 	 */
 
 	const requested = sourceFromParams(page.url.searchParams, new Date().getDay());
+	/** "Start over": a new workout even if this one ended earlier today. */
+	const fresh = page.url.searchParams.has('fresh');
+	/** "Resume": pick up the one that ended earlier today without asking. */
+	const resumeRequested = page.url.searchParams.has('resume');
 
 	let ready = $derived(session.ready && session.library !== null);
 	let active = $derived(training.session);
@@ -54,6 +58,8 @@
 	let summary = $state<SessionSummary | null>(null);
 	/** A Start link for a different workout arrived while one was in progress. */
 	let conflict = $state(false);
+	/** A Start link for a workout that ended earlier today: resume it, or start over? */
+	let endedEarlier = $state<EndedToday | null>(null);
 	/** Whether this screen has seen its session, so its disappearing means it ended. */
 	let seenActive = false;
 
@@ -67,6 +73,15 @@
 		handled = true;
 		if (!requested) return;
 		if (!active) {
+			const ended = fresh ? null : training.endedToday(requested);
+			if (ended && resumeRequested && training.resume()) {
+				dropRequest();
+				return;
+			}
+			if (ended) {
+				endedEarlier = ended;
+				return;
+			}
 			training.start(requested);
 			dropRequest();
 		} else if (sameSource(active.source, requested)) {
@@ -86,6 +101,20 @@
 			goto('/train', { replaceState: true });
 		}
 	});
+
+	function resumeEnded() {
+		// The day can roll over while this screen waits; then it's a new workout.
+		if (!training.resume()) return startOver();
+		endedEarlier = null;
+		dropRequest();
+	}
+
+	function startOver() {
+		if (!requested) return;
+		endedEarlier = null;
+		training.start(requested);
+		dropRequest();
+	}
 
 	function resumeCurrent() {
 		conflict = false;
@@ -418,6 +447,31 @@
 			>
 		</div>
 	</div>
+{:else if endedEarlier && requested}
+	{@const name = training.nameOf(requested) || 'This workout'}
+	<SessionHeader title={name} />
+	<div class="mx-auto flex max-w-lg flex-col items-center gap-4 py-16 text-center">
+		<div>
+			<p class="font-semibold">
+				{endedEarlier.complete ? `You finished ${name} today` : `${name} ended early today`}
+			</p>
+			<p class="text-base-content/50 mt-1 text-sm">
+				{endedEarlier.done} of {counted(endedEarlier.total, 'exercise')} done
+			</p>
+		</div>
+		<div class="flex w-full max-w-xs flex-col gap-2">
+			{#if endedEarlier.complete}
+				<!-- Finished: a second round is a new workout; nothing to pick up. -->
+				<button class="btn btn-primary" onclick={startOver}>Start again</button>
+				<button class="btn btn-ghost" onclick={() => goto('/train', { replaceState: true })}
+					>Not now</button
+				>
+			{:else}
+				<button class="btn btn-primary" onclick={resumeEnded}>Resume workout</button>
+				<button class="btn btn-ghost" onclick={startOver}>Start over</button>
+			{/if}
+		</div>
+	</div>
 {:else if summary}
 	<SessionHeader title={summary.name} />
 	<div class="mx-auto flex w-full max-w-lg flex-col items-center gap-6 py-8 text-center">
@@ -469,7 +523,7 @@
 {:else if planEntries === null || entries.length === 0}
 	<SessionHeader
 		title={sourceName || 'Workout'}
-		startedAt={active.startedAt}
+		startedAt={training.clockStart}
 		onFinish={requestFinish}
 	/>
 
@@ -500,7 +554,7 @@
 		<SessionHeader
 			class="mx-auto w-full max-w-lg shrink-0"
 			title={sourceName || 'Workout'}
-			startedAt={active.startedAt}
+			startedAt={training.clockStart}
 			onFinish={requestFinish}
 		/>
 
