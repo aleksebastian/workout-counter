@@ -5,7 +5,6 @@
 	import { setPageNav } from '$lib/nav.svelte';
 	import { applyTheme } from '$lib/logic/theme';
 	import { pwa } from '$lib/logic/pwa.svelte';
-	import { TIMER_PRESETS } from '$lib/constants';
 	import type { Duration, Preferences } from '$lib/types';
 	import { deleteAccount } from '$lib/logic/auth';
 	import { toaster } from '$lib/toast.svelte';
@@ -38,6 +37,40 @@
 	let timerPreview = $derived(
 		`${draft.timer.minutes}:${draft.timer.seconds < 10 ? '0' : ''}${draft.timer.seconds}`
 	);
+
+	// Rest ranges by training goal. Tapping one sets a sensible midpoint; a
+	// custom time that falls between ranges simply highlights none of them.
+	const GOALS = [
+		{
+			label: 'Endurance',
+			range: '30–60s',
+			blurb: 'Short rests keep your heart rate up and build stamina',
+			minutes: 0,
+			seconds: 45,
+			min: 30,
+			max: 60
+		},
+		{
+			label: 'Hypertrophy',
+			range: '1–2 min',
+			blurb: 'Enough recovery to push near failure again — best for muscle growth',
+			minutes: 1,
+			seconds: 30,
+			min: 61,
+			max: 120
+		},
+		{
+			label: 'Strength',
+			range: '3–5 min',
+			blurb: 'Full recovery so heavy lifts stay heavy',
+			minutes: 3,
+			seconds: 0,
+			min: 180,
+			max: 300
+		}
+	] as const;
+
+	let timerTotal = $derived((draft.timer.minutes || 0) * 60 + (draft.timer.seconds || 0));
 
 	let saveState = $state<'idle' | 'saving' | 'saved'>('idle');
 	let debounce: ReturnType<typeof setTimeout> | undefined;
@@ -195,22 +228,30 @@
 				Routines with their own rest timer use that instead.
 			</p>
 			{#if draft.timerEnabled}
-				<div class="flex flex-wrap gap-2">
-					{#each TIMER_PRESETS as preset (preset.label)}
+				<div class="flex flex-col gap-2">
+					{#each GOALS as goal (goal.label)}
+						{@const active = timerTotal >= goal.min && timerTotal <= goal.max}
 						<button
 							type="button"
-							class="btn btn-sm flex-none transition-colors"
-							class:btn-primary={draft.timer.minutes === preset.minutes &&
-								draft.timer.seconds === preset.seconds}
-							class:btn-ghost={draft.timer.minutes !== preset.minutes ||
-								draft.timer.seconds !== preset.seconds}
+							class={[
+								'flex flex-col gap-0.5 rounded-xl border px-3 py-2.5 text-left transition-colors',
+								active ? 'border-primary bg-primary/10' : 'border-base-content/10'
+							]}
+							aria-pressed={active}
 							onclick={() => {
-								draft.timer = { minutes: preset.minutes, seconds: preset.seconds };
+								draft.timer = { minutes: goal.minutes, seconds: goal.seconds };
 								autoSave();
-							}}>{preset.label}</button
+							}}
 						>
+							<span class="flex items-baseline justify-between gap-3">
+								<span class="text-sm font-medium" class:text-primary={active}>{goal.label}</span>
+								<span class="text-primary text-sm font-semibold tabular-nums">{goal.range}</span>
+							</span>
+							<span class="text-base-content/50 text-xs">{goal.blurb}</span>
+						</button>
 					{/each}
 				</div>
+				<p class="text-base-content/40 -mb-2 text-xs">Or set your own</p>
 				<div class="flex items-center gap-3">
 					<div class="flex flex-1 items-center gap-2">
 						<input
