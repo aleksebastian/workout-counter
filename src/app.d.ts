@@ -3,6 +3,9 @@
 import '@poppanator/sveltekit-svg/dist/svg.d.ts';
 
 declare global {
+	/** package.json version, injected by vite.config.ts. */
+	const __APP_VERSION__: string;
+
 	interface Window {
 		__backButtonClicked?: boolean;
 	}
