@@ -20,6 +20,15 @@ describe('CHANGELOG', () => {
 			expect(entry.date, entry.version).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 		}
 	});
+
+	// The sheet keys each line by its text, so a repeat within a section would throw.
+	it('has no repeated lines within a section', () => {
+		for (const entry of CHANGELOG) {
+			for (const items of [entry.new, entry.improved, entry.fixed]) {
+				if (items) expect(new Set(items).size, entry.version).toBe(items.length);
+			}
+		}
+	});
 });
 
 describe('compareVersions', () => {
