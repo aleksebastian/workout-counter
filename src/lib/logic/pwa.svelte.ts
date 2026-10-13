@@ -172,7 +172,8 @@ export const pwa = {
 		const updatedFrom = sessionStorage.getItem(UPDATED_FROM_KEY);
 		if (updatedFrom) {
 			sessionStorage.removeItem(UPDATED_FROM_KEY);
-			if (updatedFrom !== version) {
+			// The What's new banner already says the app updated.
+			if (updatedFrom !== version && !showWhatsNew) {
 				toaster.show({ id: 'app-updated', type: 'success', message: 'SetCount updated' });
 			}
 		}

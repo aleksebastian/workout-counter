@@ -41,6 +41,16 @@
 	let bannerShown = $derived(
 		pwa.updateReady || pwa.showWhatsNew || pwa.showNotifPrompt || pwa.showInstall
 	);
+	/**
+	 * Toasts stack above the bottom nav, plus the workout/rest bar and any banner
+	 * above it, rather than covering them. The run screen hides the nav, so they
+	 * keep their default spot there.
+	 */
+	let toastBottom = $derived(
+		hasUser && !immersive
+			? `calc(var(--bottom-nav-height) + ${bottomSlot.occupied ? '5.75rem' : '0.75rem'} + ${bannerShown ? bannerHeight + 8 : 0}px + env(safe-area-inset-bottom, 0px))`
+			: undefined
+	);
 	/** Opened from the post-update banner; the account screen has its own. */
 	let whatsNewOpen = $state(false);
 
@@ -296,7 +306,7 @@
 	{:else}
 		{@render children?.()}
 	{/if}
-	<Toasts />
+	<Toasts bottom={toastBottom} />
 </div>
 
 {#if pwa.updating}
