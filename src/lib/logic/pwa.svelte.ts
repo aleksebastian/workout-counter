@@ -2,6 +2,7 @@ import { version } from '$app/environment';
 import { updated } from '$app/state';
 import { subscribeToPush } from '$lib/push';
 import { toaster } from '$lib/toast.svelte';
+import { unseenEntries } from '$lib/changelog';
 
 /**
  * Everything install/offline/service-worker related. The root layout used to
@@ -34,6 +35,8 @@ function readNotifStatus(): NotifStatus {
 }
 
 const NOTIF_PROMPTED_KEY = 'sc-notif-prompted';
+/** The release version whose "What's new" notes were last seen. */
+const CHANGELOG_SEEN_KEY = 'sc-changelog-seen';
 /**
  * The build version, stored just before an update reload. The fresh page only
  * confirms the update if its own version differs — the fallback reload can
@@ -62,6 +65,7 @@ let updateReady = $state(false);
 let updating = $state(false);
 let showInstall = $state(false);
 let showNotifPrompt = $state(false);
+let showWhatsNew = $state(false);
 /** Null until `init()` runs in the browser. */
 let notifStatus = $state<NotifStatus | null>(null);
 
@@ -113,6 +117,25 @@ async function reloadIfStale(): Promise<boolean> {
 	return true;
 }
 
+/**
+ * Shows the "What's new" banner when this release is newer than the notes last
+ * seen. A first launch has nothing to compare against, so it just records the
+ * current release: new users shouldn't be told what changed since before they
+ * arrived.
+ */
+function checkWhatsNew() {
+	try {
+		const seen = localStorage.getItem(CHANGELOG_SEEN_KEY);
+		if (!seen) {
+			localStorage.setItem(CHANGELOG_SEEN_KEY, __APP_VERSION__);
+			return;
+		}
+		showWhatsNew = unseenEntries(seen).length > 0;
+	} catch {
+		// Storage blocked: skip the banner rather than show it every launch.
+	}
+}
+
 export const pwa = {
 	get online() {
 		return online;
@@ -130,6 +153,10 @@ export const pwa = {
 	get showNotifPrompt() {
 		return showNotifPrompt;
 	},
+	/** True once after an update to a release with notes the user hasn't seen. */
+	get showWhatsNew() {
+		return showWhatsNew;
+	},
 	get notifStatus() {
 		return notifStatus;
 	},
@@ -140,6 +167,7 @@ export const pwa = {
 		notifPromptShown = localStorage.getItem(NOTIF_PROMPTED_KEY) === 'true';
 		notifStatus = readNotifStatus();
 		subscribeToPush();
+		checkWhatsNew();
 
 		const updatedFrom = sessionStorage.getItem(UPDATED_FROM_KEY);
 		if (updatedFrom) {
@@ -224,6 +252,16 @@ export const pwa = {
 
 	dismissNotifPrompt() {
 		showNotifPrompt = false;
+	},
+
+	/** Records the current release's notes as seen and drops the banner. */
+	markWhatsNewSeen() {
+		showWhatsNew = false;
+		try {
+			localStorage.setItem(CHANGELOG_SEEN_KEY, __APP_VERSION__);
+		} catch {
+			// Storage blocked: the banner may come back next launch, which is harmless.
+		}
 	},
 
 	async install() {
