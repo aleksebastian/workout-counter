@@ -12,3 +12,7 @@
 - When making UI decisions, briefly explain the UX reasoning.
 - Ensure component reusability and composability in code design.
 - Proactively suggest UX improvements even if not explicitly asked.
+
+## Releases
+
+- Bumping the version in `package.json` publishes a release. Add a user-facing entry to `src/lib/changelog.ts` first (plain language, no technical details); the unit test fails until the newest entry matches the version.

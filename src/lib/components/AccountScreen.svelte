@@ -7,6 +7,7 @@
 	import { getUserInitials } from '$lib/utils';
 	import { lockBodyScroll } from '$lib/scrollLock';
 	import BugReportSheet from '$lib/components/BugReportSheet.svelte';
+	import WhatsNewSheet from '$lib/components/WhatsNewSheet.svelte';
 
 	interface Props {
 		user: User | null;
@@ -37,8 +38,11 @@
 	let closing = false;
 	// Read by the scroll lock's cleanup, which runs after `leaving` is cleared.
 	let handedOff = false;
-	// The report sheet sits on top; its own Escape and pull-down close it, not this screen.
+	// The report and What's new sheets sit on top; their own Escape and pull-down
+	// close them, not this screen.
 	let reportOpen = $state(false);
+	let whatsNewOpen = $state(false);
+	let sheetOpen = $derived(reportOpen || whatsNewOpen);
 
 	function close() {
 		if (!page.state.account || closing) return;
@@ -84,13 +88,13 @@
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
-		if (e.key === 'Escape' && !reportOpen) close();
+		if (e.key === 'Escape' && !sheetOpen) close();
 	}
 
 	// Pulling down dismisses, like a native modal — but only from the top of the
 	// content, so the same gesture still scrolls a scrolled-down screen back up.
 	function handleTouchStart(e: TouchEvent) {
-		if (reportOpen) return;
+		if (sheetOpen) return;
 		if ((scrollEl?.scrollTop ?? 0) > 0) return;
 		startY = e.touches[0].clientY;
 		currentY = startY;
@@ -122,6 +126,7 @@
 		closing = false;
 		handedOff = false;
 		reportOpen = false;
+		whatsNewOpen = false;
 		const unlock = lockBodyScroll();
 		// After handing off to another page, restoring this page's scroll offset
 		// would land the new page partway down.
@@ -231,6 +236,28 @@
 					</svg>
 					<span class="flex-1 font-medium">Report a bug</span>
 				</button>
+				<div class="border-base-200 ml-12 border-t"></div>
+				<button
+					class="active:bg-base-200 flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors"
+					onclick={() => (whatsNewOpen = true)}
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="text-base-content/60 h-5 w-5 shrink-0"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						stroke-width="1.5"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"
+						/>
+					</svg>
+					<span class="flex-1 font-medium">What's new</span>
+					<span class="text-base-content/40 text-sm">v{__APP_VERSION__}</span>
+				</button>
 			</div>
 
 			<div class="bg-base-100 overflow-hidden rounded-2xl">
@@ -246,6 +273,7 @@
 	<!-- A sibling, not a child: the screen's drag transform would otherwise
 	     become the sheet's containing block and move it with the drag. -->
 	<BugReportSheet bind:open={reportOpen} route={page.url.pathname} />
+	<WhatsNewSheet bind:open={whatsNewOpen} />
 {/if}
 
 <style>

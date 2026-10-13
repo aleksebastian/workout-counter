@@ -10,6 +10,7 @@
 	import RestTimerBar from '$lib/components/RestTimerBar.svelte';
 	import WorkoutBar from '$lib/components/WorkoutBar.svelte';
 	import AccountScreen from '$lib/components/AccountScreen.svelte';
+	import WhatsNewSheet from '$lib/components/WhatsNewSheet.svelte';
 	import { handleSignOut, isSigningOut } from '$lib/logic/auth';
 	import { restTimer } from '$lib/logic/restTimer.svelte';
 	import { training } from '$lib/logic/training.svelte';
@@ -37,7 +38,11 @@
 	 * sits behind the banner with no way to scroll it into view.
 	 */
 	let bannerHeight = $state(0);
-	let bannerShown = $derived(pwa.updateReady || pwa.showNotifPrompt || pwa.showInstall);
+	let bannerShown = $derived(
+		pwa.updateReady || pwa.showWhatsNew || pwa.showNotifPrompt || pwa.showInstall
+	);
+	/** Opened from the post-update banner; the account screen has its own. */
+	let whatsNewOpen = $state(false);
 
 	// The skeleton stands in for app content while auth resolves. Login and
 	// username setup must render regardless: a brand-new account has no user
@@ -173,6 +178,7 @@
 <!-- Outside the navbar: its launch animation leaves a transform that would trap a fixed overlay. -->
 {#if hasUser}
 	<AccountScreen user={session.user} username={session.data?.username} onSignOut={handleSignOut} />
+	<WhatsNewSheet bind:open={whatsNewOpen} />
 {/if}
 
 {#snippet banner(
@@ -219,6 +225,14 @@
 		() => pwa.applyUpdate(),
 		undefined,
 		pwa.updating ? 'Updating…' : undefined
+	)}
+{:else if pwa.showWhatsNew && hasUser}
+	{@render banner(
+		`What's new in v${__APP_VERSION__}`,
+		'See what changed in this update',
+		'See',
+		() => (whatsNewOpen = true),
+		() => pwa.markWhatsNewSeen()
 	)}
 {:else if pwa.showNotifPrompt}
 	{@render banner(
