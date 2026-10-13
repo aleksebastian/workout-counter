@@ -21,6 +21,11 @@ export interface ChangelogEntry {
 /** Newest first. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.13.1',
+		date: '2026-10-12',
+		fixed: ['Pop-up messages no longer cover the tab bar']
+	},
+	{
 		version: '0.13.0',
 		date: '2026-10-12',
 		new: [
