@@ -22,6 +22,12 @@ describe('cleanDiagnostics', () => {
 		expect(out).toEqual({ version: '1.0', userAgent: 'a'.repeat(300) });
 	});
 
+	it('keeps each value on one line', () => {
+		expect(cleanDiagnostics({ route: '/a\n| x | y |\n', theme: ' \n ' })).toEqual({
+			route: '/a | x | y |'
+		});
+	});
+
 	it('tolerates garbage', () => {
 		expect(cleanDiagnostics(null)).toEqual({});
 		expect(cleanDiagnostics('nope')).toEqual({});

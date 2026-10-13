@@ -55,16 +55,25 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 	});
 
 	// Claim the cooldown slot before filing, inside a transaction, so two
-	// requests racing each other can't both get through.
+	// requests racing each other can't both get through. Never create the user
+	// document here: onboarding creates it, and the rules only allow that while
+	// it doesn't exist yet.
 	const userRef = adminDB.doc(`users/${uid}`);
-	const previous = await adminDB.runTransaction(async (tx) => {
-		const last = (await tx.get(userRef)).get('lastBugReportAt') as Timestamp | undefined;
+	const claim = await adminDB.runTransaction(async (tx) => {
+		const snap = await tx.get(userRef);
+		if (!snap.exists) return { ok: false as const, status: 403 as const };
+		const last = snap.get('lastBugReportAt') as Timestamp | undefined;
 		if (last && Date.now() - last.toMillis() < COOLDOWN_MS) {
-			throw error(429, 'Please wait a minute before sending another report');
+			return { ok: false as const, status: 429 as const };
 		}
-		tx.set(userRef, { lastBugReportAt: Timestamp.now() }, { merge: true });
-		return last;
+		tx.update(userRef, { lastBugReportAt: Timestamp.now() });
+		return { ok: true as const, previous: last };
 	});
+	if (!claim.ok) {
+		throw claim.status === 429
+			? error(429, 'Please wait a minute before sending another report')
+			: error(403, 'Finish setting up your account first');
+	}
 
 	if (!token) {
 		console.log('[bug-report] GITHUB_TOKEN not set; would file:\n', issue);
@@ -86,7 +95,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 		console.error('[bug-report] GitHub issue create failed', res?.status, await res?.text());
 		// Give the slot back: the report didn't go anywhere, so retrying shouldn't wait.
 		await userRef
-			.set({ lastBugReportAt: previous ?? FieldValue.delete() }, { merge: true })
+			.update({ lastBugReportAt: claim.previous ?? FieldValue.delete() })
 			.catch(() => {});
 		throw error(502, 'Could not send the report');
 	}

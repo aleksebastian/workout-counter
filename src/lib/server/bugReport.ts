@@ -40,13 +40,18 @@ export function reporterRef(uid: string): string {
 	return createHash('sha256').update(uid).digest('hex').slice(0, 8);
 }
 
-/** Keeps only known keys with string values, each clamped. */
+/**
+ * Keeps only known keys with string values, each on one line (a newline would
+ * break the issue's table) and clamped.
+ */
 export function cleanDiagnostics(raw: unknown): Partial<Record<string, string>> {
 	const out: Partial<Record<string, string>> = {};
 	if (!raw || typeof raw !== 'object') return out;
 	for (const key of DIAGNOSTIC_KEYS) {
 		const value = (raw as Record<string, unknown>)[key];
-		if (typeof value === 'string' && value) out[key] = value.slice(0, DIAGNOSTIC_MAX);
+		if (typeof value !== 'string') continue;
+		const line = value.replace(/\s+/g, ' ').trim();
+		if (line) out[key] = line.slice(0, DIAGNOSTIC_MAX);
 	}
 	return out;
 }
