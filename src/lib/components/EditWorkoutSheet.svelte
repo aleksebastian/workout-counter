@@ -1,7 +1,7 @@
 <script lang="ts">
 	import BottomSheet from '$lib/components/BottomSheet.svelte';
 	import { session } from '$lib/session.svelte';
-	import { getWorkoutNameValidationMsg } from '$lib/utils';
+	import { getNameValidationMsg } from '$lib/utils';
 	import type { Workout } from '$lib/types';
 
 	interface Props {
@@ -26,7 +26,8 @@
 	});
 
 	function save() {
-		error = getWorkoutNameValidationMsg(
+		error = getNameValidationMsg(
+			'Workout',
 			name,
 			(session.workouts ?? []).filter((w) => w.id !== workout?.id)
 		);

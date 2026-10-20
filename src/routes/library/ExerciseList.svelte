@@ -3,7 +3,7 @@
 	import { formatDistanceToNow } from 'date-fns';
 	import { exercises } from '$lib/data';
 	import { session } from '$lib/session.svelte';
-	import { counted, getWorkoutNameValidationMsg } from '$lib/utils';
+	import { counted, getNameValidationMsg } from '$lib/utils';
 	import { discoverHref } from '$lib/routes';
 	import Async from '$lib/components/Async.svelte';
 	import Chevron from '$lib/components/Chevron.svelte';
@@ -184,7 +184,7 @@
 	title="New Exercise"
 	placeholder="e.g., Push ups"
 	submitLabel="Add Exercise"
-	validate={(name) => getWorkoutNameValidationMsg(name, session.workouts ?? undefined)}
+	validate={(name) => getNameValidationMsg('Workout', name, session.workouts)}
 	onSave={create}
 />
 

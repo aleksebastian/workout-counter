@@ -2,7 +2,7 @@
 	import { formatDuration } from '$lib/logic/rest';
 	import BottomSheet from '$lib/components/BottomSheet.svelte';
 	import { session } from '$lib/session.svelte';
-	import { getRoutineNameValidationMsg } from '$lib/utils';
+	import { getNameValidationMsg } from '$lib/utils';
 	import { TIMER_PRESETS } from '$lib/constants';
 	import type { Duration, Routine } from '$lib/types';
 
@@ -37,7 +37,8 @@
 	});
 
 	function save() {
-		error = getRoutineNameValidationMsg(
+		error = getNameValidationMsg(
+			'Routine',
 			name,
 			(session.routines ?? []).filter((r) => r.id !== routine?.id)
 		);
