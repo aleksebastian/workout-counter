@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { SETUP_SEEN_KEY } from '$lib/logic/accountStorage';
 	import { counted, plural } from '$lib/utils';
 	import { goto, afterNavigate } from '$app/navigation';
 	import { onMount } from 'svelte';
@@ -239,7 +240,6 @@
 	// The checklist vanished the moment the first set landed, with nothing to
 	// say it was finished. A new account (first set within the last two days)
 	// gets a closing card instead, until it's dismissed.
-	const SETUP_SEEN_KEY = 'sc-setup-complete-seen';
 	const NEW_ACCOUNT_MS = 2 * 24 * 60 * 60 * 1000;
 	let setupSeen = $state(true);
 	onMount(() => {

@@ -10,6 +10,8 @@
 		secondaryLabel?: string;
 		content?: string | undefined;
 		destructive?: boolean;
+		/** The trash icon above the header. Defaults to `destructive`; off for a red action that deletes nothing. */
+		icon?: boolean;
 		dialog: HTMLDialogElement;
 		onclose: (event: Event) => void;
 		children?: import('svelte').Snippet;
@@ -22,6 +24,7 @@
 		secondaryLabel,
 		content = undefined,
 		destructive = false,
+		icon = destructive,
 		dialog = $bindable(),
 		onclose,
 		children
@@ -35,7 +38,7 @@
 	</form>
 	<form method="dialog" class="modal-box flex w-80 flex-col items-center gap-3 px-6 py-6">
 		<!-- Icon -->
-		{#if destructive}
+		{#if icon}
 			<div
 				class="bg-error/15 text-error flex h-12 w-12 flex-none items-center justify-center rounded-full [&_svg]:h-6 [&_svg]:w-6 [&_svg]:fill-current"
 			>

@@ -50,32 +50,28 @@ Before a user signs up, the app should detect whether they are running in a brow
 
 ---
 
-## 3 — Rest Timer Preferences (On/Off + Notification Toggle)
+## 3 — Rest Timer Notification Toggle
 
 **Status:** Backlog | **Priority:** P2
 
-Users should be able to turn the rest timer itself on or off, and separately toggle rest timer push notifications. Both settings are surfaced in Preferences and asked during onboarding. The notification toggle is **PWA-only**.
+> Narrowed 2026-10-19: the rest timer's own on/off already exists — the "Global rest timer" toggle in Preferences (`preferences.timerEnabled`, default off), with routines' own timers taking precedence. What's left is a separate switch for rest-end _notifications_.
 
-### Desired Flow (Onboarding)
-
-- After sign-up, ask: "Would you like to use the rest timer between sets?" → sets `preferences.restTimerEnabled`
-- If yes and running in standalone PWA, follow up: "Get notified when your rest ends, even if you leave the app?" → sets `preferences.restTimerNotifications`
+Users should be able to keep the rest timer but turn off rest-end push notifications. The toggle is **PWA-only**, and offered during onboarding (Enhancement #2).
 
 ### Technical Notes
 
-- Add `preferences.restTimerEnabled: boolean` to `UserData` Firestore schema (default `true`)
-- Add `preferences.restTimerNotifications: boolean` to `UserData` Firestore schema (default `true`)
-- Add both toggles in `src/routes/preferences/+page.svelte`
-- The notifications toggle is rendered only when `display-mode: standalone`
-- When `restTimerEnabled` is `false`, suppress the timer entirely — no bar, no push scheduling
-- When `restTimerEnabled` is `true` but `restTimerNotifications` is `false`, run the timer UI but skip push scheduling in `RestTimerBar.svelte` / `src/lib/push.ts`
-- The notifications toggle controls whether a push is _scheduled_ — not the OS-level permission (that is handled during PWA onboarding in Enhancement #2)
+- Add `preferences.restTimerNotifications: boolean` to the `Preferences` type (default `true`), with a default in `DEFAULT_PREFERENCES` (`src/lib/constants.ts`)
+- Add the toggle to the Notifications section of `src/routes/preferences/+page.svelte`, shown only in standalone mode (where `pwa.notifStatus` isn't `needs-install`/`unsupported`)
+- When it's `false`, run the timer UI but don't schedule a push: gate `push.start` in `src/lib/logic/restTimer.svelte.ts` (the `canNotify` check in its `createRestPush` api is the natural place)
+- The toggle controls whether a push is _scheduled_ — not the OS-level permission (that is handled during PWA onboarding in Enhancement #2)
 
 ---
 
 ## 4 — Feedback Button & Page
 
-**Status:** Backlog | **Priority:** P3
+**Status:** Done | **Priority:** P3
+
+> Shipped as **Report a bug** in v0.12.0: Account → Report a bug files a GitHub issue with device diagnostics and a hashed account ref (`src/lib/components/BugReportSheet.svelte`, `src/routes/api/bug-report/+server.ts`). It took a different shape from the plan below — GitHub issues instead of a `feedback` collection and admin dashboard, and no photo upload yet.
 
 Add a "Feedback" option in the avatar/profile menu. Tapping it opens a dedicated page where users can submit a message and optionally attach a photo (bug reports, feature requests, general feedback).
 
@@ -150,3 +146,50 @@ In-app social sharing of routines (via shareable links or short codes) is a **se
 ### Open Questions
 
 - [ ] Should export be scoped per-type (e.g. export only routines) or always a full data dump?
+
+---
+
+## 7 — CI: Checks and Tests on Every PR
+
+**Status:** Backlog | **Priority:** P2
+
+The only workflow today is `.github/workflows/release.yml`. Nothing runs type checks, lint or tests on pull requests, so a broken change is only caught if someone runs them locally.
+
+### Technical Notes
+
+- New `.github/workflows/ci.yml` on `pull_request` and pushes to `main`: checkout, pnpm (version from `packageManager`), Node 24 (from `.node-version`), `pnpm install --frozen-lockfile`
+- Steps: `pnpm check`, `pnpm lint`, `pnpm test:unit`
+- `pnpm check` and the build need the `$env/static/*` variables to exist: provide placeholders in CI (the values aren't used by type checking or unit tests)
+- Make the job a required status check on `main` once it's green
+
+---
+
+## 8 — End-to-End Test Coverage
+
+**Status:** Backlog | **Priority:** P3
+
+`tests/test.ts` has one Playwright test (the login page renders). Everything past sign-in — logging sets, the rest timer, running and finishing or discarding a workout — is only exercised by hand, most recently in the iOS Simulator.
+
+### Technical Notes
+
+- Signed-in flows need auth without Google's popup: run against the Firebase Auth and Firestore emulators with a seeded test user, and mint the `__session` cookie through the emulator
+- First flows worth covering: start a routine → log sets → rest bar appears → skip rest; finish early → discard; edit then delete a set; sign out
+- Run in CI (Enhancement #7) once it's stable
+
+### Open Questions
+
+- [ ] Emulators in CI, or a dedicated Firebase test project?
+
+---
+
+## 9 — Clear the Offline Data Cache on Sign-Out
+
+**Status:** Backlog | **Priority:** P2
+
+Firestore's IndexedDB persistence keeps a full copy of the signed-in user's data on the device. Account deletion already clears it (`deleteAccount` in `src/lib/logic/auth.ts`), but a plain sign-out doesn't — on a shared device the next person's browser still holds the previous user's workouts and history.
+
+### Technical Notes
+
+- In `handleSignOut`: after `signOut(auth)`, `terminate(db)` then `clearIndexedDbPersistence(db)` — the same steps `deleteAccount` uses
+- Terminating leaves the SDK unusable in that page, so end with a full page load to `/login` (`window.location.replace`) instead of `goto`
+- Also clear the app's own `localStorage` keys that belong to the account (rest timer state); keep device-level ones (theme, What's new seen)

@@ -5,6 +5,7 @@ import { session } from '$lib/session.svelte';
 import { user } from '$lib/data';
 import { durationMs, parseStoredRest, pickRest, type Rest } from '$lib/logic/rest';
 import { createRestPush } from '$lib/logic/restPush';
+import { REST_OFFER_ANSWERED_KEY as OFFER_ANSWERED_KEY } from '$lib/logic/accountStorage';
 import { currentSubscription } from '$lib/push';
 import type { Duration } from '$lib/types';
 
@@ -16,8 +17,6 @@ import type { Duration } from '$lib/types';
  */
 
 const STORAGE_KEY = 'workout-counter-rest-timer';
-/** Set once the user has answered the "turn on a rest timer?" offer either way. */
-const OFFER_ANSWERED_KEY = 'sc-rest-offer-answered';
 
 let display = $state<string | undefined>(undefined);
 let remainingMs = $state(0);

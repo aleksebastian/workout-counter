@@ -15,3 +15,6 @@ service-account.json
 
 # Playwright
 test-results/
+
+# Firebase emulators
+*-debug.log

@@ -39,7 +39,12 @@
 	});
 
 	function save() {
-		const date = localDatetime ? new Date(localDatetime).toISOString() : (set?.date ?? '');
+		// The field holds whole minutes only. Writing it back unchanged would
+		// drop the set's seconds — moving a set logged in a workout's first
+		// minute to before the workout began, so it no longer counted toward it.
+		const changed = !!set && localDatetime !== toDatetimeLocal(set.date);
+		const date =
+			changed && localDatetime ? new Date(localDatetime).toISOString() : (set?.date ?? '');
 		onSave(reps, weight, date, notes);
 		open = false;
 	}
