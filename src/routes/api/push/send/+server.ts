@@ -19,7 +19,12 @@ export const POST: RequestHandler = async ({ request }) => {
 		if (!isValid) throw error(401, 'Invalid QStash signature');
 	}
 
-	const { uid } = JSON.parse(rawBody) as { uid: string };
+	let uid: unknown;
+	try {
+		({ uid } = JSON.parse(rawBody));
+	} catch {
+		throw error(400, 'Invalid request body');
+	}
 	if (!uid || typeof uid !== 'string') throw error(400, 'Missing uid');
 
 	await sendPushToUser(uid);

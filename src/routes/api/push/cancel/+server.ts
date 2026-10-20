@@ -8,7 +8,12 @@ import { cancelDevPush } from '../_devTimers';
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.userID) throw error(401, 'Unauthorized');
 
-	const { messageId } = (await request.json()) as { messageId: string };
+	let messageId: unknown;
+	try {
+		({ messageId } = await request.json());
+	} catch {
+		throw error(400, 'Invalid request body');
+	}
 	if (!messageId || typeof messageId !== 'string') {
 		throw error(400, 'Invalid messageId');
 	}
