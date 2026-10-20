@@ -151,7 +151,9 @@ In-app social sharing of routines (via shareable links or short codes) is a **se
 
 ## 7 — CI: Checks and Tests on Every PR
 
-**Status:** Backlog | **Priority:** P2
+**Status:** Done | **Priority:** P2
+
+> Done: `.github/workflows/ci.yml` runs two jobs on every pull request and on pushes to `main` — `checks` (`pnpm check`, `pnpm lint`, `pnpm test:unit`) and `e2e` (Playwright against the Firebase emulators, uploading `test-results/` on failure). Making them required status checks on `main` is a repository setting, still to do.
 
 The only workflow today is `.github/workflows/release.yml`. Nothing runs type checks, lint or tests on pull requests, so a broken change is only caught if someone runs them locally.
 
@@ -174,11 +176,11 @@ The only workflow today is `.github/workflows/release.yml`. Nothing runs type ch
 
 - Signed-in flows need auth without Google's popup: run against the Firebase Auth and Firestore emulators with a seeded test user, and mint the `__session` cookie through the emulator
 - First flows worth covering: start a routine → log sets → rest bar appears → skip rest; finish early → discard; edit then delete a set; sign out
-- Run in CI (Enhancement #7) once it's stable
+- Runs in CI: the `e2e` job in `.github/workflows/ci.yml` (Enhancement #7)
 
 ### Open Questions
 
-- [ ] Emulators in CI, or a dedicated Firebase test project?
+- [x] Emulators in CI, or a dedicated Firebase test project? — emulators (Java 21 via `actions/setup-java`)
 
 ---
 
