@@ -9,6 +9,7 @@ import {
 	type User
 } from 'firebase/auth';
 import { getPostLoginDestination } from '$lib/logic/onboarding';
+import { restTimer } from '$lib/logic/restTimer.svelte';
 
 /**
  * Creates a promise that rejects after a timeout
@@ -110,6 +111,8 @@ async function completeSession(user: User) {
 export async function handleSignOut() {
 	if (signingOut) return;
 	signingOut = true;
+	// The countdown and its scheduled push belong to the account leaving.
+	restTimer.stop();
 	try {
 		// Clear the server session first, but never let a failed request strand
 		// the user signed-in on the client.
@@ -153,6 +156,7 @@ export async function deleteAccount() {
 			body: JSON.stringify({ idToken })
 		});
 		if (!response.ok) throw new Error("Couldn't delete your account. Please try again.");
+		restTimer.stop();
 		await signOut(auth).catch(() => {});
 		await terminate(db).catch(() => {});
 		await clearIndexedDbPersistence(db).catch(() => {});
