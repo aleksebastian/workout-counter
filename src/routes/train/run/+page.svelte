@@ -785,7 +785,7 @@
 	onDelete={() => {
 		if (!currentWorkout || !editing) return;
 		HAPTIC.heavy();
-		exercises.removeSet(currentWorkout.id, editing);
+		exercises.removeSet(currentWorkout, editing.id);
 	}}
 />
 

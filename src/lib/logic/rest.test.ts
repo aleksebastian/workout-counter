@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { pickRest, resolvePreferences, routineIdFromHref } from './rest';
+import { parseStoredRest, pickRest, resolvePreferences, routineIdFromHref } from './rest';
 import { DEFAULT_PREFERENCES } from '$lib/constants';
 import type { Routine } from '$lib/types';
 
@@ -79,5 +79,35 @@ describe('routineIdFromHref', () => {
 		expect(routineIdFromHref('/train')).toBeUndefined();
 		expect(routineIdFromHref('/programs/abc')).toBeUndefined();
 		expect(routineIdFromHref(null)).toBeUndefined();
+	});
+});
+
+describe('parseStoredRest', () => {
+	it('reads the current format', () => {
+		expect(parseStoredRest(JSON.stringify({ expiresAt: 1000, restId: 'm1' }))).toEqual({
+			expiresAt: 1000,
+			restId: 'm1'
+		});
+	});
+
+	it('reads the bare ISO string older builds stored', () => {
+		const iso = '2026-10-19T12:00:00.000Z';
+		expect(parseStoredRest(iso)).toEqual({ expiresAt: Date.parse(iso), restId: null });
+	});
+
+	it('drops a missing or malformed rest id', () => {
+		expect(parseStoredRest(JSON.stringify({ expiresAt: 5 }))).toEqual({
+			expiresAt: 5,
+			restId: null
+		});
+		expect(parseStoredRest(JSON.stringify({ expiresAt: 5, restId: 7 }))?.restId).toBeNull();
+	});
+
+	it('restores nothing from empty or unreadable values', () => {
+		expect(parseStoredRest(null)).toBeNull();
+		expect(parseStoredRest('')).toBeNull();
+		expect(parseStoredRest('not a date')).toBeNull();
+		expect(parseStoredRest('{"expiresAt":"soon"}')).toBeNull();
+		expect(parseStoredRest('null')).toBeNull();
 	});
 });

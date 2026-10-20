@@ -61,3 +61,30 @@ export function pickRest(routine: Routine | null, prefs: Preferences): Rest | nu
 export function routineIdFromHref(href: string | null | undefined): string | undefined {
 	return href?.match(/^\/routines\/([^/?#]+)/)?.[1];
 }
+
+/** A running rest as kept in localStorage, so it survives a reload. */
+export type StoredRest = { expiresAt: number; restId: string | null };
+
+/**
+ * Reads a stored rest back. Older builds stored just the expiry as an ISO
+ * string; anything unreadable is `null`, which restores nothing.
+ */
+export function parseStoredRest(raw: string | null): StoredRest | null {
+	if (!raw) return null;
+	let value: unknown = raw;
+	try {
+		value = JSON.parse(raw);
+	} catch {
+		// Not JSON: the old bare ISO string.
+	}
+	if (typeof value === 'string') {
+		const expiresAt = new Date(value).getTime();
+		return Number.isFinite(expiresAt) ? { expiresAt, restId: null } : null;
+	}
+	const stored = value as Partial<StoredRest> | null;
+	if (typeof stored?.expiresAt !== 'number' || !Number.isFinite(stored.expiresAt)) return null;
+	return {
+		expiresAt: stored.expiresAt,
+		restId: typeof stored.restId === 'string' && stored.restId ? stored.restId : null
+	};
+}

@@ -1,8 +1,10 @@
 import { add } from 'date-fns';
+import { v4 as uuidv4 } from 'uuid';
 import { HAPTIC } from '$lib/haptic';
 import { session } from '$lib/session.svelte';
 import { user } from '$lib/data';
-import { durationMs, pickRest, type Rest } from '$lib/logic/rest';
+import { durationMs, parseStoredRest, pickRest, type Rest } from '$lib/logic/rest';
+import { createRestPush } from '$lib/logic/restPush';
 import type { Duration } from '$lib/types';
 
 /**
@@ -26,7 +28,32 @@ let offering = $state(false);
 
 let handle: ReturnType<typeof setInterval> | undefined;
 let expiresAt: Date | undefined;
-let qstashMessageId: string | null = null;
+
+/** The rest-end push; see `$lib/logic/restPush`. */
+const push = createRestPush({
+	canNotify: () => 'Notification' in window && Notification.permission === 'granted',
+	newId: uuidv4,
+	async schedule(restId, delayMs, issuedAt) {
+		try {
+			const res = await fetch('/api/push/schedule', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ restId, delayMs, issuedAt })
+			});
+			return res.ok;
+		} catch (err) {
+			console.error('[push] schedule failed:', err);
+			return false;
+		}
+	},
+	cancel(restId) {
+		fetch('/api/push/cancel', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ restId })
+		}).catch(() => {});
+	}
+});
 
 function format(ms: number): string {
 	const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
@@ -73,38 +100,32 @@ function tick() {
 	display = format(left);
 }
 
+/** Keeps the running rest, and its push, across a reload. */
+function persist() {
+	if (!expiresAt) return;
+	try {
+		localStorage.setItem(
+			STORAGE_KEY,
+			JSON.stringify({ expiresAt: expiresAt.getTime(), restId: push.restId })
+		);
+	} catch {
+		// Private mode: a reload loses the countdown, which is harmless.
+	}
+}
+
+function forget() {
+	try {
+		localStorage.removeItem(STORAGE_KEY);
+	} catch {
+		// Nothing was stored.
+	}
+}
+
 function clearHandle() {
 	if (handle !== undefined) {
 		clearInterval(handle);
 		handle = undefined;
 	}
-}
-
-async function schedulePush(expiresAtMs: number) {
-	if (!('Notification' in window) || Notification.permission !== 'granted') return;
-	try {
-		const res = await fetch('/api/push/schedule', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ expiresAt: expiresAtMs })
-		});
-		if (res.ok) {
-			qstashMessageId = (await res.json()).messageId ?? null;
-		}
-	} catch (err) {
-		console.error('[push] schedule failed:', err);
-	}
-}
-
-function cancelPush() {
-	const id = qstashMessageId;
-	if (!id) return;
-	qstashMessageId = null;
-	fetch('/api/push/cancel', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ messageId: id })
-	}).catch(() => {});
 }
 
 export type StartOptions = {
@@ -158,18 +179,19 @@ export const restTimer = {
 
 		const { duration, label } = rest;
 		clearHandle();
-		cancelPush();
 		offering = false;
 
 		totalMs = durationMs(duration);
 		sourceLabel = label;
 		expiresAt = add(new Date(), { minutes: duration.minutes, seconds: duration.seconds });
-		localStorage.setItem(STORAGE_KEY, expiresAt.toISOString());
+		// The rest id is stored before the request goes out, so a reload while
+		// it's in flight can still cancel what it queues.
+		push.start(totalMs);
+		persist();
 
 		remainingMs = totalMs;
 		display = format(totalMs);
 
-		schedulePush(expiresAt.getTime());
 		handle = setInterval(tick, 1000);
 		return true;
 	},
@@ -191,8 +213,8 @@ export const restTimer = {
 
 	stop() {
 		clearHandle();
-		cancelPush();
-		localStorage.removeItem(STORAGE_KEY);
+		push.cancel();
+		forget();
 		expiresAt = undefined;
 		display = undefined;
 		remainingMs = 0;
@@ -205,12 +227,18 @@ export const restTimer = {
 	 * Returns a teardown function for the layout's `onMount`.
 	 */
 	restore() {
-		const stored = localStorage.getItem(STORAGE_KEY);
+		let raw: string | null = null;
+		try {
+			raw = localStorage.getItem(STORAGE_KEY);
+		} catch {
+			// Storage unavailable: nothing to restore.
+		}
+		const stored = parseStoredRest(raw);
 		if (stored) {
-			const parsed = new Date(stored);
-			const left = parsed.getTime() - Date.now();
+			const left = stored.expiresAt - Date.now();
 			if (left > 0) {
-				expiresAt = parsed;
+				expiresAt = new Date(stored.expiresAt);
+				push.adopt(stored.restId);
 				// The original total is gone; treat what's left as the full bar so the
 				// drain animation stays monotonic rather than jumping.
 				totalMs = left;
@@ -218,13 +246,15 @@ export const restTimer = {
 				display = format(left);
 				handle = setInterval(tick, 1000);
 			} else {
-				localStorage.removeItem(STORAGE_KEY);
+				forget();
 			}
+		} else if (raw) {
+			forget();
 		}
 
 		return () => {
 			clearHandle();
-			cancelPush();
+			push.cancel();
 		};
 	}
 };

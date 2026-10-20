@@ -122,12 +122,10 @@ async function respond(request: Request, url: URL): Promise<Response> {
 	// network-first. For uncached routes offline this causes a fetch failure and
 	// SvelteKit renders its bare default error page. Fix: treat them like the
 	// navigation handler — stale-while-revalidate, with a cross-route fallback
-	// (valid since the layout server returns identical { userData: undefined }
-	// for all non-login routes).
+	// (valid since the layout server returns no data for any signed-in route).
 	if (url.pathname.endsWith('/__data.json')) {
-		// Routes whose server data contains the user document (see +layout.server.ts) —
-		// never persist those responses in the SW cache at rest. `/` is included
-		// because its layout data is an auth redirect while signed out.
+		// Routes whose data is an auth redirect while signed out (see
+		// +layout.server.ts): never cache them, or the redirect outlives sign-in.
 		const isSensitive =
 			url.pathname.startsWith('/login') ||
 			url.pathname.startsWith('/preferences') ||

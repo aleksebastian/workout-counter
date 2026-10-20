@@ -1,5 +1,4 @@
 import type { User } from 'firebase/auth';
-import type { Workout, Routine, Program } from './types';
 
 /** "set" for 1, "sets" otherwise. Only regular plurals — every noun this app counts. */
 export function plural(n: number, word: string): string {
@@ -24,31 +23,19 @@ export function getUserInitials(user: User) {
 	return '';
 }
 
-export function getWorkoutNameValidationMsg(name: string, workouts: Workout[] | undefined) {
-	if (!workouts) return;
-	let result = undefined;
-
-	if (!name.trim().length) {
-		result = 'Workout name missing';
-	} else if (workouts.some((workout) => workout.name.toLowerCase() === name.trim().toLowerCase())) {
-		result = 'Workout already exists';
-	}
-
-	return result;
-}
-
-export function getRoutineNameValidationMsg(name: string, routines: Routine[] | undefined) {
-	if (!name.trim().length) return 'Routine name missing';
-	if (routines?.some((r) => r.name.toLowerCase() === name.trim().toLowerCase())) {
-		return 'Routine already exists';
-	}
-	return undefined;
-}
-
-export function getProgramNameValidationMsg(name: string, programs: Program[] | undefined) {
-	if (!name.trim().length) return 'Program name missing';
-	if (programs?.some((s) => s.name.toLowerCase() === name.trim().toLowerCase())) {
-		return 'Program already exists';
+/**
+ * Why `name` can't be used for a new or renamed item, or `undefined` if it can.
+ * `existing` should leave out the item being renamed; names compare case-insensitively.
+ */
+export function getNameValidationMsg(
+	kind: 'Workout' | 'Routine' | 'Program',
+	name: string,
+	existing: { name: string }[] | null | undefined
+): string | undefined {
+	const trimmed = name.trim().toLowerCase();
+	if (!trimmed) return `${kind} name missing`;
+	if (existing?.some((item) => item.name.toLowerCase() === trimmed)) {
+		return `${kind} already exists`;
 	}
 	return undefined;
 }

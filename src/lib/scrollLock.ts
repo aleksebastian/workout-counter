@@ -16,11 +16,14 @@ export function lockBodyScroll(): (restoreScroll?: boolean) => void {
 	if (depth++ === 0) {
 		pinnedScrollY = window.scrollY;
 		restoreOnRelease = true;
+		// Where scrollbars take up space (desktop), keep one showing, or the page
+		// widens by its width and everything behind the overlay jumps sideways.
+		const hasScrollbar = window.innerWidth > document.documentElement.clientWidth;
 		style.position = 'fixed';
 		style.top = `-${pinnedScrollY}px`;
 		style.left = '0';
 		style.right = '0';
-		style.overflow = 'hidden';
+		style.overflowY = hasScrollbar ? 'scroll' : 'hidden';
 	}
 
 	let released = false;
@@ -34,7 +37,7 @@ export function lockBodyScroll(): (restoreScroll?: boolean) => void {
 		style.top = '';
 		style.left = '';
 		style.right = '';
-		style.overflow = '';
+		style.overflowY = '';
 		if (restoreOnRelease) window.scrollTo(0, pinnedScrollY);
 	};
 }

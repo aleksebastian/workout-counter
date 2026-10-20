@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { programs, user } from '$lib/data';
 	import { session } from '$lib/session.svelte';
-	import { getProgramNameValidationMsg } from '$lib/utils';
+	import { getNameValidationMsg } from '$lib/utils';
 	import { DAY_NAMES, DAY_SHORT } from '$lib/constants';
 	import { discoverHref, runProgramHref } from '$lib/routes';
 	import { training } from '$lib/logic/training.svelte';
@@ -247,7 +247,7 @@
 	placeholder="e.g., Upper-Lower Split"
 	hint="You'll schedule the week after creating it"
 	submitLabel="Add Program"
-	validate={(name) => getProgramNameValidationMsg(name, session.programs ?? undefined)}
+	validate={(name) => getNameValidationMsg('Program', name, session.programs)}
 	onSave={async (name) => {
 		const created = await programs.create(name);
 		if (created) goto(`/programs/${created.id}`);

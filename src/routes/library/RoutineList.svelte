@@ -5,7 +5,7 @@
 	import { formatDistanceToNow } from 'date-fns';
 	import { routines } from '$lib/data';
 	import { session } from '$lib/session.svelte';
-	import { getRoutineNameValidationMsg } from '$lib/utils';
+	import { getNameValidationMsg } from '$lib/utils';
 	import { isDoneToday } from '$lib/logic/training';
 	import { discoverHref, runRoutineHref } from '$lib/routes';
 	import Async from '$lib/components/Async.svelte';
@@ -169,7 +169,7 @@
 	title="New Routine"
 	placeholder="e.g., Push Day"
 	submitLabel="Add Routine"
-	validate={(name) => getRoutineNameValidationMsg(name, session.routines ?? undefined)}
+	validate={(name) => getNameValidationMsg('Routine', name, session.routines)}
 	onSave={async (name) => {
 		const created = await routines.create(name);
 		if (created) goto(`/routines/${created.id}`);

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import DeleteIcon from '$lib/icons/delete.svg?raw';
-	import { scrollLock } from '$lib/actions';
+	import { dialogScrollLock } from '$lib/actions/scrollLock';
 
 	interface Props {
 		header?: string;
@@ -28,7 +28,7 @@
 	}: Props = $props();
 </script>
 
-<dialog use:scrollLock bind:this={dialog} {onclose} class="modal">
+<dialog use:dialogScrollLock bind:this={dialog} {onclose} class="modal">
 	<!-- Backdrop close -->
 	<form method="dialog" class="modal-backdrop">
 		<button>close</button>
