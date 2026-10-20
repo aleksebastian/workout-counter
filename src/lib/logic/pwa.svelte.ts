@@ -1,6 +1,6 @@
 import { version } from '$app/environment';
 import { updated } from '$app/state';
-import { subscribeToPush } from '$lib/push';
+import { subscribeToPush, type PushRegistration } from '$lib/push';
 import { toaster } from '$lib/toast.svelte';
 import { unseenEntries } from '$lib/changelog';
 
@@ -68,12 +68,24 @@ let showNotifPrompt = $state(false);
 let showWhatsNew = $state(false);
 /** Null until `init()` runs in the browser. */
 let notifStatus = $state<NotifStatus | null>(null);
+/**
+ * Permission is granted but the device has no push subscription, and the
+ * browser will only make one from a tap — so alerts are off until the user
+ * enables them again.
+ */
+let needsTap = $state(false);
+/** The re-enable banner shows once a session, not once ever like the first ask. */
+let reenablePromptShown = false;
 
 let deferredPrompt: BeforeInstallPromptEvent | null = null;
 let registration: ServiceWorkerRegistration | null = null;
 let recordedSets = 0;
 let notifPromptShown = false;
 let staleCheck: Promise<boolean> | null = null;
+
+function noteRegistration(result: PushRegistration) {
+	needsTap = result === 'needs-tap';
+}
 
 /** Call after `reg.update()`. Resolves once the new worker is waiting to take over, or after `timeoutMs`. */
 function waitForWaitingWorker(reg: ServiceWorkerRegistration, timeoutMs: number): Promise<void> {
@@ -157,8 +169,12 @@ export const pwa = {
 	get showWhatsNew() {
 		return showWhatsNew;
 	},
-	get notifStatus() {
-		return notifStatus;
+	/**
+	 * `default` also while permission is granted but the device lost its
+	 * subscription, so everything that offers "Enable" offers it again.
+	 */
+	get notifStatus(): NotifStatus | null {
+		return needsTap && notifStatus === 'granted' ? 'default' : notifStatus;
 	},
 
 	/** Call from the layout's `onMount`; returns its teardown. */
@@ -166,7 +182,7 @@ export const pwa = {
 		online = navigator.onLine;
 		notifPromptShown = localStorage.getItem(NOTIF_PROMPTED_KEY) === 'true';
 		notifStatus = readNotifStatus();
-		subscribeToPush();
+		subscribeToPush().then(noteRegistration);
 		checkWhatsNew();
 
 		const updatedFrom = sessionStorage.getItem(UPDATED_FROM_KEY);
@@ -185,7 +201,7 @@ export const pwa = {
 		const onVisible = () => {
 			if (document.visibilityState !== 'visible') return;
 			const next = readNotifStatus();
-			if (next === 'granted' && notifStatus !== 'granted') subscribeToPush();
+			if (next === 'granted' && notifStatus !== 'granted') subscribeToPush().then(noteRegistration);
 			notifStatus = next;
 		};
 		const onBeforeInstall = (e: Event) => {
@@ -244,6 +260,9 @@ export const pwa = {
 			showNotifPrompt = true;
 			notifPromptShown = true;
 			localStorage.setItem(NOTIF_PROMPTED_KEY, 'true');
+		} else if (restStarted && needsTap && notifStatus === 'granted' && !reenablePromptShown) {
+			showNotifPrompt = true;
+			reenablePromptShown = true;
 		}
 	},
 
@@ -308,12 +327,24 @@ export const pwa = {
 		setTimeout(() => window.location.reload(), UPDATE_RELOAD_FALLBACK_MS);
 	},
 
+	/** Call from a tap: WebKit only creates a push subscription inside one. */
 	async requestNotifications() {
 		showNotifPrompt = false;
 		if (!('Notification' in window)) return;
-		notifStatus = await Notification.requestPermission();
-		if (notifStatus === 'granted') {
-			await subscribeToPush();
+		// Already granted (a device that lost its subscription): subscribe while
+		// the tap still counts, rather than spending it on a permission check.
+		notifStatus =
+			Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+		if (notifStatus !== 'granted') return;
+		const result = await subscribeToPush();
+		noteRegistration(result);
+		// Refused even from a tap: iOS has this web app's push registration in a
+		// state only reinstalling clears. Say so rather than do nothing.
+		if (result === 'needs-tap') {
+			toaster.error(
+				"Notifications can't be turned on here. Removing SetCount from your Home Screen and adding it again may fix it.",
+				'push-needs-reinstall'
+			);
 		}
 	}
 };

@@ -2,15 +2,23 @@ import { PUBLIC_VAPID_PUBLIC_KEY } from '$env/static/public';
 import { urlBase64ToUint8Array } from '$lib/utils';
 
 /**
+ * What came of registering this device for push:
+ * - `subscribed`: it has a subscription, and the server knows it.
+ * - `needs-tap`: permission is granted but the device has no subscription, and
+ *   the browser only creates one from a tap (WebKit refuses otherwise, with a
+ *   NotAllowedError). The app has to ask again; see `pwa.requestNotifications`.
+ * - `unavailable`: no permission, no push support, or a failure.
+ */
+export type PushRegistration = 'subscribed' | 'needs-tap' | 'unavailable';
+
+/**
  * Subscribes the current device to Web Push notifications and persists the
  * subscription to the server. Safe to call multiple times — reuses an existing
  * subscription when one is already active.
- *
- * Prerequisites: Notification.permission === 'granted' and 'serviceWorker' in navigator.
  */
-export async function subscribeToPush(): Promise<void> {
-	if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
-	if (Notification.permission !== 'granted') return;
+export async function subscribeToPush(): Promise<PushRegistration> {
+	if (!('Notification' in window) || !('serviceWorker' in navigator)) return 'unavailable';
+	if (Notification.permission !== 'granted') return 'unavailable';
 
 	try {
 		const reg = await navigator.serviceWorker.ready;
@@ -25,9 +33,15 @@ export async function subscribeToPush(): Promise<void> {
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ subscription: sub.toJSON() })
 		});
-		if (!res.ok) console.error('[push] /api/push/subscribe failed:', res.status);
+		if (!res.ok) {
+			console.error('[push] /api/push/subscribe failed:', res.status);
+			return 'unavailable';
+		}
+		return 'subscribed';
 	} catch (err) {
+		if ((err as Error)?.name === 'NotAllowedError') return 'needs-tap';
 		console.error('[push] subscribeToPush failed:', err);
+		return 'unavailable';
 	}
 }
 
