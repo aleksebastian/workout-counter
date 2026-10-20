@@ -17,7 +17,7 @@ import {
 import { getPostLoginDestination } from '$lib/logic/onboarding';
 import { restTimer } from '$lib/logic/restTimer.svelte';
 import { unregisterPush } from '$lib/push';
-import { forgetAccountStorage } from '$lib/logic/accountStorage';
+import { forgetAccountStorage, SESSION_RENEWED_KEY } from '$lib/logic/accountStorage';
 
 /**
  * Creates a promise that rejects after a timeout
@@ -65,6 +65,69 @@ export async function signInWithGoogle(): Promise<User> {
 	return credential.user;
 }
 
+/**
+ * The server wouldn't start a session for this Firebase user. Retrying with
+ * the same sign-in can't help: the login page signs the device out so the
+ * next tap goes back through Google.
+ */
+export class SessionRejectedError extends Error {
+	constructor() {
+		super('Your sign-in expired. Continue with Google to sign in again.');
+		this.name = 'SessionRejectedError';
+	}
+}
+
+/**
+ * Trades a just-issued ID token for the server session cookie. Forcing the
+ * refresh matters: the server only accepts a token issued moments ago, and the
+ * cached one can be up to an hour old.
+ */
+async function mintSessionCookie(user: User): Promise<Response> {
+	const idToken = await user.getIdToken(true);
+	const response = await fetch('/api/signin', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ idToken })
+	});
+	if (response.ok) rememberRenewal();
+	return response;
+}
+
+/** Renew at most this often: the cookie lasts 14 days. */
+const RENEW_EVERY_MS = 24 * 60 * 60 * 1000;
+
+function rememberRenewal() {
+	try {
+		localStorage.setItem(SESSION_RENEWED_KEY, String(Date.now()));
+	} catch {
+		// Storage blocked: it just renews more often.
+	}
+}
+
+let renewing: Promise<void> | null = null;
+
+/**
+ * Keeps the server session cookie alive while the app is in use. The service
+ * worker serves cached pages, so an expired cookie went unnoticed until an
+ * update reload hit the network and bounced to /login. Best effort and at most
+ * daily; a failure here is left for the login page to handle if it matters.
+ */
+export function renewSession(): Promise<void> {
+	const user = auth.currentUser;
+	if (!user || signingOut || !navigator.onLine) return Promise.resolve();
+	try {
+		const last = Number(localStorage.getItem(SESSION_RENEWED_KEY));
+		if (last && Date.now() - last < RENEW_EVERY_MS) return Promise.resolve();
+	} catch {
+		// Storage blocked: renew anyway.
+	}
+	renewing ??= mintSessionCookie(user)
+		.then(() => {})
+		.catch(() => {})
+		.finally(() => (renewing = null));
+	return renewing;
+}
+
 let finishing: Promise<void> | null = null;
 
 /**
@@ -82,25 +145,16 @@ export function finishSignIn(user: User): Promise<void> {
 }
 
 async function completeSession(user: User) {
-	const idToken = await withTimeout(
-		user.getIdToken(),
-		15000,
-		'Sign-in timed out. Please try again.'
-	);
-
 	// The server session cookie must exist before we navigate: every route but
 	// /login is gated on it server-side, so navigating early lands on a 302
 	// straight back here. Surfacing the failure lets the login page say so
 	// instead of bouncing the user silently.
 	const response = await withTimeout(
-		fetch('/api/signin', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ idToken })
-		}),
+		mintSessionCookie(user),
 		15000,
 		'Sign-in timed out. Please try again.'
 	);
+	if (response.status === 401) throw new SessionRejectedError();
 	if (!response.ok) {
 		throw new Error("Couldn't start your session. Please try again.");
 	}
