@@ -6,11 +6,14 @@ import {
 	orderBy,
 	getFirestore,
 	initializeFirestore,
+	memoryLocalCache,
 	persistentLocalCache,
 	persistentMultipleTabManager,
+	connectFirestoreEmulator,
 	onSnapshot
 } from 'firebase/firestore';
-import { getAuth, onAuthStateChanged, type User } from 'firebase/auth';
+import { connectAuthEmulator, getAuth, onAuthStateChanged, type User } from 'firebase/auth';
+import { env } from '$env/dynamic/public';
 import { writable, type Readable, derived } from 'svelte/store';
 import type { Workout, Routine, Program, UserData, Parse } from '$lib/types';
 import { parseWorkout, parseRoutine, parseProgram, parseUserData } from '$lib/types';
@@ -28,20 +31,38 @@ const firebaseConfig = {
 // Initialize Firebase
 export const app = initializeApp(firebaseConfig);
 
+/**
+ * End-to-end tests run the app against the Firebase emulators (see
+ * `tests/`). Only a build with PUBLIC_FIREBASE_EMULATORS=true does this.
+ */
+export const usingEmulators = env.PUBLIC_FIREBASE_EMULATORS === 'true';
+
+/** Tests keep no state between runs, except the one that checks the cache is cleared. */
+const persistLocally =
+	!usingEmulators ||
+	(typeof location !== 'undefined' && new URLSearchParams(location.search).has('e2ePersistence'));
+
 // Use IndexedDB-backed offline persistence in the browser so onSnapshot
 // hydrates immediately from disk on cold starts (before the network responds).
 // Falls back to in-memory only on the server (SSR / no IndexedDB available).
 export const db =
 	typeof window !== 'undefined'
 		? initializeFirestore(app, {
-				localCache: persistentLocalCache({
-					tabManager: persistentMultipleTabManager()
-				}),
+				localCache: persistLocally
+					? persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+					: memoryLocalCache(),
 				ignoreUndefinedProperties: true
 			})
 		: getFirestore(app);
 
 export const auth = getAuth();
+
+if (usingEmulators && typeof window !== 'undefined') {
+	connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+	connectFirestoreEmulator(db, '127.0.0.1', 8080);
+	// Kept out of production bundles: only this branch imports it.
+	import('$lib/e2e').then(({ installTestHooks }) => installTestHooks());
+}
 
 /**
  * @returns a store with the current firebase user
