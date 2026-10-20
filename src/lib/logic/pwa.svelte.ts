@@ -2,6 +2,7 @@ import { version } from '$app/environment';
 import { updated } from '$app/state';
 import { subscribeToPush, type PushRegistration } from '$lib/push';
 import { toaster } from '$lib/toast.svelte';
+import { effectiveNotifStatus } from '$lib/logic/notifStatus';
 import { unseenEntries } from '$lib/changelog';
 
 /**
@@ -174,7 +175,7 @@ export const pwa = {
 	 * subscription, so everything that offers "Enable" offers it again.
 	 */
 	get notifStatus(): NotifStatus | null {
-		return needsTap && notifStatus === 'granted' ? 'default' : notifStatus;
+		return notifStatus && effectiveNotifStatus(notifStatus, needsTap);
 	},
 
 	/** Call from the layout's `onMount`; returns its teardown. */

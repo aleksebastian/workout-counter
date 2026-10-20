@@ -5,7 +5,7 @@ import { session } from '$lib/session.svelte';
 import { user } from '$lib/data';
 import { durationMs, parseStoredRest, pickRest, type Rest } from '$lib/logic/rest';
 import { createRestPush } from '$lib/logic/restPush';
-import { pushEndpoint } from '$lib/push';
+import { currentSubscription } from '$lib/push';
 import type { Duration } from '$lib/types';
 
 /**
@@ -38,12 +38,12 @@ const push = createRestPush({
 		try {
 			// Names this device, so the rest's end is announced here and not on
 			// every device the account uses. No subscription, nothing to notify.
-			const endpoint = await pushEndpoint();
-			if (!endpoint) return false;
+			const subscription = await currentSubscription();
+			if (!subscription) return false;
 			const res = await fetch('/api/push/schedule', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ restId, delayMs, issuedAt, endpoint })
+				body: JSON.stringify({ restId, delayMs, issuedAt, subscription })
 			});
 			return res.ok;
 		} catch (err) {

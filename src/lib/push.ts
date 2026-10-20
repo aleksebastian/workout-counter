@@ -46,14 +46,14 @@ export async function subscribeToPush(): Promise<PushRegistration> {
 }
 
 /**
- * This device's push endpoint, or null when it has no subscription. Bounded,
- * because `serviceWorker.ready` never settles where no worker registers.
+ * This device's push subscription, or null when it has none. Bounded, because
+ * `serviceWorker.ready` never settles where no worker registers.
  */
-export async function pushEndpoint(timeoutMs = 3000): Promise<string | null> {
+export async function currentSubscription(timeoutMs = 2000): Promise<PushSubscriptionJSON | null> {
 	if (!('serviceWorker' in navigator)) return null;
 	const lookup = navigator.serviceWorker.ready
 		.then((reg) => reg.pushManager.getSubscription())
-		.then((sub) => sub?.endpoint ?? null)
+		.then((sub) => sub?.toJSON() ?? null)
 		.catch(() => null);
 	const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs));
 	return Promise.race([lookup, timeout]);
@@ -61,14 +61,17 @@ export async function pushEndpoint(timeoutMs = 3000): Promise<string | null> {
 
 /**
  * Stops this account notifying this device — on sign-out, while the session
- * still exists to authorise it. Best effort: sign-out goes ahead regardless.
+ * still exists to authorise it. Best effort and bounded: sign-out goes ahead
+ * regardless, and a device left registered is taken over by whoever signs in
+ * on it next.
  */
 export async function unregisterPush(): Promise<void> {
-	const endpoint = await pushEndpoint();
-	if (!endpoint) return;
+	const subscription = await currentSubscription();
+	if (!subscription?.endpoint) return;
 	await fetch('/api/push/subscribe', {
 		method: 'DELETE',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ endpoint })
+		body: JSON.stringify({ endpoint: subscription.endpoint }),
+		signal: AbortSignal.timeout(2000)
 	}).catch(() => {});
 }
