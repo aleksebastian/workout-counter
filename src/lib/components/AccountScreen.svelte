@@ -97,6 +97,8 @@
 		checkingSync = true;
 		const synced = await waitForSync();
 		checkingSync = false;
+		// Closed while waiting: the user backed out, so don't sign them out.
+		if (!page.state.account) return;
 		if (synced) leaveThen(() => onSignOut({ discardUnsynced: true }));
 		else unsyncedDialog?.showModal();
 	}
@@ -296,6 +298,7 @@
 		actionLabel="Sign out anyway"
 		cancelLabel="Stay signed in"
 		destructive
+		icon={false}
 		onclose={(e) => {
 			if ((e.target as HTMLDialogElement).returnValue === 'default') {
 				leaveThen(() => onSignOut({ discardUnsynced: true }));

@@ -8,7 +8,10 @@ export default defineConfig({
 	define: {
 		// The release version, for bug reports. `version` from $app/environment
 		// is the build id, which the update check relies on changing every deploy.
-		__APP_VERSION__: JSON.stringify(pkg.version)
+		__APP_VERSION__: JSON.stringify(pkg.version),
+		// Builds for the end-to-end tests only (see playwright.config.ts). Fixed at
+		// build time so every other build drops the emulator code and test hooks.
+		__E2E__: JSON.stringify(process.env.PUBLIC_FIREBASE_EMULATORS === 'true')
 	},
 	test: {
 		include: ['src/**/*.{test,spec}.{js,ts}']

@@ -151,8 +151,11 @@ async function wipeLocalData() {
  * Signs out. The local data cache is cleared too unless it holds changes that
  * haven't synced and `discardUnsynced` isn't set — losing a workout logged
  * offline is worse than leaving the cache; the next sign-out made online
- * clears it. The account screen asks first and passes `discardUnsynced`; the
- * session-expired path has no one to ask.
+ * clears it. The account screen asks first and passes `discardUnsynced`.
+ *
+ * With no signed-in user (the session-expired path, which has no one to ask)
+ * nothing pending can sync anyway, so there's nothing to wait for: the data
+ * is cleared rather than left on a device someone else may pick up.
  */
 export async function handleSignOut({ discardUnsynced = false } = {}) {
 	if (signingOut) return;
@@ -166,7 +169,7 @@ export async function handleSignOut({ discardUnsynced = false } = {}) {
 		// Clear the server session first, but never let a failed request strand
 		// the user signed-in on the client.
 		await fetch('/api/signin', { method: 'DELETE' }).catch(() => {});
-		if (discardUnsynced || (await waitForSync())) {
+		if (discardUnsynced || !auth.currentUser || (await waitForSync())) {
 			await wipeLocalData();
 			return; // The page is reloading; leave the flag set until it does.
 		}

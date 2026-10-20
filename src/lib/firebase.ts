@@ -33,9 +33,10 @@ export const app = initializeApp(firebaseConfig);
 
 /**
  * End-to-end tests run the app against the Firebase emulators (see
- * `tests/`). Only a build with PUBLIC_FIREBASE_EMULATORS=true does this.
+ * `tests/`). It takes both a build made for them (`__E2E__`, fixed at build
+ * time, so other builds drop this code entirely) and the runtime flag.
  */
-export const usingEmulators = env.PUBLIC_FIREBASE_EMULATORS === 'true';
+export const usingEmulators = __E2E__ && env.PUBLIC_FIREBASE_EMULATORS === 'true';
 
 /** Tests keep no state between runs, except the one that checks the cache is cleared. */
 const persistLocally =
@@ -57,10 +58,11 @@ export const db =
 
 export const auth = getAuth();
 
-if (usingEmulators && typeof window !== 'undefined') {
+// `__E2E__` repeated here, as a literal after the build replaces it, so the
+// bundler can drop the branch — and the test hooks' chunk — from other builds.
+if (__E2E__ && usingEmulators && typeof window !== 'undefined') {
 	connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
 	connectFirestoreEmulator(db, '127.0.0.1', 8080);
-	// Kept out of production bundles: only this branch imports it.
 	import('$lib/e2e').then(({ installTestHooks }) => installTestHooks());
 }
 

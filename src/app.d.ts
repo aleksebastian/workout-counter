@@ -5,6 +5,8 @@ import '@poppanator/sveltekit-svg/dist/svg.d.ts';
 declare global {
 	/** package.json version, injected by vite.config.ts. */
 	const __APP_VERSION__: string;
+	/** True only in builds for the end-to-end tests. */
+	const __E2E__: boolean;
 
 	interface Window {
 		__backButtonClicked?: boolean;

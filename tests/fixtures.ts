@@ -87,12 +87,7 @@ export async function signIn(page: Page, { persistence = false } = {}) {
 /** From Home: open Train and start the seeded routine. */
 export async function startRoutine(page: Page) {
 	await page.getByRole('link', { name: 'Train' }).click();
-	await page
-		.locator('div')
-		.filter({ has: page.getByText(ROUTINE.name, { exact: true }) })
-		.getByRole('button', { name: 'Start' })
-		.last()
-		.click();
+	await page.getByRole('button', { name: `Start ${ROUTINE.name}`, exact: true }).click();
 	await expect(page.getByRole('heading', { name: EXERCISES[0].name })).toBeVisible();
 }
 

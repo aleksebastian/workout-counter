@@ -39,13 +39,27 @@ In dev, rest-end pushes fire from the dev server process instead of QStash.
 
 ### Scripts
 
-| Command                 | What it does                          |
-| ----------------------- | ------------------------------------- |
-| `pnpm dev`              | Dev server on port 5173               |
-| `pnpm check`            | Type-check with svelte-check          |
-| `pnpm lint`             | Prettier check and ESLint             |
-| `pnpm test:unit`        | Vitest unit tests                     |
-| `pnpm test:integration` | Playwright against a production build |
+| Command          | What it does                                                         |
+| ---------------- | -------------------------------------------------------------------- |
+| `pnpm dev`       | Dev server on port 5173                                              |
+| `pnpm check`     | Type-check with svelte-check                                         |
+| `pnpm lint`      | Prettier check and ESLint                                            |
+| `pnpm test:unit` | Vitest unit tests                                                    |
+| `pnpm test:e2e`  | Playwright against a production build, inside the Firebase emulators |
+
+### End-to-end tests
+
+`pnpm test:e2e` (also run by `pnpm test`) builds the app and runs Playwright against the Firebase Auth and Firestore emulators, so it never touches production. Each test starts from a freshly seeded database. It needs, once:
+
+```bash
+brew install openjdk@21
+```
+
+```bash
+pnpm exec playwright install chromium
+```
+
+Put `/opt/homebrew/opt/openjdk@21/bin` on your `PATH` so the emulators find Java. CI runs the same suite on every pull request.
 
 ### Firestore rules
 

@@ -24,7 +24,7 @@ export const CHANGELOG: ChangelogEntry[] = [
 		version: '0.15.0',
 		date: '2026-10-20',
 		improved: [
-			'Signing out now clears your workout data from this device, so the next person to use it can’t see it',
+			'Signing out now clears your workout data from this device',
 			'If something you logged hasn’t synced yet, signing out asks before it’s lost'
 		],
 		fixed: ['Editing a set during a workout no longer drops it from that workout']
