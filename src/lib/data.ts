@@ -124,12 +124,17 @@ export const exercises = {
 	},
 
 	/**
-	 * Removes one set by id. Not `arrayRemove`: that matches the whole value,
-	 * so a set edited since the caller captured it silently stayed put.
+	 * Removes one set by id. `arrayRemove` matches the whole value, so it's
+	 * given the set as `workout` holds it now — pass the live workout, not a
+	 * copy captured earlier, or an edit made since leaves the set in place.
+	 * Still atomic, so a set logged on another device meanwhile survives.
 	 */
 	removeSet(workout: Workout, id: string) {
-		const sets = workout.sets.filter((set) => set.id !== id);
-		return mutate('delete set', () => updateDoc(ref('workouts', workout.id), { sets }));
+		const current = workout.sets.find((set) => set.id === id);
+		if (!current) return Promise.resolve(true);
+		return mutate('delete set', () =>
+			updateDoc(ref('workouts', workout.id), { sets: arrayRemove(current) })
+		);
 	},
 
 	/** Whole-array rewrite — used by edit, which has to preserve ordering. */
