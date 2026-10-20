@@ -49,7 +49,13 @@ In dev, rest-end pushes fire from the dev server process instead of QStash.
 
 ### Firestore rules
 
-Rules live in `firestore.rules`. Deploy them with `firebase deploy --only firestore:rules`.
+Rules live in `firestore.rules`. The Firebase CLI isn't a project dependency, so deploy them with `npx` (run `npx -y firebase-tools login` once first):
+
+```bash
+npx -y firebase-tools deploy --only firestore:rules
+```
+
+`pnpm dlx firebase-tools` doesn't work here: pnpm stops to ask about the CLI's build scripts and exits without running it.
 
 ## Releasing
 
