@@ -114,7 +114,10 @@ let renewing: Promise<void> | null = null;
  */
 export function renewSession(): Promise<void> {
 	const user = auth.currentUser;
-	if (!user || signingOut || !navigator.onLine) return Promise.resolve();
+	// Login mints its own cookie as part of finishing a sign-in.
+	if (!user || signingOut || !navigator.onLine || location.pathname.startsWith('/login')) {
+		return Promise.resolve();
+	}
 	try {
 		const last = Number(localStorage.getItem(SESSION_RENEWED_KEY));
 		if (last && Date.now() - last < RENEW_EVERY_MS) return Promise.resolve();
@@ -220,6 +223,9 @@ export async function handleSignOut({ discardUnsynced = false } = {}) {
 		// While the session still exists to authorise it: this device stops
 		// getting this account's notifications.
 		await unregisterPush();
+		// A renewal still in flight would set the cookie again after the DELETE.
+		// signingOut (set above) keeps a new one from starting.
+		await renewing;
 		// Clear the server session first, but never let a failed request strand
 		// the user signed-in on the client.
 		await fetch('/api/signin', { method: 'DELETE' }).catch(() => {});

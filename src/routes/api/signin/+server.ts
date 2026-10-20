@@ -19,8 +19,14 @@ export const POST: RequestHandler = async ({ request, cookies, url }) => {
 		// checkRevoked: a signed-out-everywhere or disabled account can't come back
 		// in on a token minted just before.
 		decodedIdToken = await adminAuth.verifyIdToken(idToken, true);
-	} catch {
-		return json({ reason: 'invalid-token' }, { status: 401 });
+	} catch (e) {
+		// Only a verdict on the token itself (revoked, disabled, expired,
+		// malformed) is a 401: the client signs the device out on one. A failure
+		// to reach Firebase is worth a retry instead.
+		if ((e as { code?: string }).code?.startsWith('auth/')) {
+			return json({ reason: 'invalid-token' }, { status: 401 });
+		}
+		throw error(503, "Couldn't verify the sign-in");
 	}
 
 	if (!canStartSession(decodedIdToken, Date.now() / 1000)) {

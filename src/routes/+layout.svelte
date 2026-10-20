@@ -122,16 +122,14 @@
 
 	// Keep the server session alive while the app is in use, so an update
 	// reload (the first page load to reach the server in a while) doesn't land
-	// on /login. Login owns its own cookie, so it's left out.
+	// on /login.
 	$effect(() => {
-		if (session.ready && !page.url.pathname.startsWith('/login')) renewSession();
+		if (session.ready) renewSession();
 	});
 
 	onMount(() => {
 		const onVisible = () => {
-			if (document.visibilityState === 'visible' && !page.url.pathname.startsWith('/login')) {
-				renewSession();
-			}
+			if (document.visibilityState === 'visible') renewSession();
 		};
 		document.addEventListener('visibilitychange', onVisible);
 		const teardownPwa = pwa.init();

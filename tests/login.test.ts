@@ -34,3 +34,22 @@ test('the server session is renewed while the app is in use', async ({ page }) =
 		.poll(async () => (await page.context().cookies()).map((c) => c.name))
 		.toContain('__session');
 });
+
+test('a sign-in the server rejects is dropped so the next tap goes back to Google', async ({
+	page
+}) => {
+	await signIn(page);
+	await page.context().clearCookies({ name: '__session' });
+	await page.route('**/api/signin', (route) =>
+		route.request().method() === 'POST'
+			? route.fulfill({ status: 401, json: { reason: 'invalid-token' } })
+			: route.continue()
+	);
+	await page.goto('/');
+
+	await expect(page.getByText('Your sign-in expired.')).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Continue with Google' })).toBeEnabled();
+	// Signed out on the device too (no account avatar), so a tap opens Google
+	// rather than retrying the same rejected finish.
+	await expect(page.getByRole('button', { name: 'Account' })).toHaveCount(0);
+});
