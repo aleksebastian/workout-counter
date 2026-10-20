@@ -83,7 +83,7 @@
 
 	function remove(set: Set) {
 		HAPTIC.heavy();
-		exercises.removeSet(workout.id, set);
+		exercises.removeSet(workout, set.id);
 	}
 
 	function saveEdit(reps: number, weight: number, date: string, notes: string) {

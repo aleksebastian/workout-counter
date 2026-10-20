@@ -123,11 +123,13 @@ export const exercises = {
 		);
 	},
 
-	/** Atomic removal by value, for the same reason. */
-	removeSet(workoutId: string, set: Set) {
-		return mutate('delete set', () =>
-			updateDoc(ref('workouts', workoutId), { sets: arrayRemove(set) })
-		);
+	/**
+	 * Removes one set by id. Not `arrayRemove`: that matches the whole value,
+	 * so a set edited since the caller captured it silently stayed put.
+	 */
+	removeSet(workout: Workout, id: string) {
+		const sets = workout.sets.filter((set) => set.id !== id);
+		return mutate('delete set', () => updateDoc(ref('workouts', workout.id), { sets }));
 	},
 
 	/** Whole-array rewrite — used by edit, which has to preserve ordering. */
