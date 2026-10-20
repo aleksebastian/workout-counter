@@ -1,0 +1,88 @@
+name: CI
+
+# Type checks, lint and tests on every pull request and on main.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    # `$env/static/*` must define every name the app imports, even to type
+    # check. These placeholders are never used: unit tests mock them.
+    env:
+      FB_PROJECT_ID: workout-counter-99d56
+      FB_CLIENT_EMAIL: ci@example.com
+      FB_PRIVATE_KEY: placeholder
+      PUBLIC_VAPID_PUBLIC_KEY: placeholder
+      VAPID_PRIVATE_KEY: placeholder
+      VAPID_SUBJECT: mailto:ci@example.com
+      QSTASH_URL: https://qstash.example.com
+      QSTASH_TOKEN: placeholder
+      QSTASH_CURRENT_SIGNING_KEY: placeholder
+      QSTASH_NEXT_SIGNING_KEY: placeholder
+    steps:
+      - uses: actions/checkout@v4
+
+      # Version comes from `packageManager` in package.json.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - run: pnpm lint
+      - run: pnpm test:unit
+
+  e2e:
+    runs-on: ubuntu-latest
+    # Same placeholders as above. Against the emulators the admin SDK skips
+    # credentials (src/lib/server/admin.ts), so the key is never parsed.
+    env:
+      FB_PROJECT_ID: workout-counter-99d56
+      FB_CLIENT_EMAIL: ci@example.com
+      FB_PRIVATE_KEY: placeholder
+      PUBLIC_VAPID_PUBLIC_KEY: placeholder
+      VAPID_PRIVATE_KEY: placeholder
+      VAPID_SUBJECT: mailto:ci@example.com
+      QSTASH_URL: https://qstash.example.com
+      QSTASH_TOKEN: placeholder
+      QSTASH_CURRENT_SIGNING_KEY: placeholder
+      QSTASH_NEXT_SIGNING_KEY: placeholder
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      # The Firebase emulators need Java.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-results
+          path: test-results/
+          retention-days: 7
