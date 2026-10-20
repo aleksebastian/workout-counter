@@ -21,6 +21,15 @@ export interface ChangelogEntry {
 /** Newest first. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.14.0',
+		date: '2026-10-19',
+		new: ['Use SetCount on more than one device — each one gets its own rest alerts'],
+		improved: [
+			'Rest-end alerts go to the device you started the rest on, not every device you use',
+			'Preferences shows alerts as off when this device can’t receive them, so you can turn them back on'
+		]
+	},
+	{
 		version: '0.13.2',
 		date: '2026-10-19',
 		fixed: [
