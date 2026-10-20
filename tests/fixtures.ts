@@ -146,3 +146,15 @@ export const test = base.extend<{ seed: Seed; seeded: void }>({
 });
 
 export { expect };
+
+/**
+ * Pins the page's date to 10:00 on the most recent `weekday` (0 = Sun … 6 = Sat),
+ * so anything scheduled by weekday doesn't depend on when the tests run.
+ * Timers keep running; only Date is fixed. Call before the page loads.
+ */
+export async function fixWeekday(page: Page, weekday: number) {
+	const day = new Date();
+	day.setHours(10, 0, 0, 0);
+	day.setDate(day.getDate() - ((day.getDay() - weekday + 7) % 7));
+	await page.clock.setFixedTime(day);
+}
