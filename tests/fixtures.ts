@@ -123,7 +123,11 @@ export async function signIn(page: Page, { persistence = false } = {}) {
 export async function openTab(page: Page, name: 'Home' | 'Train' | 'Library' | 'Discover') {
 	// Train's label grows to "Train, workout in progress" during a workout.
 	const label = name === 'Train' ? /^Train/ : name;
-	await page.getByRole('link', { name: label, exact: name !== 'Train' }).click();
+	// .last(): the bottom nav comes after any same-named link in a page header.
+	await page
+		.getByRole('link', { name: label, exact: name !== 'Train' })
+		.last()
+		.click();
 }
 
 /** From Home: open Train and start the seeded routine. */
