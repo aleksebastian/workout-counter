@@ -8,7 +8,11 @@ service cloud.firestore {
 			allow create: if isValidUser(userId);
 			allow update: if request.auth != null
 										&& request.auth.uid == userId
-										&& request.resource.data.username == resource.data.username;
+										&& request.resource.data.username == resource.data.username
+										// Written only by the server (Admin SDK bypasses rules): the
+										// bug-report cooldown and the push subscription.
+										&& !request.resource.data.diff(resource.data).affectedKeys()
+												.hasAny(['lastBugReportAt', 'pushSubscription']);
 			allow delete: if false;
 		}
 
