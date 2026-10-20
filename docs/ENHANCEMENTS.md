@@ -168,7 +168,9 @@ The only workflow today is `.github/workflows/release.yml`. Nothing runs type ch
 
 ## 8 — End-to-End Test Coverage
 
-**Status:** Backlog | **Priority:** P3
+**Status:** Done | **Priority:** P3
+
+> Done in v0.15.0: `pnpm test:e2e` runs Playwright against the Firebase Auth and Firestore emulators, signing in through a test-only hook (`src/lib/e2e.ts`, built only when `PUBLIC_FIREBASE_EMULATORS=true`) and starting each test from a freshly seeded database (`tests/fixtures.ts`). It covers the login redirect, logging a set and skipping the rest, finishing early and discarding, editing then deleting a set, and sign-out clearing the cache — and found a real bug on its first run (editing a set dropped it from the current workout). Programs, the Discover catalog and Preferences aren't covered yet.
 
 `tests/test.ts` has one Playwright test (the login page renders). Everything past sign-in — logging sets, the rest timer, running and finishing or discarding a workout — is only exercised by hand, most recently in the iOS Simulator.
 
@@ -186,7 +188,9 @@ The only workflow today is `.github/workflows/release.yml`. Nothing runs type ch
 
 ## 9 — Clear the Offline Data Cache on Sign-Out
 
-**Status:** Backlog | **Priority:** P2
+**Status:** Done | **Priority:** P2
+
+> Done in v0.15.0: sign-out clears the Firestore cache and the account's own localStorage keys (`wipeLocalData` in `src/lib/logic/auth.ts`, shared with account deletion), then reloads to `/login`. The account screen waits up to 5s for unsynced changes and asks before discarding them; with no signed-in user (an expired session) it clears without waiting. Best effort while another tab still has the database open.
 
 Firestore's IndexedDB persistence keeps a full copy of the signed-in user's data on the device. Account deletion already clears it (`deleteAccount` in `src/lib/logic/auth.ts`), but a plain sign-out doesn't — on a shared device the next person's browser still holds the previous user's workouts and history.
 
