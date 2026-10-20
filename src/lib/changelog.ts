@@ -21,6 +21,15 @@ export interface ChangelogEntry {
 /** Newest first. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.15.0',
+		date: '2026-10-20',
+		improved: [
+			'Signing out now clears your workout data from this device, so the next person to use it can’t see it',
+			'If something you logged hasn’t synced yet, signing out asks before it’s lost'
+		],
+		fixed: ['Editing a set during a workout no longer drops it from that workout']
+	},
+	{
 		version: '0.14.0',
 		date: '2026-10-19',
 		new: ['Use SetCount on more than one device — each one gets its own rest alerts'],
