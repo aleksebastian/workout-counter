@@ -14,23 +14,18 @@ export async function subscribeToPush(): Promise<void> {
 
 	try {
 		const reg = await navigator.serviceWorker.ready;
-		let sub = await reg.pushManager.getSubscription();
-		if (!sub) {
-			console.log('[push] No existing subscription, subscribing…');
-			sub = await reg.pushManager.subscribe({
+		const sub =
+			(await reg.pushManager.getSubscription()) ??
+			(await reg.pushManager.subscribe({
 				userVisibleOnly: true,
 				applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_PUBLIC_KEY)
-			});
-			console.log('[push] Subscribed:', sub.endpoint);
-		} else {
-			console.log('[push] Existing subscription found:', sub.endpoint);
-		}
+			}));
 		const res = await fetch('/api/push/subscribe', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ subscription: sub.toJSON() })
 		});
-		console.log('[push] /api/push/subscribe status:', res.status);
+		if (!res.ok) console.error('[push] /api/push/subscribe failed:', res.status);
 	} catch (err) {
 		console.error('[push] subscribeToPush failed:', err);
 	}
