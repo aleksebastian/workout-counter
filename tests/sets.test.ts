@@ -14,7 +14,7 @@ test('a set edited and then deleted is gone', async ({ page }) => {
 
 	// Edit: one more rep.
 	await loggedSet.click();
-	await page.getByRole('button', { name: 'Increase reps' }).click();
+	await page.getByRole('button', { name: 'Increase reps', exact: true }).click();
 	await page.getByRole('button', { name: 'Save' }).click();
 	await expect.poll(async () => (await storedSets(EXERCISES[0].id))[0]?.reps).toBe(repsBefore + 1);
 

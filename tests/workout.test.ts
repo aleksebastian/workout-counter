@@ -15,9 +15,18 @@ test('log a set, skip the rest, then discard the workout', async ({ page }) => {
 	await skipRest.click();
 	await expect(skipRest).toBeHidden();
 
+	// Finish early offers discarding; a second dialog then confirms it.
 	await page.getByRole('button', { name: 'Finish' }).click();
-	await page.getByRole('button', { name: 'Discard workout' }).click();
-	await page.getByRole('button', { name: 'Discard workout' }).click();
+	await page
+		.locator('dialog[open]')
+		.filter({ hasText: 'Finish workout early?' })
+		.getByRole('button', { name: 'Discard workout' })
+		.click();
+	await page
+		.locator('dialog[open]')
+		.filter({ hasText: 'Discard this workout?' })
+		.getByRole('button', { name: 'Discard workout' })
+		.click();
 
 	await expect(page.getByText('Workout discarded')).toBeVisible();
 	await expect(page).toHaveURL(/\/train$/);
