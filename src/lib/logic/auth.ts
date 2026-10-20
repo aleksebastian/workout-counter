@@ -1,6 +1,12 @@
 import { goto } from '$app/navigation';
 import { auth, db } from '$lib/firebase';
-import { clearIndexedDbPersistence, doc, getDoc, terminate } from 'firebase/firestore';
+import {
+	clearIndexedDbPersistence,
+	doc,
+	getDoc,
+	terminate,
+	waitForPendingWrites
+} from 'firebase/firestore';
 import {
 	GoogleAuthProvider,
 	reauthenticateWithPopup,
@@ -11,6 +17,7 @@ import {
 import { getPostLoginDestination } from '$lib/logic/onboarding';
 import { restTimer } from '$lib/logic/restTimer.svelte';
 import { unregisterPush } from '$lib/push';
+import { forgetAccountStorage } from '$lib/logic/accountStorage';
 
 /**
  * Creates a promise that rejects after a timeout
@@ -109,7 +116,45 @@ async function completeSession(user: User) {
 	await goto(destination);
 }
 
-export async function handleSignOut() {
+/**
+ * Whether every local change has reached the server, waiting up to
+ * `timeoutMs` for it. False means something written offline would be lost if
+ * the local cache were cleared now.
+ */
+export function waitForSync(timeoutMs = 5000): Promise<boolean> {
+	return Promise.race([
+		waitForPendingWrites(db).then(
+			() => true,
+			() => false
+		),
+		new Promise<boolean>((resolve) => setTimeout(() => resolve(false), timeoutMs))
+	]);
+}
+
+/**
+ * Signs out and removes the account's data from this device: the Firestore
+ * cache, which holds a full copy of its workouts and history, and the
+ * account's own localStorage keys. That leaves the SDK unusable, so this ends
+ * in a full page load rather than a client-side navigation.
+ */
+async function wipeLocalData() {
+	await signOut(auth).catch(() => {});
+	await terminate(db).catch(() => {});
+	// Fails with failed-precondition while another tab still has the cache
+	// open. Best effort: that tab keeps it until it's closed or signs out.
+	await clearIndexedDbPersistence(db).catch(() => {});
+	forgetAccountStorage();
+	window.location.replace('/login');
+}
+
+/**
+ * Signs out. The local data cache is cleared too unless it holds changes that
+ * haven't synced and `discardUnsynced` isn't set — losing a workout logged
+ * offline is worse than leaving the cache; the next sign-out made online
+ * clears it. The account screen asks first and passes `discardUnsynced`; the
+ * session-expired path has no one to ask.
+ */
+export async function handleSignOut({ discardUnsynced = false } = {}) {
 	if (signingOut) return;
 	signingOut = true;
 	// The countdown and its scheduled push belong to the account leaving.
@@ -121,11 +166,17 @@ export async function handleSignOut() {
 		// Clear the server session first, but never let a failed request strand
 		// the user signed-in on the client.
 		await fetch('/api/signin', { method: 'DELETE' }).catch(() => {});
+		if (discardUnsynced || (await waitForSync())) {
+			await wipeLocalData();
+			return; // The page is reloading; leave the flag set until it does.
+		}
 		await signOut(auth);
 		await goto('/login', { replaceState: true });
-	} finally {
+	} catch (e) {
 		signingOut = false;
+		throw e;
 	}
+	signingOut = false;
 }
 
 /**
@@ -133,9 +184,8 @@ export async function handleSignOut() {
  * the server only deletes on a token from the last few minutes, so a session
  * left open on someone's device can't be used to wipe the account.
  *
- * Afterwards the local Firestore cache is cleared too — it holds a full copy
- * of the deleted history — which leaves the SDK unusable, so this ends in a
- * full page load rather than a client-side navigation.
+ * Afterwards the account's data is cleared from this device too; see
+ * `wipeLocalData`.
  */
 export async function deleteAccount() {
 	const current = auth.currentUser;
@@ -161,10 +211,7 @@ export async function deleteAccount() {
 		});
 		if (!response.ok) throw new Error("Couldn't delete your account. Please try again.");
 		restTimer.stop();
-		await signOut(auth).catch(() => {});
-		await terminate(db).catch(() => {});
-		await clearIndexedDbPersistence(db).catch(() => {});
-		window.location.replace('/login');
+		await wipeLocalData();
 	} catch (e) {
 		signingOut = false;
 		throw e;

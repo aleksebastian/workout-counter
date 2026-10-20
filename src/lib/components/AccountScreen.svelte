@@ -8,11 +8,14 @@
 	import { lockBodyScroll } from '$lib/scrollLock';
 	import BugReportSheet from '$lib/components/BugReportSheet.svelte';
 	import WhatsNewSheet from '$lib/components/WhatsNewSheet.svelte';
+	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
+	import { waitForSync } from '$lib/logic/auth';
 
 	interface Props {
 		user: User | null;
 		username?: string | null;
-		onSignOut: () => void | Promise<void>;
+		/** Called once any unsynced changes are synced or the user chose to drop them. */
+		onSignOut: (options: { discardUnsynced: boolean }) => void | Promise<void>;
 	}
 
 	let { user, username = null, onSignOut }: Props = $props();
@@ -83,8 +86,19 @@
 		leaveThen(() => goto('/preferences'));
 	}
 
-	function signOut() {
-		leaveThen(onSignOut);
+	// Signing out clears this device's copy of the account's data, so anything
+	// logged offline and not yet synced would go with it: give it a few seconds
+	// to sync, and ask before dropping what's left.
+	let checkingSync = $state(false);
+	let unsyncedDialog = $state<HTMLDialogElement>()!;
+
+	async function signOut() {
+		if (checkingSync) return;
+		checkingSync = true;
+		const synced = await waitForSync();
+		checkingSync = false;
+		if (synced) leaveThen(() => onSignOut({ discardUnsynced: true }));
+		else unsyncedDialog?.showModal();
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
@@ -264,8 +278,9 @@
 				<button
 					class="text-error active:bg-error/10 w-full px-4 py-3.5 text-center font-medium transition-colors"
 					onclick={signOut}
+					disabled={checkingSync}
 				>
-					Sign out
+					{checkingSync ? 'Signing out…' : 'Sign out'}
 				</button>
 			</div>
 		</div>
@@ -274,6 +289,19 @@
 	     become the sheet's containing block and move it with the drag. -->
 	<BugReportSheet bind:open={reportOpen} route={page.url.pathname} />
 	<WhatsNewSheet bind:open={whatsNewOpen} />
+	<ConfirmationDialog
+		bind:dialog={unsyncedDialog}
+		header="Some changes haven't synced"
+		content="Sign out now and they'll be lost. Stay signed in and they'll sync when you're back online."
+		actionLabel="Sign out anyway"
+		cancelLabel="Stay signed in"
+		destructive
+		onclose={(e) => {
+			if ((e.target as HTMLDialogElement).returnValue === 'default') {
+				leaveThen(() => onSignOut({ discardUnsynced: true }));
+			}
+		}}
+	/>
 {/if}
 
 <style>
