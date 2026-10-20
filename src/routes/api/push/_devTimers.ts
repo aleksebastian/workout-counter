@@ -7,7 +7,7 @@ import { sendPushToUser } from './_push';
  */
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
 
-export function scheduleDevPush(uid: string, delayMs: number): string {
+export function scheduleDevPush(uid: string, delayMs: number, deviceId?: string): string {
 	const id = `dev-${uid}-${Date.now()}`;
 	timers.set(
 		id,
@@ -15,7 +15,7 @@ export function scheduleDevPush(uid: string, delayMs: number): string {
 			timers.delete(id);
 			// A failed push must not be an unhandled rejection: that exits the
 			// whole dev server, and every page then fails with a 500.
-			sendPushToUser(uid).catch((err) => console.error('[push] dev send failed:', err));
+			sendPushToUser(uid, deviceId).catch((err) => console.error('[push] dev send failed:', err));
 		}, delayMs)
 	);
 	return id;

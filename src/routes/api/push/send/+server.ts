@@ -20,14 +20,15 @@ export const POST: RequestHandler = async ({ request }) => {
 	}
 
 	let uid: unknown;
+	let deviceId: unknown;
 	try {
-		({ uid } = JSON.parse(rawBody));
+		({ uid, deviceId } = JSON.parse(rawBody));
 	} catch {
 		throw error(400, 'Invalid request body');
 	}
 	if (!uid || typeof uid !== 'string') throw error(400, 'Missing uid');
 
-	await sendPushToUser(uid);
+	await sendPushToUser(uid, typeof deviceId === 'string' && deviceId ? deviceId : undefined);
 
 	return json({ ok: true });
 };

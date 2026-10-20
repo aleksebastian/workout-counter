@@ -30,3 +30,31 @@ export async function subscribeToPush(): Promise<void> {
 		console.error('[push] subscribeToPush failed:', err);
 	}
 }
+
+/**
+ * This device's push endpoint, or null when it has no subscription. Bounded,
+ * because `serviceWorker.ready` never settles where no worker registers.
+ */
+export async function pushEndpoint(timeoutMs = 3000): Promise<string | null> {
+	if (!('serviceWorker' in navigator)) return null;
+	const lookup = navigator.serviceWorker.ready
+		.then((reg) => reg.pushManager.getSubscription())
+		.then((sub) => sub?.endpoint ?? null)
+		.catch(() => null);
+	const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs));
+	return Promise.race([lookup, timeout]);
+}
+
+/**
+ * Stops this account notifying this device — on sign-out, while the session
+ * still exists to authorise it. Best effort: sign-out goes ahead regardless.
+ */
+export async function unregisterPush(): Promise<void> {
+	const endpoint = await pushEndpoint();
+	if (!endpoint) return;
+	await fetch('/api/push/subscribe', {
+		method: 'DELETE',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ endpoint })
+	}).catch(() => {});
+}
