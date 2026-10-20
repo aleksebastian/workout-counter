@@ -10,6 +10,7 @@ import {
 } from 'firebase/auth';
 import { getPostLoginDestination } from '$lib/logic/onboarding';
 import { restTimer } from '$lib/logic/restTimer.svelte';
+import { unregisterPush } from '$lib/push';
 
 /**
  * Creates a promise that rejects after a timeout
@@ -114,6 +115,9 @@ export async function handleSignOut() {
 	// The countdown and its scheduled push belong to the account leaving.
 	restTimer.stop();
 	try {
+		// While the session still exists to authorise it: this device stops
+		// getting this account's notifications.
+		await unregisterPush();
 		// Clear the server session first, but never let a failed request strand
 		// the user signed-in on the client.
 		await fetch('/api/signin', { method: 'DELETE' }).catch(() => {});

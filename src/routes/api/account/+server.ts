@@ -1,4 +1,5 @@
 import { adminAuth, adminDB } from '$lib/server/admin';
+import { removeAllDevices } from '../push/_devices';
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
@@ -47,6 +48,8 @@ export const DELETE: RequestHandler = async ({ locals, cookies, request }) => {
 	// Freeing the name first could hand it to someone else while this account
 	// still exists and still shows it.
 	await adminDB.recursiveDelete(userRef);
+	// Devices live outside the user document, so they go separately.
+	await removeAllDevices(uid);
 	if (username) {
 		const nameRef = adminDB.doc(`usernames/${username}`);
 		const owner = (await nameRef.get()).data()?.uid;

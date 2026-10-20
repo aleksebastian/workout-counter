@@ -1,7 +1,8 @@
 import { version } from '$app/environment';
 import { updated } from '$app/state';
-import { subscribeToPush } from '$lib/push';
+import { subscribeToPush, type PushRegistration } from '$lib/push';
 import { toaster } from '$lib/toast.svelte';
+import { effectiveNotifStatus } from '$lib/logic/notifStatus';
 import { unseenEntries } from '$lib/changelog';
 
 /**
@@ -68,12 +69,23 @@ let showNotifPrompt = $state(false);
 let showWhatsNew = $state(false);
 /** Null until `init()` runs in the browser. */
 let notifStatus = $state<NotifStatus | null>(null);
+/**
+ * Permission reads as granted, but the system won't create a push
+ * subscription — so no alerts can arrive, and the app says they're off.
+ */
+let pushBlocked = $state(false);
+/** The re-enable banner shows once a session, not once ever like the first ask. */
+let reenablePromptShown = false;
 
 let deferredPrompt: BeforeInstallPromptEvent | null = null;
 let registration: ServiceWorkerRegistration | null = null;
 let recordedSets = 0;
 let notifPromptShown = false;
 let staleCheck: Promise<boolean> | null = null;
+
+function noteRegistration(result: PushRegistration) {
+	pushBlocked = result === 'blocked';
+}
 
 /** Call after `reg.update()`. Resolves once the new worker is waiting to take over, or after `timeoutMs`. */
 function waitForWaitingWorker(reg: ServiceWorkerRegistration, timeoutMs: number): Promise<void> {
@@ -157,8 +169,12 @@ export const pwa = {
 	get showWhatsNew() {
 		return showWhatsNew;
 	},
-	get notifStatus() {
-		return notifStatus;
+	/**
+	 * `default` also while permission reads as granted but the system won't
+	 * subscribe, so everything that offers "Enable" offers it again.
+	 */
+	get notifStatus(): NotifStatus | null {
+		return notifStatus && effectiveNotifStatus(notifStatus, pushBlocked);
 	},
 
 	/** Call from the layout's `onMount`; returns its teardown. */
@@ -166,7 +182,7 @@ export const pwa = {
 		online = navigator.onLine;
 		notifPromptShown = localStorage.getItem(NOTIF_PROMPTED_KEY) === 'true';
 		notifStatus = readNotifStatus();
-		subscribeToPush();
+		subscribeToPush().then(noteRegistration);
 		checkWhatsNew();
 
 		const updatedFrom = sessionStorage.getItem(UPDATED_FROM_KEY);
@@ -185,7 +201,7 @@ export const pwa = {
 		const onVisible = () => {
 			if (document.visibilityState !== 'visible') return;
 			const next = readNotifStatus();
-			if (next === 'granted' && notifStatus !== 'granted') subscribeToPush();
+			if (next === 'granted' && notifStatus !== 'granted') subscribeToPush().then(noteRegistration);
 			notifStatus = next;
 		};
 		const onBeforeInstall = (e: Event) => {
@@ -244,6 +260,9 @@ export const pwa = {
 			showNotifPrompt = true;
 			notifPromptShown = true;
 			localStorage.setItem(NOTIF_PROMPTED_KEY, 'true');
+		} else if (restStarted && pushBlocked && notifStatus === 'granted' && !reenablePromptShown) {
+			showNotifPrompt = true;
+			reenablePromptShown = true;
 		}
 	},
 
@@ -308,12 +327,24 @@ export const pwa = {
 		setTimeout(() => window.location.reload(), UPDATE_RELOAD_FALLBACK_MS);
 	},
 
+	/** Call from a tap: iOS only shows the permission prompt in response to one. */
 	async requestNotifications() {
 		showNotifPrompt = false;
 		if (!('Notification' in window)) return;
-		notifStatus = await Notification.requestPermission();
-		if (notifStatus === 'granted') {
-			await subscribeToPush();
+		// Already granted (but blocked at the system level): go straight to
+		// subscribing rather than asking for what the page already has.
+		notifStatus =
+			Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+		if (notifStatus !== 'granted') return;
+		const result = await subscribeToPush();
+		noteRegistration(result);
+		// The page has permission but the system refuses: say where to look
+		// rather than do nothing.
+		if (result === 'blocked') {
+			toaster.error(
+				"This device won't let SetCount send notifications. Check Settings → Notifications → SetCount.",
+				'push-blocked'
+			);
 		}
 	}
 };
