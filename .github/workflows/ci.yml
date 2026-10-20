@@ -9,26 +9,31 @@ on:
 permissions:
   contents: read
 
+# A new push to a PR replaces its running checks; every commit on main
+# finishes its own run.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# `$env/static/*` must define every name the app imports, even to type check.
+# These placeholders are never used: unit tests mock them, and against the
+# emulators the admin SDK skips credentials (src/lib/server/admin.ts), so the
+# key is never parsed.
+env:
+  FB_PROJECT_ID: workout-counter-99d56
+  FB_CLIENT_EMAIL: ci@example.com
+  FB_PRIVATE_KEY: placeholder
+  PUBLIC_VAPID_PUBLIC_KEY: placeholder
+  VAPID_PRIVATE_KEY: placeholder
+  VAPID_SUBJECT: mailto:ci@example.com
+  QSTASH_URL: https://qstash.example.com
+  QSTASH_TOKEN: placeholder
+  QSTASH_CURRENT_SIGNING_KEY: placeholder
+  QSTASH_NEXT_SIGNING_KEY: placeholder
 
 jobs:
   checks:
     runs-on: ubuntu-latest
-    # `$env/static/*` must define every name the app imports, even to type
-    # check. These placeholders are never used: unit tests mock them.
-    env:
-      FB_PROJECT_ID: workout-counter-99d56
-      FB_CLIENT_EMAIL: ci@example.com
-      FB_PRIVATE_KEY: placeholder
-      PUBLIC_VAPID_PUBLIC_KEY: placeholder
-      VAPID_PRIVATE_KEY: placeholder
-      VAPID_SUBJECT: mailto:ci@example.com
-      QSTASH_URL: https://qstash.example.com
-      QSTASH_TOKEN: placeholder
-      QSTASH_CURRENT_SIGNING_KEY: placeholder
-      QSTASH_NEXT_SIGNING_KEY: placeholder
     steps:
       - uses: actions/checkout@v4
 
@@ -47,19 +52,6 @@ jobs:
 
   e2e:
     runs-on: ubuntu-latest
-    # Same placeholders as above. Against the emulators the admin SDK skips
-    # credentials (src/lib/server/admin.ts), so the key is never parsed.
-    env:
-      FB_PROJECT_ID: workout-counter-99d56
-      FB_CLIENT_EMAIL: ci@example.com
-      FB_PRIVATE_KEY: placeholder
-      PUBLIC_VAPID_PUBLIC_KEY: placeholder
-      VAPID_PRIVATE_KEY: placeholder
-      VAPID_SUBJECT: mailto:ci@example.com
-      QSTASH_URL: https://qstash.example.com
-      QSTASH_TOKEN: placeholder
-      QSTASH_CURRENT_SIGNING_KEY: placeholder
-      QSTASH_NEXT_SIGNING_KEY: placeholder
     steps:
       - uses: actions/checkout@v4
 
@@ -77,6 +69,25 @@ jobs:
           java-version: 21
 
       - run: pnpm install --frozen-lockfile
+
+      - name: Read tool versions for the caches
+        id: versions
+        run: |
+          echo "firebase=$(grep -oE 'firebase-tools@[0-9.]+' package.json | cut -d@ -f2)" >> "$GITHUB_OUTPUT"
+          echo "playwright=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-${{ runner.os }}-${{ steps.versions.outputs.firebase }}
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.versions.outputs.playwright }}
+
+      # System deps are needed even on a cache hit; the browser download is
+      # skipped when it's already cached.
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e
 
