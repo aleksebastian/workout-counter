@@ -6,7 +6,7 @@ import { lockBodyScroll } from '$lib/scrollLock';
  * pinning the page twice and releasing it while the sheet is still up.
  */
 export function dialogScrollLock(node: HTMLDialogElement) {
-	let unlock: (() => void) | null = null;
+	let unlock: ((restoreScroll?: boolean) => void) | null = null;
 
 	function sync() {
 		if (node.open && !unlock) {
@@ -24,7 +24,9 @@ export function dialogScrollLock(node: HTMLDialogElement) {
 	return {
 		destroy() {
 			observer.disconnect();
-			unlock?.();
+			// Torn down while open means the page went away under it: the new
+			// page keeps its own scroll position rather than this one's.
+			unlock?.(false);
 		}
 	};
 }
