@@ -21,6 +21,15 @@ export interface ChangelogEntry {
 /** Newest first. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.13.2',
+		date: '2026-10-19',
+		fixed: [
+			'Rest-end notifications no longer arrive after you skip a rest, close the app mid-rest, or sign out',
+			'Deleting a set you just edited works again',
+			'General reliability and security improvements'
+		]
+	},
+	{
 		version: '0.13.1',
 		date: '2026-10-12',
 		fixed: ['Pop-up messages no longer cover the tab bar']
