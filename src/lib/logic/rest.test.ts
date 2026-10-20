@@ -84,23 +84,23 @@ describe('routineIdFromHref', () => {
 
 describe('parseStoredRest', () => {
 	it('reads the current format', () => {
-		expect(parseStoredRest(JSON.stringify({ expiresAt: 1000, messageId: 'm1' }))).toEqual({
+		expect(parseStoredRest(JSON.stringify({ expiresAt: 1000, restId: 'm1' }))).toEqual({
 			expiresAt: 1000,
-			messageId: 'm1'
+			restId: 'm1'
 		});
 	});
 
 	it('reads the bare ISO string older builds stored', () => {
 		const iso = '2026-10-19T12:00:00.000Z';
-		expect(parseStoredRest(iso)).toEqual({ expiresAt: Date.parse(iso), messageId: null });
+		expect(parseStoredRest(iso)).toEqual({ expiresAt: Date.parse(iso), restId: null });
 	});
 
-	it('drops a missing or malformed message id', () => {
+	it('drops a missing or malformed rest id', () => {
 		expect(parseStoredRest(JSON.stringify({ expiresAt: 5 }))).toEqual({
 			expiresAt: 5,
-			messageId: null
+			restId: null
 		});
-		expect(parseStoredRest(JSON.stringify({ expiresAt: 5, messageId: 7 }))?.messageId).toBeNull();
+		expect(parseStoredRest(JSON.stringify({ expiresAt: 5, restId: 7 }))?.restId).toBeNull();
 	});
 
 	it('restores nothing from empty or unreadable values', () => {

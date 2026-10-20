@@ -1,8 +1,10 @@
 import { add } from 'date-fns';
+import { v4 as uuidv4 } from 'uuid';
 import { HAPTIC } from '$lib/haptic';
 import { session } from '$lib/session.svelte';
 import { user } from '$lib/data';
 import { durationMs, parseStoredRest, pickRest, type Rest } from '$lib/logic/rest';
+import { createRestPush } from '$lib/logic/restPush';
 import type { Duration } from '$lib/types';
 
 /**
@@ -26,14 +28,32 @@ let offering = $state(false);
 
 let handle: ReturnType<typeof setInterval> | undefined;
 let expiresAt: Date | undefined;
-let messageId: string | null = null;
-/**
- * Bumped whenever the scheduled push stops applying (rest stopped or
- * replaced). A schedule request that comes back after that cancels its own
- * message instead of keeping it — otherwise skipping a rest before the
- * request returned still notified.
- */
-let pushGeneration = 0;
+
+/** The rest-end push; see `$lib/logic/restPush`. */
+const push = createRestPush({
+	canNotify: () => 'Notification' in window && Notification.permission === 'granted',
+	newId: uuidv4,
+	async schedule(restId, delayMs, issuedAt) {
+		try {
+			const res = await fetch('/api/push/schedule', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ restId, delayMs, issuedAt })
+			});
+			return res.ok;
+		} catch (err) {
+			console.error('[push] schedule failed:', err);
+			return false;
+		}
+	},
+	cancel(restId) {
+		fetch('/api/push/cancel', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ restId })
+		}).catch(() => {});
+	}
+});
 
 function format(ms: number): string {
 	const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
@@ -86,7 +106,7 @@ function persist() {
 	try {
 		localStorage.setItem(
 			STORAGE_KEY,
-			JSON.stringify({ expiresAt: expiresAt.getTime(), messageId })
+			JSON.stringify({ expiresAt: expiresAt.getTime(), restId: push.restId })
 		);
 	} catch {
 		// Private mode: a reload loses the countdown, which is harmless.
@@ -106,44 +126,6 @@ function clearHandle() {
 		clearInterval(handle);
 		handle = undefined;
 	}
-}
-
-async function schedulePush(expiresAtMs: number) {
-	if (!('Notification' in window) || Notification.permission !== 'granted') return;
-	const generation = pushGeneration;
-	try {
-		const res = await fetch('/api/push/schedule', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ expiresAt: expiresAtMs })
-		});
-		if (!res.ok) return;
-		const id: string | null = (await res.json()).messageId ?? null;
-		if (!id) return;
-		if (generation !== pushGeneration) {
-			cancelMessage(id);
-			return;
-		}
-		messageId = id;
-		persist();
-	} catch (err) {
-		console.error('[push] schedule failed:', err);
-	}
-}
-
-function cancelMessage(id: string) {
-	fetch('/api/push/cancel', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ messageId: id })
-	}).catch(() => {});
-}
-
-function cancelPush() {
-	pushGeneration++;
-	const id = messageId;
-	messageId = null;
-	if (id) cancelMessage(id);
 }
 
 export type StartOptions = {
@@ -197,18 +179,19 @@ export const restTimer = {
 
 		const { duration, label } = rest;
 		clearHandle();
-		cancelPush();
 		offering = false;
 
 		totalMs = durationMs(duration);
 		sourceLabel = label;
 		expiresAt = add(new Date(), { minutes: duration.minutes, seconds: duration.seconds });
+		// The rest id is stored before the request goes out, so a reload while
+		// it's in flight can still cancel what it queues.
+		push.start(totalMs);
 		persist();
 
 		remainingMs = totalMs;
 		display = format(totalMs);
 
-		schedulePush(expiresAt.getTime());
 		handle = setInterval(tick, 1000);
 		return true;
 	},
@@ -230,7 +213,7 @@ export const restTimer = {
 
 	stop() {
 		clearHandle();
-		cancelPush();
+		push.cancel();
 		forget();
 		expiresAt = undefined;
 		display = undefined;
@@ -255,7 +238,7 @@ export const restTimer = {
 			const left = stored.expiresAt - Date.now();
 			if (left > 0) {
 				expiresAt = new Date(stored.expiresAt);
-				messageId = stored.messageId;
+				push.adopt(stored.restId);
 				// The original total is gone; treat what's left as the full bar so the
 				// drain animation stays monotonic rather than jumping.
 				totalMs = left;
@@ -271,7 +254,7 @@ export const restTimer = {
 
 		return () => {
 			clearHandle();
-			cancelPush();
+			push.cancel();
 		};
 	}
 };
