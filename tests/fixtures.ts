@@ -114,7 +114,9 @@ export async function signIn(page: Page, { persistence = false } = {}) {
 	await page.goto(persistence ? '/login?e2ePersistence=1' : '/login');
 	await page.waitForFunction(() => typeof window.__e2eSignIn === 'function');
 	await page.evaluate((t) => window.__e2eSignIn!(t), token);
-	await expect(page.getByRole('heading', { name: /^Good (morning|afternoon|evening)/ })).toBeVisible();
+	await expect(
+		page.getByRole('heading', { name: /^Good (morning|afternoon|evening)/ })
+	).toBeVisible();
 }
 
 /** Opens a bottom-nav tab: Home, Train, Library or Discover. */
