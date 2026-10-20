@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { effectiveNotifStatus } from './notifStatus';
 
 describe('effectiveNotifStatus', () => {
-	it('reads a granted device with no subscription as not yet enabled', () => {
+	it("reads a granted device that the system won't subscribe as not yet enabled", () => {
 		expect(effectiveNotifStatus('granted', true)).toBe('default');
 	});
 

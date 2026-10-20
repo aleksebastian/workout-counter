@@ -1,12 +1,9 @@
 /**
- * What the app should report for notifications. A device whose permission is
- * granted but which has no push subscription can't be notified, so it reads
+ * What the app should report for notifications. A device whose permission reads
+ * as granted but where the system won't subscribe can't be notified, so it reads
  * as `default` — not yet enabled — and everything that offers "Enable" offers
  * it again.
  */
-export function effectiveNotifStatus<T extends string>(
-	status: T,
-	needsTap: boolean
-): T | 'default' {
-	return needsTap && status === 'granted' ? 'default' : status;
+export function effectiveNotifStatus<T extends string>(status: T, blocked: boolean): T | 'default' {
+	return blocked && status === 'granted' ? 'default' : status;
 }

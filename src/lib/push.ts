@@ -4,12 +4,13 @@ import { urlBase64ToUint8Array } from '$lib/utils';
 /**
  * What came of registering this device for push:
  * - `subscribed`: it has a subscription, and the server knows it.
- * - `needs-tap`: permission is granted but the device has no subscription, and
- *   the browser only creates one from a tap (WebKit refuses otherwise, with a
- *   NotAllowedError). The app has to ask again; see `pwa.requestNotifications`.
+ * - `blocked`: the page reports permission granted, but the system refuses to
+ *   create a subscription (WebKit throws NotAllowedError — on iOS when the web
+ *   app's notification permission isn't actually in place). No alerts can
+ *   arrive, so the app treats notifications as off and lets the user retry.
  * - `unavailable`: no permission, no push support, or a failure.
  */
-export type PushRegistration = 'subscribed' | 'needs-tap' | 'unavailable';
+export type PushRegistration = 'subscribed' | 'blocked' | 'unavailable';
 
 /**
  * Subscribes the current device to Web Push notifications and persists the
@@ -39,7 +40,7 @@ export async function subscribeToPush(): Promise<PushRegistration> {
 		}
 		return 'subscribed';
 	} catch (err) {
-		if ((err as Error)?.name === 'NotAllowedError') return 'needs-tap';
+		if ((err as Error)?.name === 'NotAllowedError') return 'blocked';
 		console.error('[push] subscribeToPush failed:', err);
 		return 'unavailable';
 	}
