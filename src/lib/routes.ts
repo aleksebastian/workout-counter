@@ -1,10 +1,10 @@
 /**
- * Route helpers for the tab shell: Home, Train, Library, Discover.
+ * Route helpers for the tab shell: Today, History, Library, Discover.
  *
- * The app used to have four tabs — Home, Exercises, Routines, Programs — which
- * put three configuration surfaces at the same level as the thing you actually
- * open the app to do. Exercises/Routines/Programs are now segments of one
- * Library tab, and Train is the guided-session entry point. Discover is the
+ * Today is where you train: the workout to do now, and every way to start
+ * one. It replaced two tabs, Home and Train, that both launched the same
+ * workouts. History is what you've done. Library holds your exercises,
+ * routines and programs as segments of one tab. Discover is the
  * outward-facing tab: ready-made items to add to your Library today, and the
  * home for shared content later.
  */
@@ -18,7 +18,12 @@ export const LIBRARY_TABS: { id: LibraryTab; label: string }[] = [
 ];
 
 /** Route ids that are top-level tabs — used to suppress page view transitions. */
-export const TAB_ROUTES = new Set(['/', '/train', '/library', '/discover']);
+export const TAB_ROUTES = new Set(['/', '/history', '/library', '/discover']);
+
+/** One past workout in History. */
+export function historyItemHref(sessionId: string): string {
+	return `/history/${sessionId}`;
+}
 
 export function libraryHref(tab: LibraryTab): string {
 	return `/library?tab=${tab}`;

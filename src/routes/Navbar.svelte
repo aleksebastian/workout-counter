@@ -21,7 +21,7 @@
 	});
 
 	const TAB_TITLES: Record<string, string> = {
-		'/train': 'Train',
+		'/history': 'History',
 		'/library': 'Library',
 		'/discover': 'Discover'
 	};
@@ -46,7 +46,9 @@
 	// Key for the left slot: changes when the slot type changes (home ↔ tab ↔ detail)
 	let leftKey = $derived(isHome ? 'pref' : isTab ? 'tab' : 'back');
 	// Key for the center: changes on every tab title change
-	let centerKey = $derived(isHome || !hasUser ? 'setcount' : isTab ? tabTitle : navState.title);
+	let centerKey = $derived(
+		!hasUser ? 'setcount' : isHome ? 'Today' : isTab ? tabTitle : navState.title
+	);
 
 	function handleBack() {
 		if (window.history.length > 1) {
@@ -122,8 +124,10 @@
 	<!-- Center -->
 	{#key centerKey}
 		<div in:fade={{ duration: isTabNav ? 150 : 0 }}>
-			{#if isHome || !hasUser}
+			{#if !hasUser}
 				<a class="btn btn-ghost text-xl" href="/">SetCount</a>
+			{:else if isHome}
+				<span class="text-xl font-bold">Today</span>
 			{:else if isTab}
 				<span class="text-xl font-bold">{tabTitle}</span>
 			{:else}

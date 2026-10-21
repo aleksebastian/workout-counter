@@ -321,10 +321,11 @@ export function runsRoutine(source: SessionSource, routineId: string, lookups: L
 
 /**
  * When a routine was last trained, or `null`. Its own sessions say so
- * directly. Its exercises' sets count too, unless they fall inside a session
- * of some other workout: a copy of a routine isn't "done" because the
- * original was, however many exercises the two share. A program day that
- * includes the routine is the routine being trained.
+ * directly, and so does a program day that includes it. Sets from before
+ * sessions were kept count for the routine's exercises, unless some other
+ * workout's session claims them: a copy of a routine isn't "done" because the
+ * original was. Once sessions exist, a set logged on its own doesn't make the
+ * routine done either.
  */
 export function routineLastTrained(
 	routine: Routine,
@@ -334,17 +335,22 @@ export function routineLastTrained(
 	let last: number | null = null;
 	const later = (t: number) => (last = last === null ? t : Math.max(last, t));
 
+	const mine: SessionWindow[] = [];
 	const others: SessionWindow[] = [];
 	for (const w of windows) {
 		if (!runsRoutine(w.source, routine.id, lookups)) others.push(w);
-		// A running one has no end yet; its sets speak for it below.
-		else if (w.source.type === 'routine' && Number.isFinite(w.end)) later(w.end);
+		else {
+			mine.push(w);
+			// A running one has no end yet; its sets speak for it below.
+			if (w.source.type === 'routine' && Number.isFinite(w.end)) later(w.end);
+		}
 	}
-	const claimed = (t: number) => others.some((w) => t >= w.start && t <= w.end);
+	const keptFrom = Math.min(...windows.map((w) => w.start));
+	const inside = (t: number, list: SessionWindow[]) => list.some((w) => t >= w.start && t <= w.end);
 	for (const ex of routine.exercises) {
 		for (const set of lookups.workout(ex.workoutId)?.sets ?? []) {
 			const t = Date.parse(set.date);
-			if (!claimed(t)) later(t);
+			if (inside(t, mine) || (t < keptFrom && !inside(t, others))) later(t);
 		}
 	}
 	return last;

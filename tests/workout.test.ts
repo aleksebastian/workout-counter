@@ -29,6 +29,6 @@ test('log a set, skip the rest, then discard the workout', async ({ page }) => {
 		.click();
 
 	await expect(page.getByText('Workout discarded')).toBeVisible();
-	await expect(page).toHaveURL(/\/train$/);
+	await expect(page).toHaveURL(/\/$/);
 	await expect.poll(async () => (await storedSets(EXERCISES[0].id)).length).toBe(0);
 });

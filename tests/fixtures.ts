@@ -115,24 +115,24 @@ export async function signIn(page: Page, { persistence = false } = {}) {
 	await page.waitForFunction(() => typeof window.__e2eSignIn === 'function');
 	await page.evaluate((t) => window.__e2eSignIn!(t), token);
 	await expect(
-		page.getByRole('heading', { name: /^Good (morning|afternoon|evening)/ })
+		page.getByRole('heading', { name: /^(Good (morning|afternoon|evening)|Welcome|Nice work)/ })
 	).toBeVisible();
 }
 
 /** Opens a bottom-nav tab: Home, Train, Library or Discover. */
-export async function openTab(page: Page, name: 'Home' | 'Train' | 'Library' | 'Discover') {
-	// Train's label grows to "Train, workout in progress" during a workout.
-	const label = name === 'Train' ? /^Train/ : name;
+export async function openTab(page: Page, name: 'Today' | 'History' | 'Library' | 'Discover') {
+	// Today's label grows to "Today, workout in progress" during a workout.
+	const label = name === 'Today' ? /^Today/ : name;
 	// .last(): the bottom nav comes after any same-named link in a page header.
 	await page
-		.getByRole('link', { name: label, exact: name !== 'Train' })
+		.getByRole('link', { name: label, exact: name !== 'Today' })
 		.last()
 		.click();
 }
 
-/** From Home: open Train and start the seeded routine. */
+/** Open Today and start the seeded routine (its card, or its row under it). */
 export async function startRoutine(page: Page) {
-	await openTab(page, 'Train');
+	await openTab(page, 'Today');
 	await page.getByRole('button', { name: `Start ${ROUTINE.name}`, exact: true }).click();
 	await expect(page.getByRole('heading', { name: EXERCISES[0].name })).toBeVisible();
 }

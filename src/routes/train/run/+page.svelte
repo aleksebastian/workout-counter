@@ -3,10 +3,8 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { formatDistanceToNow } from 'date-fns';
-	import { v4 as uuidv4 } from 'uuid';
 	import { exercises } from '$lib/data';
 	import { session } from '$lib/session.svelte';
-	import { restTimer } from '$lib/logic/restTimer.svelte';
 	import { training, type EndedToday, type SessionSummary } from '$lib/logic/training.svelte';
 	import {
 		previousSets,
@@ -19,16 +17,16 @@
 	import { formatDuration, pickRest } from '$lib/logic/rest';
 	import { loadCatalog, type Catalog } from '$lib/catalog';
 	import { catalogExerciseFor } from '$lib/catalog/match';
-	import { pwa } from '$lib/logic/pwa.svelte';
 	import { HAPTIC } from '$lib/haptic';
 	import { toaster } from '$lib/toast.svelte';
 	import ActionSheet, { type SheetAction } from '$lib/components/ActionSheet.svelte';
 	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
 	import EditSetSheet from '$lib/components/EditSetSheet.svelte';
 	import SessionHeader from './SessionHeader.svelte';
-	import SessionProgress from './SessionProgress.svelte';
+	import SessionProgress from '$lib/components/SessionProgress.svelte';
 	import SetTable from './SetTable.svelte';
-	import SetAdjuster from './SetAdjuster.svelte';
+	import SetAdjuster from '$lib/components/SetAdjuster.svelte';
+	import { recordSet as recordSet_ } from '$lib/logic/logSet';
 	import RunFooter from './RunFooter.svelte';
 	import HowToSheet from './HowToSheet.svelte';
 	import HistorySheet from './HistorySheet.svelte';
@@ -102,7 +100,7 @@
 	$effect(() => {
 		if (active) seenActive = true;
 		if (ready && !active && !summary && (!requested || seenActive)) {
-			goto('/train', { replaceState: true });
+			goto('/', { replaceState: true });
 		}
 	});
 
@@ -142,7 +140,7 @@
 			? `/programs/${active.source.programId}`
 			: active?.source.type === 'routine'
 				? `/routines/${active.source.routineId}`
-				: '/train'
+				: '/'
 	);
 
 	// ── Plan and position ───────────────────────────────────────────────────────
@@ -377,50 +375,21 @@
 	// ── Actions ─────────────────────────────────────────────────────────────────
 	async function recordSet() {
 		if (!currentWorkout || !currentEntry) return;
-
-		const set = {
-			id: uuidv4(),
-			reps,
-			date: new Date().toISOString(),
-			...(weight > 0 ? { weight } : {}),
-			...(notes.trim() ? { notes: notes.trim() } : {})
-		};
-
-		HAPTIC.medium();
-		// Routine timer beats the global default — resolved inside restTimer. A
-		// program-day exercise outside any routine gets the global timer.
-		pwa.noteSetRecorded(restTimer.start({ routineId: currentEntry.routineId }));
-		restAfter = set.id;
+		const { saved } = recordSet_(
+			currentWorkout.id,
+			{ reps, weight, notes },
+			// Routine timer beats the global default. A program-day exercise
+			// outside any routine gets the global timer.
+			{ routineId: currentEntry.routineId, message: `Set ${setsDone + 1} logged` }
+		);
 		// An extra set past the target is one set, not a way out of "done": back
-		// to the complete card, which offers another. Not after the await — that
-		// waits for the server, so offline it would never come back.
+		// to the complete card, which offers another. Not after the await, which
+		// waits for the server and offline would never come back.
 		recordingExtra = false;
-		// A stray tap on the big button shouldn't mean opening the set to delete
-		// it. Shown before the await, for the same reason as above.
-		const workoutId = currentWorkout.id;
-		toaster.show({
-			type: 'info',
-			message: `Set ${setsDone + 1} logged`,
-			timeout: 5000,
-			action: { label: 'Undo', onClick: () => undoSet(workoutId, set.id) }
-		});
-
-		const ok = await exercises.addSet(currentWorkout.id, set);
-		if (ok) {
+		if (await saved) {
 			notes = '';
 			noteOpen = false;
 		}
-	}
-
-	/** The set whose rest is counting down, so undoing an earlier one leaves it running. */
-	let restAfter: string | null = null;
-
-	function undoSet(workoutId: string, setId: string) {
-		const workout = session.workout(workoutId);
-		if (!workout) return;
-		HAPTIC.tap();
-		if (restAfter === setId) restTimer.stop();
-		exercises.removeSet(workout, setId);
 	}
 
 	function advance() {
@@ -548,7 +517,7 @@
 			{#if endedEarlier.complete}
 				<!-- Finished: a second round is a new workout; nothing to pick up. -->
 				<button class="btn btn-primary" onclick={startOver}>Start again</button>
-				<button class="btn btn-ghost" onclick={() => goto('/train', { replaceState: true })}
+				<button class="btn btn-ghost" onclick={() => goto('/', { replaceState: true })}
 					>Not now</button
 				>
 			{:else}
@@ -616,7 +585,7 @@
 	>
 		<button
 			class="btn btn-primary btn-lg mx-auto flex h-14 w-full max-w-lg rounded-2xl"
-			onclick={() => goto('/train')}>Done</button
+			onclick={() => goto('/')}>Done</button
 		>
 	</div>
 {:else if !ready || !active}

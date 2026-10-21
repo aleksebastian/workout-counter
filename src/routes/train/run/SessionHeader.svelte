@@ -38,13 +38,13 @@
 	});
 
 	// Leaving doesn't end anything: the workout keeps running, and the bar
-	// above the tabs is the way back.
+	// above the tabs (or Today's card) is the way back.
 	function minimize() {
 		if (window.history.length > 1) {
 			window.__backButtonClicked = true;
 			window.history.back();
 		} else {
-			goto('/train');
+			goto('/');
 		}
 	}
 </script>

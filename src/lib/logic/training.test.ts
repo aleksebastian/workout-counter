@@ -391,6 +391,12 @@ describe('routineLastTrained', () => {
 		expect(routineLastTrained(push, lookups, [running])).toBe(Date.parse(at(3)));
 	});
 
+	it('doesn’t count a set logged on its own once sessions are kept', () => {
+		const later = { ...bench, sets: [...bench.sets, { id: 'x', date: at(60), reps: 5 }] };
+		const lk = { ...lookups, workout: (id: string) => (id === 'bench' ? later : null) };
+		expect(routineLastTrained(push, lk, [ran])).toBe(ran.end);
+	});
+
 	it('falls back to sets when there are no sessions', () => {
 		expect(routineLastTrained(copy, lookups, [])).toBe(Date.parse(at(3)));
 	});

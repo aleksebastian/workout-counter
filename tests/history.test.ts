@@ -50,11 +50,18 @@ test.describe('a finished routine', () => {
 		expect((await readDoc(`users/${UID}`))?.activeSession).toBeUndefined();
 
 		await page.getByRole('button', { name: 'Done', exact: true }).click();
-		await expect(page).toHaveURL(/\/train$/);
-		await openTab(page, 'Home');
-		await expect(page.getByText('Last session')).toBeVisible();
-		// The card is the workout, not its last set.
-		await expect(page.getByText(/ago · 1 set$/)).toBeVisible();
+		await expect(page).toHaveURL(/\/$/);
+		// Today turns into the result.
+		await expect(page.getByText('Done today')).toBeVisible();
+
+		// History lists it, and it opens to the set it logged.
+		await openTab(page, 'History');
+		await page
+			.getByRole('link', { name: new RegExp(ROUTINE.name) })
+			.first()
+			.click();
+		await expect(page.getByRole('button', { name: /^Edit set 1:/ })).toBeVisible();
+		await expect(page.getByText(EXERCISES[0].name).first()).toBeVisible();
 	});
 });
 
@@ -75,10 +82,9 @@ test('a workout ended early can be resumed the same day, without logging it twic
 	await expect(page.getByText('Workout ended')).toBeVisible();
 	await expect.poll(async () => (await sessions()).length).toBe(1);
 
-	// Starting it again offers to pick up where it left off.
+	// Today offers to pick up where it left off.
 	await page.getByRole('button', { name: 'Done', exact: true }).click();
-	await page.getByRole('button', { name: `Start ${ROUTINE.name}`, exact: true }).click();
-	await expect(page.getByText(`${ROUTINE.name} ended early today`)).toBeVisible();
+	await expect(page.getByText(/0 of 2 done today/)).toBeVisible();
 	await page.getByRole('button', { name: 'Resume workout' }).click();
 
 	// Back in progress with the set still counted, and out of the history.
