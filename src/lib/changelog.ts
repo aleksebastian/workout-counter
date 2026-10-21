@@ -21,6 +21,14 @@ export interface ChangelogEntry {
 /** Newest first. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.15.1',
+		date: '2026-10-20',
+		fixed: [
+			'Updating the app no longer leaves you stuck on the sign-in screen with “Couldn’t start your session”',
+			'You stay signed in as long as you keep using the app, instead of being asked again every few days'
+		]
+	},
+	{
 		version: '0.15.0',
 		date: '2026-10-20',
 		improved: [
