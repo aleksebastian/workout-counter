@@ -1,26 +1,24 @@
 <script lang="ts">
 	import { counted } from '$lib/utils';
 	import { page } from '$app/state';
-	import { v4 as uuidv4 } from 'uuid';
 	import { formatRelative } from 'date-fns';
 	import SetsHistoryTable from '../../SetsHistoryTable.svelte';
 	import RecordSetSheet from '$lib/components/RecordSetSheet.svelte';
 	import FAB from '$lib/components/Buttons/FAB.svelte';
-	import { exercises } from '$lib/data';
 	import { session } from '$lib/session.svelte';
 	import { setPageNav } from '$lib/nav.svelte';
-	import { restTimer } from '$lib/logic/restTimer.svelte';
 	import { routineIdFromHref } from '$lib/logic/rest';
-	import { pwa } from '$lib/logic/pwa.svelte';
 	import { HAPTIC } from '$lib/haptic';
+	import { recordSet as recordSet_ } from '$lib/logic/logSet';
+	import { isRecord } from '$lib/logic/history';
 	import type { Set } from '$lib/types';
 
 	let workout = $derived(session.workout(page.params.workoutId));
 	let unit = $derived(session.prefs.weightUnit);
 
-	// `from` lets a routine or program hand us a back target; default to Train,
+	// `from` lets a routine or program hand us a back target; default to Today,
 	// which is where an ad-hoc log usually starts.
-	let backHref = $derived(page.url.searchParams.get('from') ?? '/train');
+	let backHref = $derived(page.url.searchParams.get('from') ?? '/');
 	let routineId = $derived(routineIdFromHref(page.url.searchParams.get('from')));
 
 	setPageNav(
@@ -134,33 +132,14 @@
 	});
 
 	// ── Recording ───────────────────────────────────────────────────────────────
-	function isPR(newReps: number, newWeight: number): boolean {
-		if (!workout?.sets.length) return false;
-		const maxReps = Math.max(...workout.sets.map((s) => s.reps));
-		const maxWeight = Math.max(...workout.sets.map((s) => s.weight ?? 0));
-		return newReps > maxReps || (newWeight > 0 && newWeight > maxWeight);
-	}
-
 	async function recordSet(newReps: number, newWeight: number, notes: string, date: string) {
 		if (!workout) return;
-
-		const pr = isPR(newReps, newWeight);
-		const set: Set = {
-			id: uuidv4(),
-			reps: newReps,
-			date: date ?? new Date().toISOString(),
-			...(newWeight > 0 ? { weight: newWeight } : {}),
-			...(notes.trim() ? { notes: notes.trim() } : {})
-		};
-
-		HAPTIC.medium();
+		const draft = { reps: newReps, weight: newWeight, notes, date };
+		// Before the save, which adds the new set to the live list.
+		const earlier = [...workout.sets];
 		// Opened from a routine: that routine's timer applies. Otherwise the global one.
-		pwa.noteSetRecorded(restTimer.start({ routineId }));
-
-		const ok = await exercises.addSet(workout.id, set);
-		if (ok && pr) {
-			HAPTIC.success();
-		}
+		const { set, saved } = recordSet_(workout.id, draft, { routineId, message: 'Set logged' });
+		if ((await saved) && isRecord(set, earlier)) HAPTIC.success();
 	}
 </script>
 
