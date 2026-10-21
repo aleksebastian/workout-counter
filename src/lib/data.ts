@@ -103,6 +103,15 @@ export const exercises = {
 		return ok ? workout : null;
 	},
 
+	/**
+	 * Saves an exercise the caller has already built (with its id). Not worth
+	 * awaiting where it matters that the app keeps going offline: the write is
+	 * queued locally and a later write to it applies after.
+	 */
+	put(workout: Workout) {
+		return mutate('create exercise', () => setDoc(ref('workouts', workout.id), workout));
+	},
+
 	update(id: string, fields: { name: string; notes?: string }) {
 		return mutate('save exercise', () =>
 			updateDoc(ref('workouts', id), {

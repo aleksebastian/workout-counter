@@ -11,6 +11,7 @@
 	import BottomSheet from '$lib/components/BottomSheet.svelte';
 	import SetAdjuster from '$lib/components/SetAdjuster.svelte';
 	import Chevron from '$lib/components/Chevron.svelte';
+	import { v4 as uuidv4 } from 'uuid';
 	import type { Workout } from '$lib/types';
 
 	/**
@@ -22,14 +23,15 @@
 
 	let { open = $bindable(false) }: { open?: boolean } = $props();
 
+	// Both carry the name: an exercise created a moment ago isn't in the store yet.
 	type Choice =
-		{ kind: 'library'; workoutId: string } | { kind: 'catalog'; catalogId: string; name: string };
+		| { kind: 'library'; workoutId: string; name: string }
+		| { kind: 'catalog'; catalogId: string; name: string };
 
 	let search = $state('');
 	let choice = $state<Choice | null>(null);
 	let reps = $state(10);
 	let weight = $state(0);
-	let saving = $state(false);
 
 	let catalog = $state<Catalog | null>(null);
 	$effect(() => {
@@ -44,7 +46,6 @@
 		if (open) return;
 		search = '';
 		choice = null;
-		saving = false;
 	});
 
 	let unit = $derived(session.prefs.weightUnit === 'kg' ? 'kg' : 'lb');
@@ -99,7 +100,7 @@
 	let chosenWorkout = $derived(
 		choice?.kind === 'library' ? session.workout(choice.workoutId) : null
 	);
-	let chosenName = $derived(choice?.kind === 'catalog' ? choice.name : (chosenWorkout?.name ?? ''));
+	let chosenName = $derived(chosenWorkout?.name ?? choice?.name ?? '');
 	let equipment = $derived.by(() => {
 		if (!catalog || !choice) return undefined;
 		if (choice.kind === 'catalog') return catalog.exercise(choice.catalogId)?.equipment;
@@ -120,17 +121,18 @@
 		weight = last?.weight ?? 0;
 	}
 
-	async function create(name: string) {
-		const message = getNameValidationMsg('Workout', name, session.workouts);
-		if (message) return;
-		saving = true;
-		const workout = await exercises.create(name);
-		saving = false;
-		if (workout) pick({ kind: 'library', workoutId: workout.id });
+	// Writes below aren't awaited: offline they wait for the server and would
+	// leave the sheet stuck. They queue locally, in order, so the set lands on
+	// the exercise created just before it.
+	function create(name: string) {
+		if (getNameValidationMsg('Workout', name, session.workouts)) return;
+		const workout: Workout = { id: uuidv4(), name: name.trim(), sets: [], createdAt: Date.now() };
+		exercises.put(workout);
+		pick({ kind: 'library', workoutId: workout.id, name: workout.name });
 	}
 
-	async function log() {
-		if (!choice || saving) return;
+	function log() {
+		if (!choice) return;
 		let workoutId = choice.kind === 'library' ? choice.workoutId : null;
 		if (choice.kind === 'catalog') {
 			const bundle = catalog?.bundle('exercise', choice.catalogId);
@@ -138,10 +140,7 @@
 			if (!bundle || !lib) return;
 			// Chosen over any alias match on purpose, so it's added as its own exercise.
 			const plan = planImport(bundle, lib, { aliasChoices: { [choice.catalogId]: 'new' } });
-			saving = true;
-			const ok = await library.add(plan);
-			saving = false;
-			if (!ok) return;
+			library.add(plan);
 			workoutId = plan.root.id;
 		}
 		if (!workoutId) return;
@@ -258,7 +257,9 @@
 			{#if recent.length}
 				{#snippet recentRows()}
 					{#each recent as w (w.id)}
-						{@render row(w.name, lastLine(w), () => pick({ kind: 'library', workoutId: w.id }))}
+						{@render row(w.name, lastLine(w), () =>
+							pick({ kind: 'library', workoutId: w.id, name: w.name })
+						)}
 					{/each}
 				{/snippet}
 				{@render group('Recent', recentRows)}
@@ -267,7 +268,9 @@
 			{#if all.length}
 				{#snippet allRows()}
 					{#each all as w (w.id)}
-						{@render row(w.name, lastLine(w), () => pick({ kind: 'library', workoutId: w.id }))}
+						{@render row(w.name, lastLine(w), () =>
+							pick({ kind: 'library', workoutId: w.id, name: w.name })
+						)}
 					{/each}
 				{/snippet}
 				{@render group(query ? 'Your exercises' : 'All exercises', allRows)}
@@ -297,7 +300,6 @@
 				<button
 					type="button"
 					class="btn btn-ghost text-primary-strong"
-					disabled={saving}
 					onclick={() => create(createName!)}>+ New exercise “{createName}”</button
 				>
 			{:else if !query && !workouts.length}
@@ -313,7 +315,6 @@
 			<button
 				type="button"
 				class="btn btn-primary btn-lg h-14 w-full gap-2 rounded-2xl"
-				disabled={saving}
 				onclick={log}
 			>
 				<span class="font-bold">Log set</span>

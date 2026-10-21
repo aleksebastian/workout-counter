@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { counted } from '$lib/utils';
+	import { counted, plural } from '$lib/utils';
 	import { session } from '$lib/session.svelte';
 	import { training } from '$lib/logic/training.svelte';
 	import { buildPlan } from '$lib/logic/training';
@@ -44,6 +44,14 @@
 	let target = $derived(streakTarget(goal, program));
 	let setTimes = $derived(workouts.flatMap((w) => w.sets.map((s) => Date.parse(s.date))));
 	let streak = $derived(weekStreak(setTimes, weekStart, target));
+	let streaksOn = $derived(session.prefs.streaksEnabled);
+	let daysThisWeek = $derived(
+		new globalThis.Set(
+			setTimes
+				.filter((t) => t >= weekStartOf(Date.now(), weekStart))
+				.map((t) => new Date(t).toDateString())
+		).size
+	);
 	let totals = $derived(weekTotals(logs, workouts, weekStart));
 	let minutes = $derived(Math.round(totals.durationMs / 60_000));
 	let streakRule = $derived(
@@ -54,6 +62,7 @@
 
 	// ── Calendar ────────────────────────────────────────────────────────────────
 	let monthOffset = $state(0);
+	let calendarOpen = $state(true);
 	let trainedDays = $derived(new globalThis.Set(setTimes.map((t) => new Date(t).toDateString())));
 	const todayKey = new Date().toDateString();
 
@@ -159,9 +168,12 @@
 	{:else}
 		<section class="flex flex-col gap-2">
 			<div class="grid grid-cols-3 gap-2">
+				<!-- With streaks off in Preferences, the week's training days instead. -->
 				<div class="bg-base-200 rounded-2xl px-2 py-3 text-center">
-					<b class="block text-2xl font-black tabular-nums">{streak}</b>
-					<span class="text-base-content/55 text-xs">week streak</span>
+					<b class="block text-2xl font-black tabular-nums">{streaksOn ? streak : daysThisWeek}</b>
+					<span class="text-base-content/55 text-xs"
+						>{streaksOn ? 'week streak' : `${plural(daysThisWeek, 'day')} this week`}</span
+					>
 				</div>
 				<div class="bg-base-200 rounded-2xl px-2 py-3 text-center">
 					<b class="block text-lg leading-8 font-black tabular-nums"
@@ -179,37 +191,43 @@
 					>
 				</div>
 			</div>
-			<p class="text-base-content/55 text-xs">{streakRule}</p>
+			{#if streaksOn}
+				<p class="text-base-content/55 text-xs">{streakRule}</p>
+			{/if}
 		</section>
 
-		<!-- Open by default; folded, it keeps this week so the screen still says where you are. -->
-		<details class="bg-base-200 group rounded-2xl p-4" open>
-			<summary
-				class="flex cursor-pointer list-none items-center justify-between [&::-webkit-details-marker]:hidden"
-			>
-				<span class="font-semibold">{month.label}</span>
-				<span class="flex items-center gap-1">
+		<!-- Open by default; folded, it keeps this week so the screen still says
+		     where you are. The month arrows sit beside the toggle, not inside it. -->
+		<section class="bg-base-200 rounded-2xl p-4">
+			<div class="flex items-center gap-1">
+				<span class="min-w-0 flex-1 font-semibold">{calendarOpen ? month.label : 'This week'}</span>
+				{#if calendarOpen}
 					<button
 						type="button"
 						class="btn btn-ghost btn-sm btn-circle"
 						aria-label="Previous month"
-						onclick={(e) => {
-							e.preventDefault();
-							monthOffset--;
-						}}>‹</button
+						onclick={() => monthOffset--}>‹</button
 					>
 					<button
 						type="button"
 						class="btn btn-ghost btn-sm btn-circle"
 						aria-label="Next month"
 						disabled={monthOffset >= 0}
-						onclick={(e) => {
-							e.preventDefault();
-							monthOffset++;
-						}}>›</button
+						onclick={() => monthOffset++}>›</button
 					>
+				{/if}
+				<button
+					type="button"
+					class="btn btn-ghost btn-sm btn-circle"
+					aria-expanded={calendarOpen}
+					aria-label={calendarOpen ? 'Fold the calendar to this week' : 'Show the whole month'}
+					onclick={() => (calendarOpen = !calendarOpen)}
+				>
 					<svg
-						class="text-base-content/30 h-4.5 w-4.5 transition-transform group-open:rotate-180"
+						class={[
+							'text-base-content/40 h-4.5 w-4.5 transition-transform',
+							calendarOpen && 'rotate-180'
+						]}
 						viewBox="0 0 24 24"
 						fill="none"
 						stroke="currentColor"
@@ -217,28 +235,23 @@
 						aria-hidden="true"
 						><path d="m6 9 6 6 6-6" stroke-linecap="round" stroke-linejoin="round" /></svg
 					>
-				</span>
-			</summary>
+				</button>
+			</div>
 			<div class="mt-3 grid grid-cols-7 gap-y-1.5 text-center">
 				{#each weekdayLabels as label, i (i)}
 					<span class="text-base-content/40 text-[11px] font-semibold">{label}</span>
 				{/each}
-				{#each month.cells as cell, i (i)}
-					{@render calendarCell(cell)}
-				{/each}
+				{#if calendarOpen}
+					{#each month.cells as cell, i (i)}
+						{@render calendarCell(cell)}
+					{/each}
+				{:else}
+					{#each week as cell (cell.key)}
+						{@render calendarCell(cell)}
+					{/each}
+				{/if}
 			</div>
-		</details>
-		<!-- Shown only while the calendar is folded. -->
-		<div class="bg-base-200 -mt-4 hidden rounded-2xl p-4 [details:not([open])+&]:grid">
-			<div class="grid grid-cols-7 gap-y-1.5 text-center">
-				{#each weekdayLabels as label, i (i)}
-					<span class="text-base-content/40 text-[11px] font-semibold">{label}</span>
-				{/each}
-				{#each week as cell (cell.key)}
-					{@render calendarCell(cell)}
-				{/each}
-			</div>
-		</div>
+		</section>
 
 		{#each groups as group (group.label)}
 			{#if group.rows.length}
@@ -273,7 +286,7 @@
 											{/if}
 										</span>
 										<span class="text-base-content/55 truncate text-xs"
-											>{dayLabel(row.at)} · {counted(row.log.totals.sets, 'set')}{row.volume
+											>{dayLabel(row.at)} · {counted(row.sets, 'set')}{row.volume
 												? ` · ${weight(row.volume)}`
 												: ''} · {Math.max(1, Math.round(row.durationMs / 60_000))} min</span
 										>

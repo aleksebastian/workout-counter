@@ -75,19 +75,26 @@
 	let hasSets = $derived((session.workouts ?? []).some((w) => w.sets.length > 0));
 
 	/** With no program, suggest the routine trained longest ago (never trained first). */
+	/** Built once per change, not once per routine. */
+	let windows = $derived(training.windows());
+
 	let suggested = $derived.by(() => {
 		if (!runnable.length) return null;
-		const windows = training.windows();
 		const last = (id: string) =>
 			routineLastTrained(session.routine(id)!, training.lookups, windows) ?? -Infinity;
 		return [...runnable].sort((a, b) => last(a.id) - last(b.id))[0];
 	});
 
 	type Hero = 'progress' | 'done' | 'program' | 'rest' | 'routine' | 'new';
+	/** Today's program workout is still to do: not run today, or ended early. */
+	let programPending = $derived(
+		!!programSource && !(endedToday?.complete && sameSource(endedToday.source, programSource))
+	);
 	let hero = $derived.by((): Hero => {
 		if (active) return 'progress';
+		// Finishing something else today doesn't tick off the plan.
+		if (programPending) return 'program';
 		if (endedToday?.complete) return 'done';
-		if (programSource) return 'program';
 		if (program) return 'rest';
 		if (suggested) return 'routine';
 		return 'new';
@@ -603,7 +610,7 @@
 				</div>
 				<div class="bg-base-200 divide-base-300 flex flex-col divide-y overflow-hidden rounded-2xl">
 					{#each others as routine (routine.id)}
-						{@const last = routineLastTrained(routine, training.lookups, training.windows())}
+						{@const last = routineLastTrained(routine, training.lookups, windows)}
 						<div class="flex items-center gap-2 px-4 py-3">
 							<a href={`/routines/${routine.id}`} class="flex min-w-0 flex-1 flex-col">
 								<span class="truncate font-semibold">{routine.name}</span>

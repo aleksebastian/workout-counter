@@ -58,15 +58,45 @@ export function sessionSets(
 		.sort((a, b) => timeOf(a) - timeOf(b));
 }
 
-/** Ids of the sets among `sets` that were records when logged, against the whole history before each. */
-export function recordIds(workout: Workout, sets: Set[]): globalThis.Set<string> {
+/** Every record set of an exercise, worked out once per version of it (a snapshot is a new object). */
+const recordCache = new WeakMap<Workout, globalThis.Set<string>>();
+
+/**
+ * Ids of every set that was a record when logged, in one pass in time order
+ * with running bests: the same rule as `isRecord`, without rescanning the
+ * history for each set.
+ */
+function allRecords(workout: Workout): globalThis.Set<string> {
+	const cached = recordCache.get(workout);
+	if (cached) return cached;
 	const ids = new globalThis.Set<string>();
-	for (const set of sets) {
-		const t = timeOf(set);
-		const earlier = workout.sets.filter((s) => timeOf(s) < t);
-		if (isRecord(set, earlier)) ids.add(set.id);
+	let heaviest = 0;
+	let mostReps = -Infinity;
+	let seen = 0;
+	const repsAt = new Map<number, number>();
+	for (const set of [...workout.sets].sort((a, b) => timeOf(a) - timeOf(b))) {
+		const weight = set.weight ?? 0;
+		if (seen > 0) {
+			const beatsWeight =
+				weight > 0 &&
+				(weight > heaviest ||
+					(weight === heaviest && set.reps > (repsAt.get(weight) ?? -Infinity)));
+			const beatsReps = weight === 0 && heaviest === 0 && set.reps > mostReps;
+			if (beatsWeight || beatsReps) ids.add(set.id);
+		}
+		seen++;
+		heaviest = Math.max(heaviest, weight);
+		mostReps = Math.max(mostReps, set.reps);
+		repsAt.set(weight, Math.max(repsAt.get(weight) ?? -Infinity, set.reps));
 	}
+	recordCache.set(workout, ids);
 	return ids;
+}
+
+/** Ids of the sets among `sets` that were records when logged. */
+export function recordIds(workout: Workout, sets: Set[]): globalThis.Set<string> {
+	const all = allRecords(workout);
+	return new globalThis.Set(sets.filter((s) => all.has(s.id)).map((s) => s.id));
 }
 
 /** The set that best stands for a session: heaviest, then most reps. */
@@ -105,6 +135,8 @@ export type SessionRow = {
 	/** Newest activity, for ordering. */
 	at: number;
 	durationMs: number;
+	/** From the exercises as they are now, so an edit or delete in History shows up. */
+	sets: number;
 	volume: number;
 	/** Exercises with at least one record in this session. */
 	records: number;
@@ -134,11 +166,13 @@ export function historyFeed(
 	const byId = new Map(workouts.map((w) => [w.id, w]));
 	const rows: FeedRow[] = logs.map((log) => {
 		let vol = 0;
+		let count = 0;
 		let records = 0;
 		for (const ex of log.exercises) {
 			const workout = byId.get(ex.workoutId);
 			if (!workout) continue;
 			const sets = sessionSets(workout, log);
+			count += sets.length;
 			vol += volume(sets);
 			if (recordIds(workout, sets).size) records++;
 		}
@@ -147,6 +181,7 @@ export function historyFeed(
 			log,
 			at: log.endedAt,
 			durationMs: logDuration(log),
+			sets: count,
 			volume: vol,
 			records
 		};

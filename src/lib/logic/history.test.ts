@@ -92,6 +92,20 @@ describe('volume and vsLast', () => {
 		expect(vsLast(w, w.sets, 'lb')).toBeNull();
 	});
 
+	it('agrees with isRecord for every set', () => {
+		const w = workout('w', [
+			set(-3 * DAY, 10, 100),
+			set(-2 * DAY, 8, 110),
+			set(-DAY, 9, 110),
+			set(0, 12, 100),
+			set(1, 10, 115)
+		]);
+		const ids = recordIds(w, w.sets);
+		for (const [i, s] of w.sets.entries()) {
+			expect(ids.has(s.id)).toBe(isRecord(s, w.sets.slice(0, i)));
+		}
+	});
+
 	it('marks the record sets of a session', () => {
 		expect([...recordIds(bench, [bench.sets[2]])]).toEqual([bench.sets[2].id]);
 	});
