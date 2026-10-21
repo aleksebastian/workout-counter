@@ -1,706 +1,611 @@
 <script lang="ts">
-	import { SETUP_SEEN_KEY } from '$lib/logic/accountStorage';
-	import { counted, plural } from '$lib/utils';
-	import { goto, afterNavigate } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { fly } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
+	import { goto } from '$app/navigation';
 	import { formatDistanceToNowStrict } from 'date-fns';
+	import { counted } from '$lib/utils';
 	import { session } from '$lib/session.svelte';
 	import { user } from '$lib/data';
 	import { pwa } from '$lib/logic/pwa.svelte';
 	import { training } from '$lib/logic/training.svelte';
 	import {
+		buildPlan,
+		formatClock,
+		programDayName,
+		routineLastTrained,
+		sameSource,
+		setsSince,
+		whenNext,
+		type PlanEntry
+	} from '$lib/logic/training';
+	import { durationMs, pickRest } from '$lib/logic/rest';
+	import {
+		estimateMinutes,
+		logDuration,
+		recordIds,
+		sessionSets
+	} from '$lib/logic/history';
+	import {
 		discoverHref,
+		historyItemHref,
 		libraryHref,
 		newRoutineHref,
 		runProgramHref,
 		runRoutineHref
 	} from '$lib/routes';
-	import { itemsForDay, nextScheduledDay } from '$lib/types';
-	import { programDayName, whenNext } from '$lib/logic/training';
+	import { nextScheduledDay, programDays, type SessionSource } from '$lib/types';
 	import Chevron from '$lib/components/Chevron.svelte';
-	import CheckIcon from '$lib/components/CheckIcon.svelte';
+	import SessionProgress from '$lib/components/SessionProgress.svelte';
+	import LogSetSheet from '$lib/components/LogSetSheet.svelte';
+	import WeekStrip from './today/WeekStrip.svelte';
 
-	// Only animate on a fresh page load, not on in-app navigation.
-	let isLanding = $state(false);
-	afterNavigate(({ from }) => {
-		isLanding = from === null;
-	});
+	/**
+	 * Today: the one thing to do now, then everything else, quieter. It used to
+	 * be two tabs (Home and Train) that both started the same workouts. The
+	 * hero is one of: the workout in progress, today's result, today's program
+	 * workout, a rest day, a suggested routine, or, for a new account, the
+	 * choice of what to train.
+	 */
 
-	function landingFly(node: Element, params: Parameters<typeof fly>[1]) {
-		return isLanding ? fly(node, params) : {};
-	}
-
-	// A dedicated ticker for time-since labels, so the expensive derivations
-	// below don't re-run once a second.
 	let now = $state(Date.now());
 	onMount(() => {
 		const t = setInterval(() => (now = Date.now()), 1000);
 		return () => clearInterval(t);
 	});
 
-	let unit = $derived(session.prefs.weightUnit);
-	let weekStart = $derived(session.prefs.weekStart);
-	let weeklyGoal = $derived(session.prefs.weeklyGoal);
-	let streaksEnabled = $derived(session.prefs.streaksEnabled);
-
 	let loading = $derived(
-		session.status === 'loading' || session.workouts === null || session.programs === null
+		session.workouts === null || session.routines === null || session.programs === null
+	);
+	let logs = $derived(session.sessionLogs ?? []);
+	let unit = $derived(session.prefs.weightUnit === 'kg' ? 'kg' : 'lb');
+
+	const todayDow = new Date().getDay();
+	let program = $derived(session.activeProgram);
+	let todayDay = $derived(
+		program?.schedule.find((d) => d.day === todayDow && d.items.length > 0) ?? null
+	);
+	let programSource = $derived<SessionSource | null>(
+		program && todayDay ? { type: 'program', programId: program.id, day: todayDow } : null
 	);
 
-	// ── Data derivations ───────────────────────────────────────────────────────
-
-	let allSets = $derived((session.workouts ?? []).flatMap((w) => w.sets));
-
-	/** The most recent of `sets`, or `null`. */
-	function latest<S extends { date: string }>(sets: S[]): S | null {
-		return sets.length
-			? sets.reduce((a, b) => (new Date(a.date) > new Date(b.date) ? a : b))
-			: null;
-	}
-
-	let lastSet = $derived(latest(allSets));
-	let lastSetTimestamp = $derived(lastSet ? new Date(lastSet.date).getTime() : null);
-
-	/**
-	 * The Last session card's set: the latest one from before the workout in
-	 * progress, if there is one — that workout has its own bar, and showing its
-	 * first set here as "last session" read as if it were already over.
-	 */
-	let sessionSet = $derived.by(() => {
-		const startedAt = training.session?.startedAt;
-		return latest(
-			startedAt === undefined ? allSets : allSets.filter((s) => Date.parse(s.date) < startedAt)
-		);
+	let active = $derived(training.session);
+	/** The workout that ended earlier today, finished or not. */
+	let endedToday = $derived.by(() => {
+		const last = session.data?.lastSession;
+		if (!last || active) return null;
+		return new Date(last.endedAt).toDateString() === new Date(now).toDateString() ? last : null;
 	});
-	let sessionSetTimestamp = $derived(sessionSet ? new Date(sessionSet.date).getTime() : null);
+	let todayLog = $derived(endedToday ? (logs.find((l) => l.id === endedToday!.id) ?? null) : null);
 
-	let lastWorkout = $derived(
-		sessionSet
-			? ((session.workouts ?? []).find((w) => w.sets.some((s) => s.id === sessionSet!.id)) ?? null)
-			: null
-	);
+	let runnable = $derived((session.routines ?? []).filter((r) => r.exercises.length > 0));
+	let hasSets = $derived((session.workouts ?? []).some((w) => w.sets.length > 0));
 
-	/** Timestamp of the day that starts the week containing `d`. */
-	function weekStartTs(d: Date, ws: 0 | 1): number {
-		const day = new Date(d);
-		day.setHours(0, 0, 0, 0);
-		day.setDate(day.getDate() - ((day.getDay() - ws + 7) % 7));
-		return day.getTime();
-	}
-
-	let weekDays = $derived.by(() => {
-		const today = new Date();
-		today.setHours(0, 0, 0, 0);
-		const start = new Date(today);
-		start.setDate(today.getDate() - ((today.getDay() - weekStart + 7) % 7));
-		return Array.from({ length: 7 }, (_, i) => {
-			const d = new Date(start);
-			d.setDate(start.getDate() + i);
-			const key = d.toDateString();
-			return {
-				label: d.toLocaleDateString('en', { weekday: 'short' }),
-				active: allSets.some((s) => new Date(s.date).toDateString() === key),
-				isToday: key === today.toDateString(),
-				isFuture: d > today
-			};
-		});
+	/** With no program, suggest the routine trained longest ago (never trained first). */
+	let suggested = $derived.by(() => {
+		if (!runnable.length) return null;
+		const windows = training.windows();
+		const last = (id: string) =>
+			routineLastTrained(session.routine(id)!, training.lookups, windows) ?? -Infinity;
+		return [...runnable].sort((a, b) => last(a.id) - last(b.id))[0];
 	});
 
-	/** Week-start timestamps for every week that hit the weekly goal. */
-	let completedWeeks = $derived.by(() => {
-		const byWeek = new Map<number, globalThis.Set<string>>();
-		for (const s of allSets) {
-			const date = new Date(s.date);
-			const wk = weekStartTs(date, weekStart);
-			if (!byWeek.has(wk)) byWeek.set(wk, new globalThis.Set());
-			byWeek.get(wk)!.add(date.toDateString());
-		}
-		return new globalThis.Set(
-			[...byWeek.entries()].filter(([, days]) => days.size >= weeklyGoal).map(([wk]) => wk)
-		);
+	type Hero = 'progress' | 'done' | 'program' | 'rest' | 'routine' | 'new';
+	let hero = $derived.by((): Hero => {
+		if (active) return 'progress';
+		if (endedToday?.complete) return 'done';
+		if (programSource) return 'program';
+		if (program) return 'rest';
+		if (suggested) return 'routine';
+		return 'new';
 	});
 
-	const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-
-	/** Consecutive goal-hitting weeks; the current week isn't penalised early. */
-	let streak = $derived.by(() => {
-		if (!completedWeeks.size) return 0;
-		let cursor = weekStartTs(new Date(), weekStart);
-		if (!completedWeeks.has(cursor)) cursor -= WEEK_MS;
-		let count = 0;
-		while (completedWeeks.has(cursor)) {
-			count++;
-			cursor -= WEEK_MS;
-		}
-		return count;
-	});
-
-	let weekDayCount = $derived.by(() => {
-		const today = new Date();
-		today.setHours(0, 0, 0, 0);
-		const cutoff = new Date(today);
-		cutoff.setDate(today.getDate() - ((today.getDay() - weekStart + 7) % 7));
-		return new globalThis.Set(
-			allSets.filter((s) => new Date(s.date) >= cutoff).map((s) => new Date(s.date).toDateString())
-		).size;
-	});
-
-	/** Compact "time since" for the stat tile — the only value tied to `now`. */
-	let sinceLastSet = $derived.by(() => {
-		if (!lastSetTimestamp) return '—';
-		const secs = Math.floor((now - lastSetTimestamp) / 1000);
-		const mins = Math.floor(secs / 60);
-		const hrs = Math.floor(mins / 60);
-		const days = Math.floor(hrs / 24);
-		if (days > 0) return `${days}d`;
-		if (hrs > 0) return `${hrs}h`;
-		if (mins > 0) return `${mins}m`;
-		return `${secs}s`;
-	});
-
-	/**
-	 * "12 seconds ago", "3 minutes ago", "10 days ago". Rounded down, like the
-	 * "since last set" tile: rounding to nearest had the card say "11 days
-	 * ago" beside a tile saying "10d".
-	 */
-	function ago(ts: number, at: number): string {
-		const secs = Math.floor((at - ts) / 1000);
-		const mins = Math.floor(secs / 60);
-		if (secs < 60) return secs <= 1 ? '1 second ago' : `${secs} seconds ago`;
-		if (mins < 10) return `${mins} minute${mins === 1 ? '' : 's'} ago`;
-		return formatDistanceToNowStrict(ts, { addSuffix: true, roundingMethod: 'floor' });
-	}
-
-	let lastSetLabel = $derived(sessionSetTimestamp ? ago(sessionSetTimestamp, now) : '');
-
-	// Was hardcoded to "kg" regardless of the user's preference.
-	let lastSetDetail = $derived.by(() => {
-		if (!sessionSet) return '';
-		const parts = [counted(sessionSet.reps, 'rep')];
-		if (sessionSet.weight) parts.push(`${sessionSet.weight} ${unit === 'kg' ? 'kg' : 'lb'}`);
-		return parts.join(' · ');
-	});
-
-	/**
-	 * The last workout run start to finish (newest in the history). The card
-	 * used to show the last single set under a "Last session" heading; that's
-	 * now only the fallback, for history from before workouts were kept.
-	 */
-	let lastLog = $derived(session.sessionLogs?.[0] ?? null);
-	let lastLogHref = $derived(
-		lastLog?.source.type === 'routine'
-			? `/routines/${lastLog.source.routineId}`
-			: lastLog?.source.type === 'program'
-				? `/programs/${lastLog.source.programId}`
+	/** What the hero offers to start: today's program day, or the suggested routine. */
+	let heroSource = $derived<SessionSource | null>(
+		hero === 'program'
+			? programSource
+			: hero === 'routine' && suggested
+				? { type: 'routine', routineId: suggested.id }
 				: null
 	);
-	let lastLogLabel = $derived(
-		lastLog ? `${ago(lastLog.endedAt, now)} · ${counted(lastLog.totals.sets, 'set')}` : ''
-	);
+	let heroPlan = $derived(heroSource ? (buildPlan(heroSource, training.lookups) ?? []) : []);
+	let heroEnded = $derived(heroSource ? training.endedToday(heroSource) : null);
 
-	let greeting = $derived.by(() => {
-		const h = new Date(now).getHours();
-		const name = session.user?.displayName?.split(' ')[0] ?? '';
-		const part = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
-		return name ? `${part}, ${name}` : part;
+	// ── Hero details ────────────────────────────────────────────────────────────
+	function namesOf(plan: PlanEntry[]): string[] {
+		const names = plan.map((e) => session.workout(e.workoutId)?.name).filter((n) => !!n);
+		return [...new globalThis.Set(names as string[])];
+	}
+
+	/** One line: two exercises, then how many more. */
+	let preview = $derived.by(() => {
+		const names = namesOf(heroPlan);
+		return { shown: names.slice(0, 2), more: Math.max(0, names.length - 2) };
 	});
 
-	let todayLabel = new Date().toLocaleDateString('en', {
-		weekday: 'long',
-		month: 'long',
-		day: 'numeric'
-	});
-
-	/** Stat tiles, built as data so the streaks-on and streaks-off layouts share markup. */
-	let stats = $derived(
-		[
-			{ value: sinceLastSet, label: 'since last set' },
-			{ value: String(weekDayCount), label: `${plural(weekDayCount, 'day')} this week` },
-			streaksEnabled ? { value: String(streak), label: 'week streak' } : null
-		].filter((s) => s !== null)
-	);
-
-	// ── Today's plan ────────────────────────────────────────────────────────────
-	const todayDow = new Date().getDay();
-	let activeProgram = $derived(session.activeProgram);
-	/** Today's program workout, if it ended earlier today — offered back as Resume. */
-	let endedToday = $derived(
-		activeProgram
-			? training.endedToday({ type: 'program', programId: activeProgram.id, day: todayDow })
+	let estimate = $derived(
+		heroSource
+			? estimateMinutes(
+					heroPlan,
+					(e) => {
+						const rest = pickRest(session.routine(e.routineId), session.prefs);
+						return rest ? durationMs(rest.duration) / 1000 : 0;
+					},
+					logs,
+					heroSource
+				)
 			: null
 	);
-	let todayEntry = $derived(
-		activeProgram ? (activeProgram.schedule.find((d) => d.day === todayDow) ?? null) : null
+
+	const ago = (t: number) =>
+		formatDistanceToNowStrict(t, { addSuffix: true, roundingMethod: 'floor' });
+
+	let lastDone = $derived.by(() => {
+		if (!heroSource) return null;
+		const log = logs.find((l) => sameSource(l.source, heroSource!));
+		return log ? `last done ${ago(log.endedAt)}` : 'not done yet';
+	});
+
+	let heroTitle = $derived(
+		hero === 'program' && todayDay
+			? programDayName(todayDay, (id) => session.routine(id))
+			: (suggested?.name ?? '')
 	);
-	/** On a rest day, the next day with something on: "Full Body A, Wednesday". */
-	let nextUp = $derived.by(() => {
-		if (!activeProgram) return null;
-		const day = nextScheduledDay(activeProgram, todayDow);
-		if (!day) return null;
-		return `${programDayName(day, (id) => session.routine(id))}, ${whenNext(day.day, todayDow)}`;
-	});
-	let todayCount = $derived.by(() => {
-		if (!activeProgram) return 0;
-		return itemsForDay(activeProgram, todayDow).reduce((sum, item) => {
-			if (item.type === 'exercise') return sum + 1;
-			return sum + (session.routine(item.routineId)?.exercises.length ?? 0);
-		}, 0);
+	let heroEyebrow = $derived.by(() => {
+		if (hero === 'routine') return 'Up next';
+		if (!program) return '';
+		const days = programDays(program).sort((a, b) => a - b);
+		return `${program.name} · day ${days.indexOf(todayDow) + 1} of ${days.length}`;
 	});
 
-	// ── Needs attention ─────────────────────────────────────────────────────────
-	let overdue = $derived.by(() => {
-		const trained = (session.workouts ?? []).filter((w) => w.sets.length > 0);
-		if (trained.length < 3) return null;
-		const withLast = trained.map((w) => ({
-			workout: w,
-			last: Math.max(...w.sets.map((s) => new Date(s.date).getTime()))
-		}));
-		const oldest = withLast.reduce((a, b) => (a.last < b.last ? a : b));
-		const days = Math.floor((Date.now() - oldest.last) / (1000 * 60 * 60 * 24));
-		return days >= 7 ? { workout: oldest.workout, days } : null;
-	});
-
-	// ── Getting started ─────────────────────────────────────────────────────────
-	// Logging a set only ever needed one exercise; the routine step used to be a
-	// hard gate in front of it, which it isn't.
-	let hasExercises = $derived((session.workouts?.length ?? 0) > 0);
-	let hasSet = $derived(allSets.length > 0);
-
-	// The checklist vanished the moment the first set landed, with nothing to
-	// say it was finished. A new account (first set within the last two days)
-	// gets a closing card instead, until it's dismissed.
-	const NEW_ACCOUNT_MS = 2 * 24 * 60 * 60 * 1000;
-	let setupSeen = $state(true);
-	onMount(() => {
-		try {
-			setupSeen = localStorage.getItem(SETUP_SEEN_KEY) === 'true';
-		} catch {
-			setupSeen = true;
-		}
-	});
-	let showSetupDone = $derived(
-		!setupSeen &&
-			hasSet &&
-			Date.now() - Math.min(...allSets.map((s) => Date.parse(s.date))) < NEW_ACCOUNT_MS
-	);
-	function dismissSetupDone() {
-		setupSeen = true;
-		try {
-			localStorage.setItem(SETUP_SEEN_KEY, 'true');
-		} catch {
-			// Private mode: it just comes back next visit.
-		}
+	function start(opts?: { fresh?: boolean; resume?: boolean }) {
+		const source = heroSource;
+		if (!source) return;
+		goto(
+			source.type === 'program'
+				? runProgramHref(source.programId, source.day, opts)
+				: runRoutineHref(source.routineId, opts)
+		);
 	}
-	let firstWorkout = $derived(session.workouts?.[0]);
-	// An empty routine doesn't count: there'd be nothing to start.
-	let startingRoutine = $derived(session.routines?.find((r) => r.exercises.length > 0));
 
-	// Rest timer and its alerts, as one step and the first one: the checklist is
-	// gone after the first set, and the likely path (Discover → program → log a
-	// set) used to get there before ever reaching a later step. One tap turns the
-	// global timer on and asks for alerts in the same breath, so the permission
-	// request comes with a reason. Blocked or unavailable alerts count as done so
-	// the card stops asking.
+	// In progress
+	let progress = $derived.by(() => {
+		if (!active) return null;
+		const plan = training.plan ?? [];
+		const fills = plan.map((e) => {
+			const done = setsSince(session.workout(e.workoutId), active!.startedAt).length;
+			if (e.targetSets === undefined) return done > 0 ? 1 : 0;
+			return Math.min(1, done / Math.max(1, e.targetSets));
+		});
+		const entry = plan[training.index];
+		const done = entry ? setsSince(session.workout(entry.workoutId), active.startedAt).length : 0;
+		const sets = training.loggedSets.reduce((n, e) => n + e.sets.length, 0);
+		return {
+			fills,
+			current: entry ? (session.workout(entry.workoutId)?.name ?? '') : '',
+			setDetail: entry?.targetSets
+				? `set ${Math.min(done + 1, entry.targetSets)} of ${entry.targetSets}`
+				: `set ${done + 1}`,
+			meta: `Exercise ${Math.min(training.index + 1, plan.length)} of ${plan.length} · ${counted(sets, 'set')} logged`
+		};
+	});
+
+	// Done today
+	let records = $derived.by(() => {
+		if (!todayLog) return [];
+		return todayLog.exercises.flatMap((ex) => {
+			const workout = session.workout(ex.workoutId);
+			if (!workout) return [];
+			const sets = sessionSets(workout, todayLog!);
+			const ids = recordIds(workout, sets);
+			const best = sets.filter((s) => ids.has(s.id)).at(-1);
+			return best
+				? [`${workout.name} ${best.weight ? `${best.weight} ${unit} × ` : ''}${best.reps}`]
+				: [];
+		});
+	});
+	let againSource = $derived(endedToday?.source ?? null);
+
+	// Rest day
+	let nextUp = $derived.by(() => {
+		if (!program) return null;
+		const day = nextScheduledDay(program, todayDow);
+		return day
+			? {
+					name: programDayName(day, (id) => session.routine(id)),
+					when: whenNext(day.day, todayDow)
+				}
+			: null;
+	});
+	let lastLog = $derived(logs[0] ?? null);
+
+	// ── Other routines ──────────────────────────────────────────────────────────
+	let todaysRoutines = $derived(
+		new globalThis.Set(
+			(todayDay?.items ?? []).flatMap((i) => (i.type === 'routine' ? [i.routineId] : []))
+		)
+	);
+	let others = $derived(
+		runnable.filter(
+			(r) =>
+				!(hero === 'routine' && r.id === suggested?.id) &&
+				!(hero === 'program' && todaysRoutines.has(r.id))
+		)
+	);
+	let othersLabel = $derived(
+		hero === 'rest' ? 'Train anyway' : hero === 'done' ? 'Train something else' : 'Or train something else'
+	);
+
+	// ── New account: rest timer ─────────────────────────────────────────────────
+	// One tap turns the global timer on and asks for alerts in the same breath,
+	// so the permission request comes with a reason. Not awaited: iOS only
+	// honours a permission request made inside the tap.
 	let notifStatus = $derived(pwa.notifStatus);
 	let timerOn = $derived(session.prefs.timerEnabled);
 	let alertsSettled = $derived(
 		notifStatus === 'granted' || notifStatus === 'denied' || notifStatus === 'unsupported'
 	);
 	let showInstallSteps = $state(false);
-
 	function setUpRestTimer() {
-		// Not awaited: iOS only honours a permission request made inside the tap,
-		// and waiting on the write first would spend that.
 		if (!timerOn) user.setPreferences({ ...session.prefs, timerEnabled: true });
 		if (notifStatus === 'default') pwa.requestNotifications();
 		else if (notifStatus === 'needs-install') showInstallSteps = !showInstallSteps;
 	}
-	let timerLabel = $derived(
-		`${session.prefs.timer.minutes}:${session.prefs.timer.seconds < 10 ? '0' : ''}${session.prefs.timer.seconds}`
-	);
 
-	type ChecklistStep = {
-		done: boolean;
-		title: string;
-		blurb: string;
-		href?: string;
-		onclick?: () => void;
-		note?: string;
-		/** Choices shown under the step instead of making the whole card a link. */
-		actions?: { label: string; href: string }[];
-		enabled: boolean;
-	};
+	// ── Greeting ────────────────────────────────────────────────────────────────
+	let firstName = $derived(session.user?.displayName?.split(' ')[0] ?? '');
+	let greeting = $derived.by(() => {
+		const withName = (s: string) => (firstName ? `${s}, ${firstName}` : s);
+		if (hero === 'done') return withName('Nice work');
+		if (hero === 'new' && !hasSets) return withName('Welcome');
+		const h = new Date(now).getHours();
+		return withName(h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening');
+	});
+	const todayLabel = new Date().toLocaleDateString('en', {
+		weekday: 'long',
+		month: 'long',
+		day: 'numeric'
+	});
 
-	let checklist = $derived<ChecklistStep[]>([
-		{
-			done: timerOn && alertsSettled,
-			title: 'Set up your rest timer',
-			blurb:
-				timerOn && notifStatus === 'needs-install'
-					? 'Add SetCount to your Home Screen to get an alert when rest is up'
-					: notifStatus === 'unsupported'
-						? 'A countdown after each set you record'
-						: 'A countdown after each set, with an alert when rest is up, even if your phone is locked',
-			onclick:
-				!timerOn || notifStatus === 'default' || notifStatus === 'needs-install'
-					? setUpRestTimer
-					: undefined,
-			note:
-				notifStatus === 'needs-install' && showInstallSteps
-					? 'Tap the Share button, then “Add to Home Screen”. Open SetCount from there.'
-					: timerOn
-						? `Your rest timer is ${timerLabel}. Modify rest timer anytime in Preferences (top-left icon).` +
-							(notifStatus === 'denied'
-								? ' Alerts are off; you can allow them in your device settings.'
-								: '')
-						: undefined,
-			enabled: true
-		},
-		{
-			// Covers both ways of getting a routine, so there's no separate
-			// "Create a routine" step after it.
-			done: !!startingRoutine,
-			title: 'Pick a starting routine',
-			blurb: 'Use a ready-made one, or build your own',
-			actions: [
-				{ label: 'Browse routines', href: discoverHref('routines') },
-				{ label: 'Create your own', href: newRoutineHref() }
-			],
-			enabled: true
-		},
-		{
-			done: hasSet,
-			title: 'Log your first set',
-			blurb: startingRoutine
-				? 'Start your routine and record a rep'
-				: 'Tap an exercise and record a rep',
-			href: startingRoutine
-				? runRoutineHref(startingRoutine.id)
-				: firstWorkout
-					? `/workout/${firstWorkout.id}`
-					: libraryHref('exercises'),
-			enabled: hasExercises
-		}
-	]);
+	let logOpen = $state(false);
 </script>
 
-{#snippet stepBody(step: ChecklistStep)}
-	<div
-		class={[
-			'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
-			step.done ? 'bg-success/15' : step.enabled ? 'bg-primary/10' : 'bg-base-300'
-		].join(' ')}
+{#snippet check(cls = 'h-5 w-5')}
+	<svg class={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"
+		><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" /></svg
 	>
-		{#if step.done}
-			<CheckIcon class="text-success h-4 w-4" />
-		{:else}
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class={step.enabled ? 'text-primary h-4 w-4' : 'text-base-content/40 h-4 w-4'}
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-				stroke-width="2"
+{/snippet}
+
+{#snippet plus()}
+	<span
+		class="bg-primary/15 text-primary-strong flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+		aria-hidden="true"
+	>
+		<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+			><path d="M12 5v14M5 12h14" stroke-linecap="round" /></svg
+		>
+	</span>
+{/snippet}
+
+{#snippet eyebrow(text: string, cls = 'text-base-content/55')}
+	<p class="text-xs font-semibold tracking-widest uppercase {cls}">{text}</p>
+{/snippet}
+
+{#snippet chips()}
+	<div class="flex gap-1.5 overflow-hidden whitespace-nowrap">
+		{#each preview.shown as name (name)}
+			<span class="bg-base-content/10 truncate rounded-full px-2.5 py-1 text-xs">{name}</span>
+		{/each}
+		{#if preview.more}
+			<span class="bg-base-content/10 shrink-0 rounded-full px-2.5 py-1 text-xs"
+				>+{preview.more} more</span
 			>
-				<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-			</svg>
 		{/if}
 	</div>
-	<div class="flex-1">
-		<p class="text-sm font-semibold {step.done ? 'line-through opacity-40' : ''}">
-			{step.title}
-		</p>
-		<p class="text-base-content/40 text-xs">{step.blurb}</p>
-		{#if step.note}
-			<p class="text-base-content/70 mt-1.5 text-xs">{step.note}</p>
-		{/if}
-	</div>
-	{#if step.enabled && !step.done && !step.actions}
+{/snippet}
+
+{#snippet logSetRow(name: string, meta: string)}
+	<button
+		type="button"
+		class="bg-base-200 hover:bg-base-300 flex items-center gap-3 rounded-2xl px-4 py-3 text-left transition-colors"
+		onclick={() => (logOpen = true)}
+	>
+		{@render plus()}
+		<span class="flex min-w-0 flex-1 flex-col">
+			<span class="font-semibold">{name}</span>
+			<span class="text-base-content/55 text-xs">{meta}</span>
+		</span>
 		<Chevron />
-	{/if}
+	</button>
 {/snippet}
 
 {#if loading}
 	<div class="mx-auto flex max-w-lg flex-col gap-5">
 		<div class="flex flex-col gap-1.5">
-			<div class="skeleton h-7 w-48 rounded"></div>
 			<div class="skeleton h-4 w-32 rounded"></div>
+			<div class="skeleton h-7 w-56 rounded"></div>
 		</div>
-		<div class="skeleton h-14 w-full rounded-xl"></div>
-		<div class="grid grid-cols-3 gap-2">
-			{#each { length: 3 } as _, i (i)}
-				<div class="skeleton h-16 rounded-xl"></div>
-			{/each}
-		</div>
-		<div class="skeleton h-20 w-full rounded-xl"></div>
-		<div class="skeleton h-20 w-full rounded-xl"></div>
+		<div class="skeleton h-52 w-full rounded-2xl"></div>
+		<div class="skeleton h-20 w-full rounded-2xl"></div>
 	</div>
 {:else}
-	<div class="mx-auto flex max-w-lg flex-col gap-6">
-		<div in:landingFly={{ y: 20, duration: 400, delay: 300, easing: cubicOut }}>
-			<h1 class="text-xl font-bold">{greeting}</h1>
-			<p class="text-base-content/50 text-sm">{todayLabel}</p>
+	<div class="mx-auto flex w-full max-w-lg flex-col gap-6 pb-4">
+		<div>
+			<p class="text-base-content/55 text-sm">{todayLabel}</p>
+			<h1 class="text-2xl font-extrabold">{greeting}</h1>
 		</div>
 
-		{#if allSets.length}
-			<div
-				class="bg-base-200 rounded-box px-4 py-4"
-				in:landingFly|global={{ y: 20, duration: 400, delay: 400, easing: cubicOut }}
-			>
-				<p class="text-base-content/40 mb-3 text-xs font-semibold tracking-wider uppercase">
-					This week
-				</p>
-				<div class="flex justify-between">
-					{#each weekDays as day, i (i)}
-						<div class="flex flex-col items-center gap-1.5">
-							<div
-								class={[
-									'rounded-full transition-all',
-									day.isToday ? 'h-3 w-3' : 'h-2.5 w-2.5',
-									day.active ? 'bg-primary' : day.isFuture ? 'bg-base-300/40' : 'bg-base-300'
-								].join(' ')}
-							></div>
+		<!-- The hero: the one thing to do now. Only it is green. -->
+		{#if hero === 'progress' && progress}
+			<div class="bg-primary/10 ring-primary/15 flex flex-col gap-3.5 rounded-2xl p-4 ring-1 ring-inset">
+				<div>
+					<p class="text-primary-strong text-xs font-semibold tracking-widest uppercase">
+						<span
+							class="bg-primary ring-primary/20 mr-1.5 inline-block h-2 w-2 rounded-full ring-4"
+							aria-hidden="true"
+						></span>In progress · {formatClock(now - training.clockStart)}
+					</p>
+					<p class="mt-1 text-2xl font-extrabold">{training.name || 'Workout'}</p>
+					<p class="text-base-content/55 text-sm">{progress.meta}</p>
+				</div>
+				<SessionProgress fills={progress.fills} index={training.index} detail="" />
+				{#if progress.current}
+					<p class="text-sm">
+						<span class="text-base-content/55">Now</span>
+						<span class="font-semibold">{progress.current}</span>
+						<span class="text-base-content/55">· {progress.setDetail}</span>
+					</p>
+				{/if}
+				<button class="btn btn-primary btn-lg h-13 rounded-2xl" onclick={() => goto('/train/run')}
+					>Resume workout</button
+				>
+			</div>
+		{:else if hero === 'done' && endedToday}
+			<div class="bg-primary/10 ring-primary/15 flex flex-col gap-3.5 rounded-2xl p-4 ring-1 ring-inset">
+				<div class="flex items-center gap-3">
+					<span
+						class="bg-primary text-primary-content flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+						>{@render check()}</span
+					>
+					<div class="min-w-0">
+						{@render eyebrow('Done today', 'text-primary-strong')}
+						<p class="truncate text-lg font-bold">{endedToday.name}</p>
+					</div>
+				</div>
+				{#if todayLog}
+					<div class="grid grid-cols-3 gap-2">
+						{#each [[todayLog.totals.sets, 'sets'], [formatClock(logDuration(todayLog)), 'time'], [todayLog.totals.reps, 'reps']] as [value, label] (label)}
+							<div class="bg-base-100 rounded-xl px-2 py-3 text-center">
+								<b class="block text-xl font-black tabular-nums">{value}</b>
+								<span class="text-base-content/55 text-xs">{label}</span>
+							</div>
+						{/each}
+					</div>
+					<!-- Only on a day with a personal record; nothing in its place otherwise. -->
+					{#if records.length}
+						<div class="bg-base-100 flex items-center gap-3 rounded-xl px-3 py-2.5">
 							<span
-								class={[
-									'text-xs',
-									day.isToday
-										? 'text-primary font-bold'
-										: day.isFuture
-											? 'text-base-content/20'
-											: 'text-base-content/40'
-								].join(' ')}>{day.label}</span
+								class="bg-primary/15 text-primary-strong flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+								aria-hidden="true"
+							>
+								<svg
+									class="h-5 w-5"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									><path
+										d="M8 21h8m-4-4v4m-5-17h10v5a5 5 0 0 1-10 0V4Zm10 1h3a3 3 0 0 1-3 3M7 5H4a3 3 0 0 0 3 3"
+									/></svg
+								>
+							</span>
+							<span class="flex min-w-0 flex-col">
+								<span class="font-semibold">{counted(records.length, 'new PR')}</span>
+								<span class="text-base-content/55 text-xs">{records.join(' · ')}</span>
+							</span>
+						</div>
+					{/if}
+				{/if}
+				<div class="flex gap-2">
+					<a
+						class="btn bg-primary/15 text-primary-strong flex-1 border-none shadow-none"
+						href={historyItemHref(endedToday.id)}>See workout</a
+					>
+					{#if againSource}
+						<button
+							class="btn btn-ghost"
+							onclick={() =>
+								goto(
+									againSource!.type === 'program'
+										? runProgramHref(againSource!.programId, againSource!.day, { fresh: true })
+										: runRoutineHref(againSource!.routineId, { fresh: true })
+								)}>Start again</button
+						>
+					{/if}
+				</div>
+			</div>
+		{:else if hero === 'program' || hero === 'routine'}
+			<div class="bg-primary/10 ring-primary/15 flex flex-col gap-3.5 rounded-2xl p-4 ring-1 ring-inset">
+				<div>
+					{@render eyebrow(heroEyebrow, 'text-primary-strong')}
+					<p class="mt-1 text-2xl font-extrabold">{heroTitle}</p>
+					<p class="text-base-content/55 text-sm">
+						{counted(heroPlan.length, 'exercise')}
+						{#if estimate}· about {estimate.minutes} min{/if}
+						{#if heroEnded}
+							· {heroEnded.done} of {heroEnded.total} done today
+						{:else if lastDone}
+							· {lastDone}
+						{/if}
+					</p>
+				</div>
+				{#if preview.shown.length}{@render chips()}{/if}
+				{#if heroEnded}
+					<!-- Ended early today: pick it back up, or start a fresh one. -->
+					<div class="flex flex-col gap-1">
+						<button class="btn btn-primary btn-lg h-13 rounded-2xl" onclick={() => start({ resume: true })}
+							>Resume workout</button
+						>
+						<button class="btn btn-ghost btn-sm" onclick={() => start({ fresh: true })}
+							>Start over</button
+						>
+					</div>
+				{:else}
+					<button class="btn btn-primary btn-lg h-13 rounded-2xl" onclick={() => start()}
+						>Start workout</button
+					>
+				{/if}
+			</div>
+		{:else if hero === 'rest' && program}
+			<!-- No green on a rest day: nothing is asked of you. -->
+			<div class="bg-base-200 flex flex-col gap-3 rounded-2xl p-4">
+				<div class="flex items-center gap-3">
+					<span
+						class="bg-base-300 text-base-content/55 flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+						aria-hidden="true"
+					>
+						<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+							><path
+								d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							/></svg
+						>
+					</span>
+					<div>
+						<p class="font-semibold">Rest day</p>
+						<p class="text-base-content/55 text-sm">Nothing on in {program.name} today</p>
+					</div>
+				</div>
+				{#if nextUp}
+					<a
+						class="bg-base-100 flex items-center gap-3 rounded-xl px-4 py-3"
+						href={`/programs/${program.id}`}
+					>
+						<span class="flex min-w-0 flex-1 flex-col">
+							<span class="text-base-content/55 text-xs">Next up · {nextUp.when}</span>
+							<span class="truncate font-semibold">{nextUp.name}</span>
+						</span>
+						<Chevron />
+					</a>
+				{/if}
+			</div>
+		{:else}
+			<!-- New account: the first decision is what to train. -->
+			<div class="bg-primary/10 ring-primary/15 flex flex-col gap-3.5 rounded-2xl p-4 ring-1 ring-inset">
+				<div>
+					{@render eyebrow('Get started', 'text-primary-strong')}
+					<p class="mt-1 text-2xl font-extrabold">Pick what to train</p>
+					<p class="text-base-content/55 text-sm">
+						A program plans your week. A routine is one workout you can run any day.
+					</p>
+				</div>
+				<div class="bg-base-100 divide-base-300 flex flex-col divide-y overflow-hidden rounded-xl">
+					{#each [{ href: discoverHref('programs'), name: 'Follow a program', meta: 'Browse plans in Discover' }, { href: discoverHref('routines'), name: 'Pick a routine', meta: 'Push, pull, legs, full body…' }, { href: newRoutineHref(), name: 'Build your own', meta: 'Start from your own exercises' }] as option (option.name)}
+						<a class="hover:bg-base-200 flex items-center gap-3 px-4 py-3" href={option.href}>
+							<span class="flex min-w-0 flex-1 flex-col">
+								<span class="font-semibold">{option.name}</span>
+								<span class="text-base-content/55 text-xs">{option.meta}</span>
+							</span>
+							<Chevron />
+						</a>
+					{/each}
+				</div>
+			</div>
+
+			{#if !timerOn || !alertsSettled}
+				<div class="bg-base-200 flex flex-col gap-2 rounded-2xl px-4 py-3">
+					<div class="flex items-center gap-3">
+						<div class="min-w-0 flex-1">
+							<p class="text-sm font-semibold">Rest timer</p>
+							<p class="text-base-content/55 text-xs">
+								{notifStatus === 'unsupported'
+									? 'Counts down after each set you log'
+									: 'Counts down after each set, with an alert when rest is up'}
+							</p>
+						</div>
+						<button class="btn btn-sm shrink-0" onclick={setUpRestTimer}
+							>{timerOn ? 'Turn on alerts' : 'Turn on'}</button
+						>
+					</div>
+					{#if notifStatus === 'needs-install' && showInstallSteps}
+						<p class="text-base-content/70 text-xs">
+							Tap the Share button, then “Add to Home Screen”. Open SetCount from there.
+						</p>
+					{/if}
+				</div>
+			{/if}
+		{/if}
+
+		{#if hero !== 'new'}
+			<WeekStrip />
+		{/if}
+
+		{#if hero === 'done' && nextUp}
+			<p class="text-base-content/55 -mt-3 text-sm">Next up: {nextUp.name}, {nextUp.when}</p>
+		{/if}
+
+		{#if hero === 'rest' && lastLog}
+			<section class="flex flex-col gap-2">
+				<div class="flex items-baseline justify-between">
+					{@render eyebrow('Last workout')}
+					<a class="text-primary-strong text-sm font-semibold" href="/history">History</a>
+				</div>
+				<a
+					class="bg-base-200 hover:bg-base-300 flex items-center gap-3 rounded-2xl px-4 py-3"
+					href={historyItemHref(lastLog.id)}
+				>
+					<span class="flex min-w-0 flex-1 flex-col">
+						<span class="truncate font-semibold">{lastLog.name}</span>
+						<span class="text-base-content/55 text-xs"
+							>{ago(lastLog.endedAt)} · {counted(lastLog.totals.sets, 'set')} · {Math.round(
+								logDuration(lastLog) / 60_000
+							)} min</span
+						>
+					</span>
+					<Chevron />
+				</a>
+			</section>
+		{/if}
+
+		<!-- Mid-workout, other routines wait: starting one would end this one. -->
+		{#if hero !== 'progress' && others.length}
+			<section class="flex flex-col gap-2">
+				<div class="flex items-baseline justify-between">
+					{@render eyebrow(othersLabel)}
+					<a class="text-primary-strong text-sm font-semibold" href={libraryHref('routines')}
+						>All routines</a
+					>
+				</div>
+				<div class="bg-base-200 divide-base-300 flex flex-col divide-y overflow-hidden rounded-2xl">
+					{#each others as routine (routine.id)}
+						{@const last = routineLastTrained(routine, training.lookups, training.windows())}
+						<div class="flex items-center gap-2 px-4 py-3">
+							<a href={`/routines/${routine.id}`} class="flex min-w-0 flex-1 flex-col">
+								<span class="truncate font-semibold">{routine.name}</span>
+								<span class="text-base-content/55 text-xs"
+									>{counted(routine.exercises.length, 'exercise')} · {last
+										? `last done ${ago(last)}`
+										: 'never done'}</span
+								>
+							</a>
+							<button
+								class="btn btn-sm bg-base-300 shrink-0 border-none shadow-none"
+								aria-label="Start {routine.name}"
+								onclick={() => goto(runRoutineHref(routine.id))}>Start</button
 							>
 						</div>
 					{/each}
 				</div>
-			</div>
-
-			<div
-				class="grid gap-2"
-				class:grid-cols-3={stats.length === 3}
-				class:grid-cols-2={stats.length === 2}
-				in:landingFly|global={{ y: 20, duration: 400, delay: 490, easing: cubicOut }}
-			>
-				{#each stats as stat, i (i)}
-					<div
-						class="bg-base-200 rounded-box flex flex-col items-center justify-center gap-0.5 py-3"
-					>
-						<span class="text-2xl font-bold tabular-nums">{stat.value}</span>
-						<span class="text-base-content/50 text-center text-xs leading-tight">{stat.label}</span>
-					</div>
-				{/each}
-			</div>
+			</section>
 		{/if}
 
-		<!-- Today's plan -->
-		{#if activeProgram}
-			<div in:landingFly|global={{ y: 20, duration: 400, delay: 200, easing: cubicOut }}>
-				<p class="text-base-content/40 mb-2 text-xs font-semibold tracking-wider uppercase">
-					Active program
-				</p>
-				<div
-					class="bg-primary/8 border-primary/20 rounded-box flex items-center gap-3 border px-4 py-3"
-				>
-					<div class="flex flex-1 flex-col gap-0.5 overflow-hidden">
-						<span class="font-semibold">{activeProgram.name}</span>
-						{#if todayEntry?.label}
-							<span class="text-base-content/60 text-xs">{todayEntry.label}</span>
-						{/if}
-						<span class="text-base-content/40 text-xs">
-							{#if todayCount === 0}
-								Rest day{nextUp ? ` · Next: ${nextUp}` : ''}
-							{:else if endedToday?.complete}
-								Done today
-							{:else if endedToday}
-								Ended early · {endedToday.done} of {endedToday.total} done
-							{:else}
-								{counted(todayCount, 'exercise')} today
-							{/if}
-						</span>
-					</div>
-					{#if todayCount > 0 && endedToday?.complete}
-						<button
-							class="btn btn-ghost btn-sm"
-							onclick={() => goto(runProgramHref(activeProgram.id, todayDow, { fresh: true }))}
-							>Start again</button
-						>
-					{:else if todayCount > 0}
-						<!-- Resume covers both the workout in progress and one ended early
-						     today; starting over is on the Train tab and the session screen. -->
-						<button
-							class="btn btn-primary btn-sm"
-							onclick={() =>
-								goto(runProgramHref(activeProgram.id, todayDow, { resume: !!endedToday }))}
-							>{endedToday ||
-							training.isRunning({ type: 'program', programId: activeProgram.id, day: todayDow })
-								? 'Resume'
-								: 'Start'}</button
-						>
-					{:else}
-						<a class="btn btn-ghost btn-sm" href={`/programs/${activeProgram.id}`}>View</a>
-					{/if}
-				</div>
-			</div>
-		{/if}
-
-		<!-- Quick start -->
-		{#if session.routines?.length}
-			<div in:landingFly|global={{ y: 20, duration: 400, delay: 570, easing: cubicOut }}>
-				<p class="text-base-content/40 mb-2 text-xs font-semibold tracking-wider uppercase">
-					Quick start
-				</p>
-				<div class="flex flex-col gap-2">
-					{#each session.routines.slice(0, 3) as routine (routine.id)}
-						<div class="bg-base-200 rounded-box flex items-center gap-2 px-4 py-3">
-							<a href={'/routines/' + routine.id} class="flex min-w-0 flex-1 flex-col">
-								<span class="truncate text-sm font-semibold">{routine.name}</span>
-								<span class="text-base-content/40 text-xs"
-									>{counted(routine.exercises.length, 'exercise')}</span
-								>
-							</a>
-							{#if routine.exercises.length}
-								{@const running = training.isRunning({ type: 'routine', routineId: routine.id })}
-								<!-- Quiet unless resuming: the program's Start (or Resume) is
-								     the one green button, not one per routine. -->
-								<button
-									class="btn btn-sm shrink-0 {running
-										? 'btn-primary'
-										: 'bg-base-300 border-none shadow-none'}"
-									aria-label="Start {routine.name}"
-									onclick={() => goto(runRoutineHref(routine.id))}
-									>{running ? 'Resume' : 'Start'}</button
-								>
-							{/if}
-						</div>
-					{/each}
-				</div>
-			</div>
-		{/if}
-
-		<!-- Last session -->
-		{#if lastLog}
-			<div in:landingFly|global={{ y: 20, duration: 400, delay: 640, easing: cubicOut }}>
-				<p class="text-base-content/40 mb-2 text-xs font-semibold tracking-wider uppercase">
-					Last session
-				</p>
-				<svelte:element
-					this={lastLogHref ? 'a' : 'div'}
-					class="bg-base-200 hover:bg-base-300 rounded-box flex items-center gap-3 px-4 py-4 transition-all active:scale-[0.98]"
-					href={lastLogHref}
-				>
-					<div class="flex-1 overflow-hidden">
-						<p class="truncate font-semibold">{lastLog.name}</p>
-						<p class="text-base-content/50 text-sm">{lastLogLabel}</p>
-					</div>
-					{#if lastLogHref}<Chevron />{/if}
-				</svelte:element>
-			</div>
-		{:else if lastWorkout}
-			<div in:landingFly|global={{ y: 20, duration: 400, delay: 640, easing: cubicOut }}>
-				<p class="text-base-content/40 mb-2 text-xs font-semibold tracking-wider uppercase">
-					Last session
-				</p>
-				<a
-					class="bg-base-200 hover:bg-base-300 rounded-box flex items-center gap-3 px-4 py-4 transition-all active:scale-[0.98]"
-					href={'/workout/' + lastWorkout.id}
-				>
-					<div class="flex-1 overflow-hidden">
-						<p class="truncate font-semibold">{lastWorkout.name}</p>
-						<p class="text-base-content/50 text-sm">
-							{lastSetLabel}{lastSetDetail ? ' · ' + lastSetDetail : ''}
-						</p>
-					</div>
-					<Chevron />
-				</a>
-			</div>
-		{/if}
-
-		<!-- Needs attention -->
-		{#if overdue}
-			<div in:landingFly|global={{ y: 20, duration: 400, delay: 700, easing: cubicOut }}>
-				<p class="text-base-content/40 mb-2 text-xs font-semibold tracking-wider uppercase">
-					Needs attention
-				</p>
-				<a
-					class="rounded-box border-warning/30 bg-warning/10 flex items-center gap-3 border px-4 py-3 transition-all active:scale-[0.98]"
-					href={'/workout/' + overdue.workout.id}
-				>
-					<div class="flex-1">
-						<p class="text-sm font-semibold">{overdue.workout.name}</p>
-						<p class="text-warning text-xs">{overdue.days} days since last session</p>
-					</div>
-					<Chevron />
-				</a>
-			</div>
-		{/if}
-
-		{#if showSetupDone}
-			<div
-				class="bg-success/10 rounded-box flex items-center gap-4 px-4 py-4"
-				in:landingFly|global={{ y: 20, duration: 400, delay: 400, easing: cubicOut }}
-			>
-				<CheckIcon class="text-success h-6 w-6 shrink-0" />
-				<div class="flex-1">
-					<p class="text-sm font-semibold">You're all set up</p>
-					<p class="text-base-content/60 text-xs">
-						Your first set is in. Start a routine any time from Train.
-					</p>
-				</div>
-				<button class="btn btn-ghost btn-sm" onclick={dismissSetupDone}>Got it</button>
-			</div>
-		{/if}
-
-		<!-- Getting started -->
-		{#if !allSets.length}
-			<div
-				class="flex flex-col gap-3 pt-2"
-				in:landingFly|global={{ y: 20, duration: 400, delay: 400, easing: cubicOut }}
-			>
-				<p class="text-base-content/40 text-xs font-semibold tracking-wider uppercase">
-					Get started
-				</p>
-
-				{#each checklist as step (step.title)}
-					{@const cls = [
-						'rounded-box flex w-full items-center gap-4 px-4 py-4 text-left transition-all',
-						!step.enabled
-							? 'bg-base-200/50 pointer-events-none opacity-40'
-							: step.onclick || step.href
-								? 'bg-base-200 hover:bg-base-300 active:scale-[0.98]'
-								: 'bg-base-200'
-					].join(' ')}
-					{#if step.actions && !step.done}
-						<div class="bg-base-200 rounded-box flex flex-col gap-3 px-4 py-4">
-							<div class="flex items-center gap-4">
-								{@render stepBody(step)}
-							</div>
-							<div class="flex gap-2 pl-13">
-								{#each step.actions as action, i (action.href)}
-									<a
-										href={action.href}
-										class="btn btn-sm flex-1 {i === 0 ? 'btn-primary' : 'btn-outline'}"
-										>{action.label}</a
-									>
-								{/each}
-							</div>
-						</div>
-					{:else if step.onclick}
-						<button type="button" class={cls} onclick={step.onclick}>
-							{@render stepBody(step)}
-						</button>
-					{:else if step.href}
-						<a href={step.href} class={cls} aria-disabled={!step.enabled}>
-							{@render stepBody(step)}
-						</a>
-					{:else}
-						<div class={cls}>
-							{@render stepBody(step)}
-						</div>
-					{/if}
-				{/each}
-			</div>
+		{#if hero === 'new'}
+			{@render logSetRow('Just log a set', 'Pick any exercise and record it')}
+		{:else}
+			{@render logSetRow('Log a single set', 'Any exercise, outside a workout')}
 		{/if}
 	</div>
 {/if}
+
+<LogSetSheet bind:open={logOpen} />

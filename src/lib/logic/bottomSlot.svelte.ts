@@ -6,7 +6,7 @@ import { isRunPath } from '$lib/routes';
 /**
  * One slot sits above the bottom nav, and several things want it. In order:
  * the rest countdown, the offer to turn the rest timer on, then the
- * workout-in-progress bar. Anything that must stay clear of the slot (the
+ * workout-in-progress bar (except on Today, whose card does that job). Anything that must stay clear of the slot (the
  * FAB, page padding, banners) asks here rather than each bar.
  *
  * The run screen has no bottom nav: it shows rest in its own footer, in
@@ -20,7 +20,9 @@ export const bottomSlot = {
 
 	/** A workout is running, you're not on its screen, and nothing more urgent has the slot. */
 	get showsWorkout() {
-		return training.session !== null && !isRunPath(page.url.pathname) && !restTimer.barVisible;
+		// Not on Today either: its card is already the way back.
+		const path = page.url.pathname;
+		return training.session !== null && !isRunPath(path) && path !== '/' && !restTimer.barVisible;
 	},
 
 	get occupied() {

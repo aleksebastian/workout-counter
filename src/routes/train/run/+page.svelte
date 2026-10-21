@@ -23,7 +23,7 @@
 	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
 	import EditSetSheet from '$lib/components/EditSetSheet.svelte';
 	import SessionHeader from './SessionHeader.svelte';
-	import SessionProgress from './SessionProgress.svelte';
+	import SessionProgress from '$lib/components/SessionProgress.svelte';
 	import SetTable from './SetTable.svelte';
 	import SetAdjuster from '$lib/components/SetAdjuster.svelte';
 	import { recordSet as recordSet_ } from '$lib/logic/logSet';
@@ -100,7 +100,7 @@
 	$effect(() => {
 		if (active) seenActive = true;
 		if (ready && !active && !summary && (!requested || seenActive)) {
-			goto('/train', { replaceState: true });
+			goto('/', { replaceState: true });
 		}
 	});
 
@@ -140,7 +140,7 @@
 			? `/programs/${active.source.programId}`
 			: active?.source.type === 'routine'
 				? `/routines/${active.source.routineId}`
-				: '/train'
+				: '/'
 	);
 
 	// ── Plan and position ───────────────────────────────────────────────────────
@@ -517,7 +517,7 @@
 			{#if endedEarlier.complete}
 				<!-- Finished: a second round is a new workout; nothing to pick up. -->
 				<button class="btn btn-primary" onclick={startOver}>Start again</button>
-				<button class="btn btn-ghost" onclick={() => goto('/train', { replaceState: true })}
+				<button class="btn btn-ghost" onclick={() => goto('/', { replaceState: true })}
 					>Not now</button
 				>
 			{:else}
@@ -585,7 +585,7 @@
 	>
 		<button
 			class="btn btn-primary btn-lg mx-auto flex h-14 w-full max-w-lg rounded-2xl"
-			onclick={() => goto('/train')}>Done</button
+			onclick={() => goto('/')}>Done</button
 		>
 	</div>
 {:else if !ready || !active}

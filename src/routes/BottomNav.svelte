@@ -4,7 +4,6 @@
 	import { cubicOut } from 'svelte/easing';
 	import type { TransitionConfig } from 'svelte/transition';
 	import { browser } from '$app/environment';
-	import HomeIcon from '$lib/icons/home.svg?raw';
 	import { training } from '$lib/logic/training.svelte';
 
 	// Use sessionStorage to persist animation state across navigation
@@ -30,8 +29,8 @@
 	// Detail pages count as part of the tab they belong to, so the highlight
 	// never disappears while you're drilled in.
 	let current = $derived.by(() => {
-		if (path === '/') return 'home';
-		if (path.startsWith('/train')) return 'train';
+		if (path === '/' || path.startsWith('/train')) return 'today';
+		if (path.startsWith('/history')) return 'history';
 		if (
 			path.startsWith('/library') ||
 			path.startsWith('/workout') ||
@@ -54,21 +53,12 @@
 	<div class="flex h-(--bottom-nav-height) items-start">
 		<a
 			href="/"
-			aria-label="Home"
-			aria-current={current === 'home' ? 'page' : undefined}
+			aria-label={training.session ? 'Today, workout in progress' : 'Today'}
+			aria-current={current === 'today' ? 'page' : undefined}
 			class="nav-item"
 		>
-			<span class="h-6 w-6 [&>svg]:h-6 [&>svg]:w-6">{@html HomeIcon}</span>
-			<span class="text-[10px] font-medium">Home</span>
-		</a>
-
-		<a
-			href="/train"
-			aria-label={training.session ? 'Train, workout in progress' : 'Train'}
-			aria-current={current === 'train' ? 'page' : undefined}
-			class="nav-item"
-		>
-			<!-- Dumbbell, built from rects so it is exactly symmetric about x=12. -->
+			<!-- Dumbbell, built from rects so it is exactly symmetric about x=12:
+			     Today is where you train. -->
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6"
@@ -82,7 +72,7 @@
 				<rect x="15" y="5" width="3.5" height="14" rx="1.75" />
 				<rect x="19.5" y="7.5" width="3" height="9" rx="1.5" />
 			</svg>
-			<span class="text-[10px] font-medium">Train</span>
+			<span class="text-[10px] font-medium">Today</span>
 			{#if training.session}
 				<!-- A workout is in progress. -->
 				<span
@@ -93,13 +83,40 @@
 		</a>
 
 		<a
+			href="/history"
+			aria-label="History"
+			aria-current={current === 'history' ? 'page' : undefined}
+			class="nav-item"
+		>
+			<!-- Calendar with a few days marked: past workouts by day. -->
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="h-6 w-6"
+				viewBox="0 0 24 24"
+				fill="currentColor"
+				aria-hidden="true"
+			>
+				<path
+					fill-rule="evenodd"
+					d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z"
+				/>
+				<circle cx="8" cy="14" r="1.25" />
+				<circle cx="12" cy="14" r="1.25" />
+				<circle cx="16" cy="14" r="1.25" />
+				<circle cx="8" cy="17.5" r="1.25" />
+				<circle cx="12" cy="17.5" r="1.25" />
+			</svg>
+			<span class="text-[10px] font-medium">History</span>
+		</a>
+
+		<a
 			href="/library"
 			aria-label="Library"
 			aria-current={current === 'library' ? 'page' : undefined}
 			class="nav-item"
 		>
 			<!-- Open book: two mirrored halves, symmetric about x=12 and the same
-			     visual weight as the solid house. -->
+			     visual weight as the solid icons beside it. -->
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6"
