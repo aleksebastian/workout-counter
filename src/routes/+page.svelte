@@ -18,8 +18,7 @@
 		runRoutineHref
 	} from '$lib/routes';
 	import { itemsForDay, nextScheduledDay } from '$lib/types';
-	import { DAY_FULL } from '$lib/constants';
-	import { programDayName } from '$lib/logic/training';
+	import { programDayName, whenNext } from '$lib/logic/training';
 	import Chevron from '$lib/components/Chevron.svelte';
 	import CheckIcon from '$lib/components/CheckIcon.svelte';
 
@@ -240,7 +239,7 @@
 		if (!activeProgram) return null;
 		const day = nextScheduledDay(activeProgram, todayDow);
 		if (!day) return null;
-		return `${programDayName(day, (id) => session.routine(id))}, ${day.day === (todayDow + 1) % 7 ? 'tomorrow' : DAY_FULL[day.day]}`;
+		return `${programDayName(day, (id) => session.routine(id))}, ${whenNext(day.day, todayDow)}`;
 	});
 	let todayCount = $derived.by(() => {
 		if (!activeProgram) return 0;

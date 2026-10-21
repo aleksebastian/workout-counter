@@ -40,11 +40,15 @@
 		goto(url, { replaceState: true, noScroll: true, keepFocus: true });
 	});
 
-	// Both come from this routine's own sessions, so a copy that shares its
-	// exercises doesn't light up when the original is trained.
+	/** Built once per change, not once per row. */
+	let windows = $derived(training.windows());
+
+	// Both come from this routine's own sessions (or program days that run
+	// it), so a copy that shares its exercises doesn't light up when the
+	// original is trained.
 	function stats(routine: Routine) {
-		const today = training.progressToday({ type: 'routine', routineId: routine.id });
-		const last = routineLastTrained(routine, (id) => session.workout(id), training.windows());
+		const today = training.routineProgressToday(routine.id);
+		const last = routineLastTrained(routine, training.lookups, windows);
 		return {
 			doneToday: today?.done ?? 0,
 			total: routine.exercises.length,

@@ -345,6 +345,9 @@
 		weight === 0 &&
 			!!currentWorkout &&
 			currentWorkout.sets.length === 0 &&
+			// Only when the catalog knows it's loaded: an exercise it doesn't know
+			// (or before it loads) may well be bodyweight.
+			equipment !== undefined &&
 			equipment !== 'bodyweight'
 	);
 
@@ -387,6 +390,7 @@
 		// Routine timer beats the global default — resolved inside restTimer. A
 		// program-day exercise outside any routine gets the global timer.
 		pwa.noteSetRecorded(restTimer.start({ routineId: currentEntry.routineId }));
+		restAfter = set.id;
 		// An extra set past the target is one set, not a way out of "done": back
 		// to the complete card, which offers another. Not after the await — that
 		// waits for the server, so offline it would never come back.
@@ -408,11 +412,14 @@
 		}
 	}
 
+	/** The set whose rest is counting down, so undoing an earlier one leaves it running. */
+	let restAfter: string | null = null;
+
 	function undoSet(workoutId: string, setId: string) {
 		const workout = session.workout(workoutId);
 		if (!workout) return;
 		HAPTIC.tap();
-		restTimer.stop();
+		if (restAfter === setId) restTimer.stop();
 		exercises.removeSet(workout, setId);
 	}
 

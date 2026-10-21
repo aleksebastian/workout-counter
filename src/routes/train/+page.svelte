@@ -2,10 +2,10 @@
 	import { goto } from '$app/navigation';
 	import { formatDistanceToNow } from 'date-fns';
 	import { session } from '$lib/session.svelte';
-	import { DAY_FULL, DAY_NAMES } from '$lib/constants';
+	import { DAY_NAMES } from '$lib/constants';
 	import { discoverHref, libraryHref, runProgramHref, runRoutineHref } from '$lib/routes';
 	import { itemsForDay, nextScheduledDay, type Program } from '$lib/types';
-	import { programDayName } from '$lib/logic/training';
+	import { programDayName, whenNext } from '$lib/logic/training';
 	import Chevron from '$lib/components/Chevron.svelte';
 	import { training } from '$lib/logic/training.svelte';
 	import { counted } from '$lib/utils';
@@ -32,9 +32,11 @@
 
 	/** On a rest day, when the program picks up again. */
 	let nextDay = $derived(activeProgram ? nextScheduledDay(activeProgram, todayDow) : null);
-	let nextDayWhen = $derived(
-		nextDay ? (nextDay.day === (todayDow + 1) % 7 ? 'tomorrow' : `on ${DAY_FULL[nextDay.day]}`) : ''
-	);
+	let nextDayWhen = $derived.by(() => {
+		if (!nextDay) return '';
+		const when = whenNext(nextDay.day, todayDow);
+		return when === 'tomorrow' ? when : `on ${when}`;
+	});
 
 	/** Routines with at least one exercise — the only ones worth starting. */
 	let runnableRoutines = $derived((session.routines ?? []).filter((r) => r.exercises.length > 0));

@@ -3,11 +3,11 @@
 	import { programs, user } from '$lib/data';
 	import { session } from '$lib/session.svelte';
 	import { getNameValidationMsg } from '$lib/utils';
-	import { DAY_FULL, DAY_SHORT } from '$lib/constants';
+	import { DAY_SHORT } from '$lib/constants';
 	import { discoverHref, runProgramHref } from '$lib/routes';
 	import { training } from '$lib/logic/training.svelte';
 	import { itemsForDay, nextScheduledDay, programDays, type Program } from '$lib/types';
-	import { programDayName } from '$lib/logic/training';
+	import { programDayName, whenNext } from '$lib/logic/training';
 	import Async from '$lib/components/Async.svelte';
 	import Chevron from '$lib/components/Chevron.svelte';
 	import ActionSheet, { type SheetAction } from '$lib/components/ActionSheet.svelte';
@@ -32,7 +32,7 @@
 	function nextUpLabel(program: Program): string {
 		const next = nextScheduledDay(program, todayDow);
 		if (!next) return '';
-		const when = next.day === (todayDow + 1) % 7 ? 'tomorrow' : DAY_FULL[next.day];
+		const when = whenNext(next.day, todayDow);
 		return ` · Next: ${programDayName(next, (id) => session.routine(id))}, ${when}`;
 	}
 	let activeProgram = $derived(session.activeProgram);

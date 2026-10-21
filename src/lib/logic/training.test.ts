@@ -353,28 +353,50 @@ describe('ending and resuming', () => {
 describe('routineLastTrained', () => {
 	const copy: Routine = { ...push, id: 'push-copy', name: 'Push (2)' };
 	const bench = workout('bench', [-60 * 24 * 11, 1, 2, 3]);
-	const lookup = (id: string) => (id === 'bench' ? bench : null);
-	const ran = {
-		source: { type: 'routine', routineId: 'push' } as const,
+	const week: Program = {
+		id: 'week',
+		name: 'Week',
+		schedule: [{ day: 1, items: [{ type: 'routine', routineId: 'push' }] }],
+		createdAt: 0
+	};
+	const lookups: Lookups = {
+		routine: () => null,
+		program: (id) => (id === 'week' ? week : null),
+		workout: (id) => (id === 'bench' ? bench : null)
+	};
+	const window = (source: ActiveSession['source']) => ({
+		source,
 		start: T0,
 		end: T0 + 5 * 60_000
-	};
+	});
+	const ran = window({ type: 'routine', routineId: 'push' });
 
 	it('uses the routine’s own session', () => {
-		expect(routineLastTrained(push, lookup, [ran])).toBe(ran.end);
+		expect(routineLastTrained(push, lookups, [ran])).toBe(ran.end);
 	});
 
 	it('doesn’t credit a copy with the original’s session', () => {
 		// Only the set from before any session counts for the copy.
-		expect(routineLastTrained(copy, lookup, [ran])).toBe(Date.parse(at(-60 * 24 * 11)));
+		expect(routineLastTrained(copy, lookups, [ran])).toBe(Date.parse(at(-60 * 24 * 11)));
+	});
+
+	it('counts a program day that runs the routine', () => {
+		const day = window({ type: 'program', programId: 'week', day: 1 });
+		expect(routineLastTrained(push, lookups, [day])).toBe(Date.parse(at(3)));
+		expect(routineLastTrained(copy, lookups, [day])).toBe(Date.parse(at(-60 * 24 * 11)));
+	});
+
+	it('dates a running session by its sets, not its open end', () => {
+		const running = { ...ran, end: Infinity };
+		expect(routineLastTrained(push, lookups, [running])).toBe(Date.parse(at(3)));
 	});
 
 	it('falls back to sets when there are no sessions', () => {
-		expect(routineLastTrained(copy, lookup, [])).toBe(Date.parse(at(3)));
+		expect(routineLastTrained(copy, lookups, [])).toBe(Date.parse(at(3)));
 	});
 
 	it('is null for a routine never trained', () => {
-		expect(routineLastTrained(copy, () => null, [ran])).toBeNull();
+		expect(routineLastTrained(copy, { ...lookups, workout: () => null }, [ran])).toBeNull();
 	});
 });
 

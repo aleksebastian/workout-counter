@@ -8,8 +8,9 @@
 	 * Reps and weight for the next set, side by side so the whole set reads as
 	 * one thing and the card stays short enough to pin, each number with its
 	 * steppers to its right. Steppers repeat while held; the numbers can be
-	 * tapped to type an exact value. Every stepper is a full 44pt target: they're
-	 * hit mid-workout, one-handed, often with chalk or sweat on the thumb.
+	 * tapped to type an exact value. Steppers are 44pt tall, and 44pt wide from
+	 * a 390pt screen up (40pt below, so a 375pt phone still fits both numbers):
+	 * they're hit mid-workout, one-handed, often with chalk or sweat on the thumb.
 	 */
 
 	interface Props {
@@ -51,7 +52,7 @@
 
 {#snippet glyph(label: string, action: () => void, path: string)}
 	<button
-		class="btn btn-ghost hover:bg-base-300 h-11 min-h-0 w-11 rounded-full border-none px-0 shadow-none"
+		class="btn btn-ghost hover:bg-base-300 h-11 min-h-0 w-10 rounded-full border-none px-0 shadow-none min-[390px]:w-11"
 		use:holdRepeat={action}
 		aria-label={label}
 	>

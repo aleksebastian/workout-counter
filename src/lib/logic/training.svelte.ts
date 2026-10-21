@@ -14,6 +14,7 @@ import {
 	lastActivity,
 	resolveIndex,
 	resumedSession,
+	runsRoutine,
 	sameSource,
 	setsSince,
 	sourceName,
@@ -108,6 +109,11 @@ export type EndedToday = { complete: boolean; done: number; total: number };
 let sweptId: string | null = null;
 
 export const training = {
+	/** Routine, program and exercise lookups over the live library. */
+	get lookups(): Lookups {
+		return lookups;
+	},
+
 	/** The workout in progress, or `null`. */
 	get session(): ActiveSession | null {
 		return session.data?.activeSession ?? null;
@@ -159,22 +165,23 @@ export const training = {
 		return { complete: last.complete, done, total: plan.length };
 	},
 
-	/** Puts the workout that ended earlier today back in progress, where it left off. */
 	/**
-	 * How far today's run of `source` got — the one in progress, or one that
-	 * ended earlier today — or `null` if it hasn't been run today.
+	 * How far today's run of a routine got — in the workout in progress, or one
+	 * that ended earlier today, either the routine itself or a program day that
+	 * includes it — or `null` if it hasn't been run today.
 	 */
-	progressToday(source: SessionSource, now = Date.now()): EndedToday | null {
+	routineProgressToday(routineId: string, now = Date.now()): EndedToday | null {
 		const s = this.session;
-		if (!s) return this.endedToday(source, now);
-		if (!sameSource(s.source, source)) return null;
-		const plan = this.plan ?? [];
-		const done = entriesDone(plan, lookups, s.startedAt).filter(Boolean).length;
+		const last = session.data?.lastSession;
+		const run = s ?? (last && endedToday(last, last.source, now) ? last : null);
+		if (!run || !runsRoutine(run.source, routineId, lookups)) return null;
+		const plan = (buildPlan(run.source, lookups) ?? []).filter((e) => e.routineId === routineId);
+		const done = entriesDone(plan, lookups, run.startedAt).filter(Boolean).length;
 		return { complete: done === plan.length, done, total: plan.length };
 	},
 
 	/** Every stretch of time known to belong to one workout, for telling whose sets are whose. */
-	windows(now = Date.now()): SessionWindow[] {
+	windows(): SessionWindow[] {
 		const logs = (session.sessionLogs ?? []).map((l) => ({
 			source: l.source,
 			start: l.startedAt,
@@ -186,10 +193,12 @@ export const training = {
 		return [
 			...logs,
 			...(last ? [{ source: last.source, start: last.startedAt, end: last.endedAt }] : []),
-			...(active ? [{ source: active.source, start: active.startedAt, end: now }] : [])
+			// Still going: every set from here on is its own.
+			...(active ? [{ source: active.source, start: active.startedAt, end: Infinity }] : [])
 		];
 	},
 
+	/** Puts the workout that ended earlier today back in progress, where it left off. */
 	resume(now = Date.now()): boolean {
 		const last = session.data?.lastSession;
 		if (!last || this.session || !endedToday(last, last.source, now)) return false;

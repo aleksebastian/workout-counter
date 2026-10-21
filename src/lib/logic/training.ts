@@ -1,4 +1,5 @@
 import { counted } from '$lib/utils';
+import { DAY_FULL } from '$lib/constants';
 import {
 	itemsForDay,
 	type ActiveSession,
@@ -306,32 +307,52 @@ export function resumedSession(
 /** A stretch of time whose sets belong to one workout: a finished, ended or running session. */
 export type SessionWindow = { source: SessionSource; start: number; end: number };
 
+/** Whether a session runs this routine: the routine itself, or a program day that includes it. */
+export function runsRoutine(source: SessionSource, routineId: string, lookups: Lookups): boolean {
+	if (source.type === 'routine') return source.routineId === routineId;
+	const program = lookups.program(source.programId);
+	return (
+		!!program &&
+		itemsForDay(program, source.day).some(
+			(item) => item.type === 'routine' && item.routineId === routineId
+		)
+	);
+}
+
 /**
  * When a routine was last trained, or `null`. Its own sessions say so
- * directly. Sets outside every session — logged before sessions were kept, or
- * one at a time — still count for the routine's exercises. A set inside some
- * other workout's session is that workout's, however many exercises the two
- * share: a copy of a routine isn't "done" because the original was.
+ * directly. Its exercises' sets count too, unless they fall inside a session
+ * of some other workout: a copy of a routine isn't "done" because the
+ * original was, however many exercises the two share. A program day that
+ * includes the routine is the routine being trained.
  */
 export function routineLastTrained(
 	routine: Routine,
-	workout: (id: string) => Workout | null,
+	lookups: Lookups,
 	windows: SessionWindow[]
 ): number | null {
 	let last: number | null = null;
 	const later = (t: number) => (last = last === null ? t : Math.max(last, t));
 
+	const others: SessionWindow[] = [];
 	for (const w of windows) {
-		if (w.source.type === 'routine' && w.source.routineId === routine.id) later(w.end);
+		if (!runsRoutine(w.source, routine.id, lookups)) others.push(w);
+		// A running one has no end yet; its sets speak for it below.
+		else if (w.source.type === 'routine' && Number.isFinite(w.end)) later(w.end);
 	}
-	const claimed = (t: number) => windows.some((w) => t >= w.start && t <= w.end);
+	const claimed = (t: number) => others.some((w) => t >= w.start && t <= w.end);
 	for (const ex of routine.exercises) {
-		for (const set of workout(ex.workoutId)?.sets ?? []) {
+		for (const set of lookups.workout(ex.workoutId)?.sets ?? []) {
 			const t = Date.parse(set.date);
 			if (!claimed(t)) later(t);
 		}
 	}
 	return last;
+}
+
+/** "tomorrow", or the day's name: when a program day comes round next, seen from `today`. */
+export function whenNext(day: number, today: number): string {
+	return day === (today + 1) % 7 ? 'tomorrow' : DAY_FULL[day];
 }
 
 /** What a program day is called: its label, else its routines' names, else its size. */
