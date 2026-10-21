@@ -350,6 +350,28 @@ export const sessions = {
 			batch.update(doc(db, 'users', uid), { activeSession: deleteField() });
 			return batch.commit();
 		});
+	},
+
+	/**
+	 * Deletes a past workout from History: its log, and its sets off their
+	 * exercises, in one batch. When it's also the one Today offers to resume,
+	 * that goes too, so a deleted workout isn't "done today".
+	 */
+	remove(logId: string, logged: { workoutId: string; sets: Set[] }[], isLastSession: boolean) {
+		const uid = requireUid();
+		return mutate('delete workout', () => {
+			const batch = writeBatch(db);
+			for (const { workoutId, sets } of logged) {
+				if (sets.length) {
+					batch.update(doc(db, 'users', uid, 'workouts', workoutId), {
+						sets: arrayRemove(...sets)
+					});
+				}
+			}
+			batch.delete(doc(db, 'users', uid, 'sessions', logId));
+			if (isLastSession) batch.update(doc(db, 'users', uid), { lastSession: deleteField() });
+			return batch.commit();
+		});
 	}
 };
 

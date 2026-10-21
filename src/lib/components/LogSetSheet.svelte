@@ -23,8 +23,7 @@
 	let { open = $bindable(false) }: { open?: boolean } = $props();
 
 	type Choice =
-		| { kind: 'library'; workoutId: string }
-		| { kind: 'catalog'; catalogId: string; name: string };
+		{ kind: 'library'; workoutId: string } | { kind: 'catalog'; catalogId: string; name: string };
 
 	let search = $state('');
 	let choice = $state<Choice | null>(null);
@@ -100,13 +99,13 @@
 	let chosenWorkout = $derived(
 		choice?.kind === 'library' ? session.workout(choice.workoutId) : null
 	);
-	let chosenName = $derived(
-		choice?.kind === 'catalog' ? choice.name : (chosenWorkout?.name ?? '')
-	);
+	let chosenName = $derived(choice?.kind === 'catalog' ? choice.name : (chosenWorkout?.name ?? ''));
 	let equipment = $derived.by(() => {
 		if (!catalog || !choice) return undefined;
 		if (choice.kind === 'catalog') return catalog.exercise(choice.catalogId)?.equipment;
-		return chosenWorkout ? catalogExerciseFor(chosenWorkout, catalog.exercises)?.equipment : undefined;
+		return chosenWorkout
+			? catalogExerciseFor(chosenWorkout, catalog.exercises)?.equipment
+			: undefined;
 	});
 	let hasHistory = $derived((chosenWorkout?.sets.length ?? 0) > 0);
 	// As on the run screen: a first set of a loaded exercise hasn't chosen a weight yet.
@@ -151,7 +150,11 @@
 	}
 
 	let draftLabel = $derived(
-		weight > 0 ? `${weight} ${unit} × ${reps}` : weightUnset ? `${reps} · no weight` : `${reps} reps`
+		weight > 0
+			? `${weight} ${unit} × ${reps}`
+			: weightUnset
+				? `${reps} · no weight`
+				: `${reps} reps`
 	);
 </script>
 
@@ -170,8 +173,12 @@
 				class="bg-primary/15 text-primary-strong flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
 				aria-hidden="true"
 			>
-				<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
-					><path d="M12 5v14M5 12h14" stroke-linecap="round" /></svg
+				<svg
+					class="h-4 w-4"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2.5"><path d="M12 5v14M5 12h14" stroke-linecap="round" /></svg
 				>
 			</span>
 		{:else}
@@ -198,7 +205,12 @@
 					class="btn btn-ghost btn-sm -ml-2 gap-1 px-2"
 					onclick={() => (choice = null)}
 				>
-					<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+					<svg
+						class="h-4 w-4"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2.5"
 						><path d="M15 18l-6-6 6-6" stroke-linecap="round" stroke-linejoin="round" /></svg
 					>
 					All exercises
@@ -278,7 +290,9 @@
 			{/if}
 
 			{#if query && !all.length && !fromDiscover.length && !createName}
-				<p class="text-base-content/55 py-6 text-center text-sm">Nothing matches “{search.trim()}”.</p>
+				<p class="text-base-content/55 py-6 text-center text-sm">
+					Nothing matches “{search.trim()}”.
+				</p>
 			{/if}
 
 			{#if createName}

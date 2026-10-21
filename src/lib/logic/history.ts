@@ -1,6 +1,12 @@
 import { counted } from '$lib/utils';
 import { programDays, type Program, type SessionLog, type Set, type Workout } from '$lib/types';
-import { elapsedMs, previousSets, sameSource, type PlanEntry, type SessionWindow } from './training';
+import {
+	elapsedMs,
+	previousSets,
+	sameSource,
+	type PlanEntry,
+	type SessionWindow
+} from './training';
 
 /**
  * Rules for the History tab and Today's summaries: volume, personal records,
@@ -43,7 +49,10 @@ export function isRecord(set: Set, earlier: Set[]): boolean {
 }
 
 /** The sets one session logged on an exercise, oldest first. */
-export function sessionSets(workout: Workout | null, log: Pick<SessionLog, 'startedAt' | 'endedAt'>) {
+export function sessionSets(
+	workout: Workout | null,
+	log: Pick<SessionLog, 'startedAt' | 'endedAt'>
+) {
 	return (workout?.sets ?? [])
 		.filter((s) => timeOf(s) >= log.startedAt && timeOf(s) <= log.endedAt)
 		.sort((a, b) => timeOf(a) - timeOf(b));

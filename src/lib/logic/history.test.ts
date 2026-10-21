@@ -116,9 +116,11 @@ describe('historyFeed', () => {
 	});
 
 	it('leaves the workout in progress out of single sets', () => {
-		const feed = historyFeed([], [bench], [
-			{ source: { type: 'routine', routineId: 'r1' }, start: T0, end: Infinity }
-		]);
+		const feed = historyFeed(
+			[],
+			[bench],
+			[{ source: { type: 'routine', routineId: 'r1' }, start: T0, end: Infinity }]
+		);
 		expect(feed).toEqual([]);
 	});
 });

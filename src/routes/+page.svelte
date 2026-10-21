@@ -18,12 +18,7 @@
 		type PlanEntry
 	} from '$lib/logic/training';
 	import { durationMs, pickRest } from '$lib/logic/rest';
-	import {
-		estimateMinutes,
-		logDuration,
-		recordIds,
-		sessionSets
-	} from '$lib/logic/history';
+	import { estimateMinutes, logDuration, recordIds, sessionSets } from '$lib/logic/history';
 	import {
 		discoverHref,
 		historyItemHref,
@@ -231,7 +226,11 @@
 		)
 	);
 	let othersLabel = $derived(
-		hero === 'rest' ? 'Train anyway' : hero === 'done' ? 'Train something else' : 'Or train something else'
+		hero === 'rest'
+			? 'Train anyway'
+			: hero === 'done'
+				? 'Train something else'
+				: 'Or train something else'
 	);
 
 	// ── New account: rest timer ─────────────────────────────────────────────────
@@ -269,7 +268,13 @@
 </script>
 
 {#snippet check(cls = 'h-5 w-5')}
-	<svg class={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"
+	<svg
+		class={cls}
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="currentColor"
+		stroke-width="3"
+		aria-hidden="true"
 		><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" /></svg
 	>
 {/snippet}
@@ -335,7 +340,9 @@
 
 		<!-- The hero: the one thing to do now. Only it is green. -->
 		{#if hero === 'progress' && progress}
-			<div class="bg-primary/10 ring-primary/15 flex flex-col gap-3.5 rounded-2xl p-4 ring-1 ring-inset">
+			<div
+				class="bg-primary/10 ring-primary/15 flex flex-col gap-3.5 rounded-2xl p-4 ring-1 ring-inset"
+			>
 				<div>
 					<p class="text-primary-strong text-xs font-semibold tracking-widest uppercase">
 						<span
@@ -359,7 +366,9 @@
 				>
 			</div>
 		{:else if hero === 'done' && endedToday}
-			<div class="bg-primary/10 ring-primary/15 flex flex-col gap-3.5 rounded-2xl p-4 ring-1 ring-inset">
+			<div
+				class="bg-primary/10 ring-primary/15 flex flex-col gap-3.5 rounded-2xl p-4 ring-1 ring-inset"
+			>
 				<div class="flex items-center gap-3">
 					<span
 						class="bg-primary text-primary-content flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
@@ -425,7 +434,9 @@
 				</div>
 			</div>
 		{:else if hero === 'program' || hero === 'routine'}
-			<div class="bg-primary/10 ring-primary/15 flex flex-col gap-3.5 rounded-2xl p-4 ring-1 ring-inset">
+			<div
+				class="bg-primary/10 ring-primary/15 flex flex-col gap-3.5 rounded-2xl p-4 ring-1 ring-inset"
+			>
 				<div>
 					{@render eyebrow(heroEyebrow, 'text-primary-strong')}
 					<p class="mt-1 text-2xl font-extrabold">{heroTitle}</p>
@@ -443,8 +454,9 @@
 				{#if heroEnded}
 					<!-- Ended early today: pick it back up, or start a fresh one. -->
 					<div class="flex flex-col gap-1">
-						<button class="btn btn-primary btn-lg h-13 rounded-2xl" onclick={() => start({ resume: true })}
-							>Resume workout</button
+						<button
+							class="btn btn-primary btn-lg h-13 rounded-2xl"
+							onclick={() => start({ resume: true })}>Resume workout</button
 						>
 						<button class="btn btn-ghost btn-sm" onclick={() => start({ fresh: true })}
 							>Start over</button
@@ -464,7 +476,12 @@
 						class="bg-base-300 text-base-content/55 flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
 						aria-hidden="true"
 					>
-						<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+						<svg
+							class="h-5 w-5"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
 							><path
 								d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z"
 								stroke-linecap="round"
@@ -492,7 +509,9 @@
 			</div>
 		{:else}
 			<!-- New account: the first decision is what to train. -->
-			<div class="bg-primary/10 ring-primary/15 flex flex-col gap-3.5 rounded-2xl p-4 ring-1 ring-inset">
+			<div
+				class="bg-primary/10 ring-primary/15 flex flex-col gap-3.5 rounded-2xl p-4 ring-1 ring-inset"
+			>
 				<div>
 					{@render eyebrow('Get started', 'text-primary-strong')}
 					<p class="mt-1 text-2xl font-extrabold">Pick what to train</p>

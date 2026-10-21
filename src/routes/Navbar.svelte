@@ -46,7 +46,9 @@
 	// Key for the left slot: changes when the slot type changes (home ↔ tab ↔ detail)
 	let leftKey = $derived(isHome ? 'pref' : isTab ? 'tab' : 'back');
 	// Key for the center: changes on every tab title change
-	let centerKey = $derived(!hasUser ? 'setcount' : isHome ? 'Today' : isTab ? tabTitle : navState.title);
+	let centerKey = $derived(
+		!hasUser ? 'setcount' : isHome ? 'Today' : isTab ? tabTitle : navState.title
+	);
 
 	function handleBack() {
 		if (window.history.length > 1) {
