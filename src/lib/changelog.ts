@@ -21,6 +21,21 @@ export interface ChangelogEntry {
 /** Newest first. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.17.0',
+		date: '2026-10-21',
+		new: [
+			'Today: one tab for training. It shows what to do now (today’s workout, the one in progress, how it went, or a rest day) with everything else below',
+			'History: every workout you’ve done, with this week’s streak, volume and time, a calendar, and personal records',
+			'Open any past workout to see each exercise, how it compares with last time, and fix a set',
+			'Log a single set of any exercise from Today, including ones from Discover you haven’t added yet'
+		],
+		improved: [
+			'Home and Train are now Today; the old Train link takes you there',
+			'Today’s workout shows about how long it takes, and learns from your past runs'
+		],
+		fixed: ['A set logged on its own no longer makes a routine look done']
+	},
+	{
 		version: '0.16.0',
 		date: '2026-10-20',
 		new: [

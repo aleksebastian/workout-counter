@@ -7,7 +7,7 @@
 	import { EQUIPMENT_LABELS, MUSCLE_LABELS, exerciseMatches } from '$lib/catalog/labels';
 	import { planImport } from '$lib/catalog/plan';
 	import { recordSet } from '$lib/logic/logSet';
-	import { getNameValidationMsg } from '$lib/utils';
+	import { counted, getNameValidationMsg } from '$lib/utils';
 	import BottomSheet from '$lib/components/BottomSheet.svelte';
 	import SetAdjuster from '$lib/components/SetAdjuster.svelte';
 	import Chevron from '$lib/components/Chevron.svelte';
@@ -62,7 +62,7 @@
 			addSuffix: true,
 			roundingMethod: 'floor'
 		});
-		return `${when} · last ${last.weight ? `${last.weight} ${unit} × ` : ''}${last.reps}`;
+		return `${when} · last ${last.weight ? `${last.weight} ${unit} × ${last.reps}` : counted(last.reps, 'rep')}`;
 	}
 
 	let recent = $derived(
@@ -152,9 +152,7 @@
 	let draftLabel = $derived(
 		weight > 0
 			? `${weight} ${unit} × ${reps}`
-			: weightUnset
-				? `${reps} · no weight`
-				: `${reps} reps`
+			: `${counted(reps, 'rep')}${weightUnset ? ' · no weight' : ''}`
 	);
 </script>
 

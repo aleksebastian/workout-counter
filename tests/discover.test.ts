@@ -81,15 +81,10 @@ test("an active program offers the day's workout", async ({ page }) => {
 	await expect(page.getByText('Active Program')).toBeVisible();
 	await expect.poll(async () => (await readDoc(`users/${UID}`))?.activeProgramId).toBe(program.id);
 
-	// Home offers Monday's session, and starting it opens Full Body A.
-	await openTab(page, 'Home');
-	const card = page
-		.locator('div')
-		.filter({ hasText: /^ACTIVE PROGRAM|Full Body Beginner/i })
-		.filter({
-			has: page.getByRole('button', { name: 'Start', exact: true })
-		});
-	await card.last().getByRole('button', { name: 'Start', exact: true }).click();
+	// Today leads with Monday's session, and starting it opens Full Body A.
+	await openTab(page, 'Today');
+	await expect(page.getByText(/^Full Body Beginner · day 1 of 3$/i)).toBeVisible();
+	await page.getByRole('button', { name: 'Start Full Body A', exact: true }).click();
 	await expect(page.getByRole('heading', { name: 'Goblet Squat' })).toBeVisible();
 });
 
@@ -101,6 +96,8 @@ test('an active program shows a rest day when nothing is scheduled', async ({ pa
 	await page.getByRole('button', { name: 'Add to Library' }).click();
 	await expect.poll(async () => (await readDoc(`users/${UID}`))?.activeProgramId).toBeTruthy();
 
-	await openTab(page, 'Home');
+	await openTab(page, 'Today');
 	await expect(page.getByText('Rest day').first()).toBeVisible();
+	// And when the plan picks up again: Wednesday's Full Body B.
+	await expect(page.getByText('Next up · tomorrow')).toBeVisible();
 });

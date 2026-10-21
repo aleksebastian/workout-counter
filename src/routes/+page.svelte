@@ -131,7 +131,9 @@
 	);
 
 	const ago = (t: number) =>
-		formatDistanceToNowStrict(t, { addSuffix: true, roundingMethod: 'floor' });
+		now - t < 60_000
+			? 'just now'
+			: formatDistanceToNowStrict(t, { addSuffix: true, roundingMethod: 'floor' });
 
 	let lastDone = $derived.by(() => {
 		if (!heroSource) return null;
@@ -179,7 +181,8 @@
 			setDetail: entry?.targetSets
 				? `set ${Math.min(done + 1, entry.targetSets)} of ${entry.targetSets}`
 				: `set ${done + 1}`,
-			meta: `Exercise ${Math.min(training.index + 1, plan.length)} of ${plan.length} · ${counted(sets, 'set')} logged`
+			// SessionProgress already says which exercise of how many.
+			meta: `${counted(sets, 'set')} logged`
 		};
 	});
 
@@ -463,8 +466,10 @@
 						>
 					</div>
 				{:else}
-					<button class="btn btn-primary btn-lg h-13 rounded-2xl" onclick={() => start()}
-						>Start workout</button
+					<button
+						class="btn btn-primary btn-lg h-13 rounded-2xl"
+						aria-label="Start {heroTitle}"
+						onclick={() => start()}>Start workout</button
 					>
 				{/if}
 			</div>

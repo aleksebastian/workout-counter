@@ -6,7 +6,7 @@ test('a signed-out visitor lands on the login page', async ({ page }) => {
 	await expect(page.getByRole('heading', { name: 'SetCount' })).toBeVisible();
 });
 
-const HOME = /^Good (morning|afternoon|evening)/;
+const HOME = /^(Good (morning|afternoon|evening)|Welcome|Nice work)/;
 
 test('a device still signed in walks back in when its server session is gone', async ({ page }) => {
 	await signIn(page);
