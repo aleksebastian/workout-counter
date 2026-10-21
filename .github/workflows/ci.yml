@@ -84,11 +84,13 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.versions.outputs.playwright }}
+          # The browser list is in the key: a cache saved before WebKit was added
+          # would otherwise hit, and the new browser would never be cached.
+          key: playwright-${{ runner.os }}-${{ steps.versions.outputs.playwright }}-chromium-webkit
 
       # System deps are needed even on a cache hit; the browser download is
-      # skipped when it's already cached.
-      - run: pnpm exec playwright install --with-deps chromium
+      # skipped when it's already cached. WebKit runs the iPhone project.
+      - run: pnpm exec playwright install --with-deps chromium webkit
       - run: pnpm test:e2e
 
       - uses: actions/upload-artifact@v4

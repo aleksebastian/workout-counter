@@ -8,8 +8,10 @@
 export const SETUP_SEEN_KEY = 'sc-setup-complete-seen';
 /** The "turn on a rest timer?" offer was answered either way. */
 export const REST_OFFER_ANSWERED_KEY = 'sc-rest-offer-answered';
+/** When the server session cookie was last renewed (ms since epoch). */
+export const SESSION_RENEWED_KEY = 'sc-session-renewed';
 
-const ACCOUNT_KEYS = [SETUP_SEEN_KEY, REST_OFFER_ANSWERED_KEY];
+const ACCOUNT_KEYS = [SETUP_SEEN_KEY, REST_OFFER_ANSWERED_KEY, SESSION_RENEWED_KEY];
 
 export function forgetAccountStorage() {
 	for (const key of ACCOUNT_KEYS) {

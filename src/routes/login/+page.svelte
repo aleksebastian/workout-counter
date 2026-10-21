@@ -1,7 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { onAuthStateChanged, type User } from 'firebase/auth';
-	import { finishSignIn, signInWithGoogle, isSigningOut } from '$lib/logic/auth';
+	import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
+	import {
+		finishSignIn,
+		signInWithGoogle,
+		isSigningOut,
+		SessionRejectedError
+	} from '$lib/logic/auth';
 	import { auth } from '$lib/firebase';
 	import { pwa } from '$lib/logic/pwa.svelte';
 
@@ -58,6 +63,10 @@
 		try {
 			await step();
 		} catch (e: unknown) {
+			// The server won't take this device's sign-in. Drop it, keeping the
+			// local cache as the session-expired path does, so the next tap opens
+			// Google instead of retrying the same rejected sign-in forever.
+			if (e instanceof SessionRejectedError) await signOut(auth).catch(() => {});
 			if (mine !== attempt) return;
 			const msg = e instanceof Error ? e.message : String(e);
 			if (msg.includes('missing initial state') || msg.includes('sessionStorage')) {

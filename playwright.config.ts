@@ -1,4 +1,4 @@
-import type { PlaywrightTestConfig } from '@playwright/test';
+import { devices, type PlaywrightTestConfig } from '@playwright/test';
 
 /**
  * End-to-end tests run against the Firebase Auth and Firestore emulators —
@@ -16,8 +16,17 @@ const config: PlaywrightTestConfig = {
 	use: {
 		baseURL: 'http://localhost:4173',
 		// The app's service worker caches pages between tests; each test starts clean.
-		serviceWorkers: 'block'
+		serviceWorkers: 'block',
+		// Something to look at when a run fails, locally or in CI's uploaded results.
+		screenshot: 'only-on-failure',
+		trace: 'retain-on-failure'
 	},
+	// Desktop Chrome, and WebKit at iPhone size — the closest to the installed
+	// iOS PWA. They share the emulator database, so tests run one at a time.
+	projects: [
+		{ name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+		{ name: 'iphone', use: { ...devices['iPhone 15'] } }
+	],
 	retries: 2,
 	timeout: 30 * 1000,
 	workers: 1

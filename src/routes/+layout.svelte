@@ -11,7 +11,7 @@
 	import WorkoutBar from '$lib/components/WorkoutBar.svelte';
 	import AccountScreen from '$lib/components/AccountScreen.svelte';
 	import WhatsNewSheet from '$lib/components/WhatsNewSheet.svelte';
-	import { handleSignOut, isSigningOut } from '$lib/logic/auth';
+	import { handleSignOut, isSigningOut, renewSession } from '$lib/logic/auth';
 	import { restTimer } from '$lib/logic/restTimer.svelte';
 	import { training } from '$lib/logic/training.svelte';
 	import { bottomSlot } from '$lib/logic/bottomSlot.svelte';
@@ -120,11 +120,23 @@
 		if (session.ready && session.library && training.session) training.sweep();
 	});
 
+	// Keep the server session alive while the app is in use, so an update
+	// reload (the first page load to reach the server in a while) doesn't land
+	// on /login.
+	$effect(() => {
+		if (session.ready) renewSession();
+	});
+
 	onMount(() => {
+		const onVisible = () => {
+			if (document.visibilityState === 'visible') renewSession();
+		};
+		document.addEventListener('visibilitychange', onVisible);
 		const teardownPwa = pwa.init();
 		const teardownTimer = restTimer.restore();
 		const teardownTraining = training.init();
 		return () => {
+			document.removeEventListener('visibilitychange', onVisible);
 			teardownPwa();
 			teardownTimer();
 			teardownTraining();

@@ -1,9 +1,9 @@
 import { adminAuth } from '$lib/server/admin';
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { dev } from '$app/environment';
+import { canStartSession, SESSION_MAX_AGE_MS } from '$lib/server/session';
 
-export const POST: RequestHandler = async ({ request, cookies }) => {
+export const POST: RequestHandler = async ({ request, cookies, url }) => {
 	let idToken: unknown;
 	try {
 		({ idToken } = await request.json());
@@ -14,26 +14,36 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		throw error(400, 'Missing idToken');
 	}
 
-	const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
-
 	let decodedIdToken;
 	try {
-		decodedIdToken = await adminAuth.verifyIdToken(idToken);
-	} catch {
-		throw error(401, 'Invalid ID token');
+		// checkRevoked: a signed-out-everywhere or disabled account can't come back
+		// in on a token minted just before.
+		decodedIdToken = await adminAuth.verifyIdToken(idToken, true);
+	} catch (e) {
+		// Only a verdict on the token itself (revoked, disabled, expired,
+		// malformed) is a 401: the client signs the device out on one. A failure
+		// to reach Firebase is worth a retry instead.
+		if ((e as { code?: string }).code?.startsWith('auth/')) {
+			return json({ reason: 'invalid-token' }, { status: 401 });
+		}
+		throw error(503, "Couldn't verify the sign-in");
 	}
 
-	if (new Date().getTime() / 1000 - decodedIdToken.auth_time < 5 * 60) {
-		const cookie = await adminAuth.createSessionCookie(idToken, { expiresIn });
-		const secure = dev ? false : true;
-		const options = { maxAge: expiresIn, httpOnly: true, secure, path: '/' };
-
-		cookies.set('__session', cookie, options);
-
-		return json({ status: 'signedIn' });
-	} else {
-		throw error(401, 'Recent sign in required!');
+	if (!canStartSession(decodedIdToken, Date.now() / 1000)) {
+		return json({ reason: 'stale-token' }, { status: 401 });
 	}
+
+	const expiresIn = SESSION_MAX_AGE_MS;
+	const cookie = await adminAuth.createSessionCookie(idToken, { expiresIn });
+	// Secure everywhere but plain-http localhost (dev, the end-to-end build),
+	// where WebKit drops a Secure cookie and sign-in then bounces. Keyed on
+	// the host, not the protocol, so a proxy reporting http can't weaken it.
+	const secure = !(url.hostname === 'localhost' && url.protocol === 'http:');
+	const options = { maxAge: expiresIn / 1000, httpOnly: true, secure, path: '/' };
+
+	cookies.set('__session', cookie, options);
+
+	return json({ status: 'signedIn' });
 };
 
 export const DELETE: RequestHandler = async ({ cookies }) => {
