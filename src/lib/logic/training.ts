@@ -4,6 +4,7 @@ import {
 	type ActiveSession,
 	type EndedSession,
 	type Program,
+	type ProgramDay,
 	type Routine,
 	type SessionLog,
 	type SessionSource,
@@ -300,4 +301,45 @@ export function resumedSession(
 		currentIndex: plan[index] ? index : last.currentIndex,
 		pausedMs: last.pausedMs + Math.max(0, now - last.endedAt)
 	};
+}
+
+/** A stretch of time whose sets belong to one workout: a finished, ended or running session. */
+export type SessionWindow = { source: SessionSource; start: number; end: number };
+
+/**
+ * When a routine was last trained, or `null`. Its own sessions say so
+ * directly. Sets outside every session — logged before sessions were kept, or
+ * one at a time — still count for the routine's exercises. A set inside some
+ * other workout's session is that workout's, however many exercises the two
+ * share: a copy of a routine isn't "done" because the original was.
+ */
+export function routineLastTrained(
+	routine: Routine,
+	workout: (id: string) => Workout | null,
+	windows: SessionWindow[]
+): number | null {
+	let last: number | null = null;
+	const later = (t: number) => (last = last === null ? t : Math.max(last, t));
+
+	for (const w of windows) {
+		if (w.source.type === 'routine' && w.source.routineId === routine.id) later(w.end);
+	}
+	const claimed = (t: number) => windows.some((w) => t >= w.start && t <= w.end);
+	for (const ex of routine.exercises) {
+		for (const set of workout(ex.workoutId)?.sets ?? []) {
+			const t = Date.parse(set.date);
+			if (!claimed(t)) later(t);
+		}
+	}
+	return last;
+}
+
+/** What a program day is called: its label, else its routines' names, else its size. */
+export function programDayName(day: ProgramDay, routine: (id: string) => Routine | null): string {
+	if (day.label) return day.label;
+	const names = day.items.flatMap((item) => {
+		const name = item.type === 'routine' ? routine(item.routineId)?.name : undefined;
+		return name ? [name] : [];
+	});
+	return names.length ? names.join(' + ') : counted(day.items.length, 'exercise');
 }

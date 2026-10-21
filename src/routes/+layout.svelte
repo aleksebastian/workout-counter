@@ -43,13 +43,15 @@
 	);
 	/**
 	 * Toasts stack above the bottom nav, plus the workout/rest bar and any banner
-	 * above it, rather than covering them. The run screen hides the nav, so they
-	 * keep their default spot there.
+	 * above it, rather than covering them. The run screen hides the nav, and its
+	 * footer takes over `--bottom-nav-height`, so they clear the Log set button.
 	 */
 	let toastBottom = $derived(
-		hasUser && !immersive
-			? `calc(var(--bottom-nav-height) + ${bottomSlot.occupied ? '5.75rem' : '0.75rem'} + ${bannerShown ? bannerHeight + 8 : 0}px + env(safe-area-inset-bottom, 0px))`
-			: undefined
+		!hasUser
+			? undefined
+			: immersive
+				? 'calc(var(--bottom-nav-height) + 0.5rem + env(safe-area-inset-bottom, 0px))'
+				: `calc(var(--bottom-nav-height) + ${bottomSlot.occupied ? '5.75rem' : '0.75rem'} + ${bannerShown ? bannerHeight + 8 : 0}px + env(safe-area-inset-bottom, 0px))`
 	);
 	/** Opened from the post-update banner; the account screen has its own. */
 	let whatsNewOpen = $state(false);

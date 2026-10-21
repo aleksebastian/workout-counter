@@ -1,8 +1,16 @@
 import type { User } from 'firebase/auth';
 import { browser } from '$app/environment';
-import { user, userData, workouts, routines, programs, storeErrors } from '$lib/firebase';
+import {
+	user,
+	userData,
+	workouts,
+	routines,
+	programs,
+	sessionLogs,
+	storeErrors
+} from '$lib/firebase';
 import { resolvePreferences } from '$lib/logic/rest';
-import type { Preferences, Program, Routine, UserData, Workout } from '$lib/types';
+import type { Preferences, Program, Routine, SessionLog, UserData, Workout } from '$lib/types';
 
 /**
  * Rune-backed mirror of the Firebase stores.
@@ -21,6 +29,7 @@ let data = $state<UserData | null | undefined>(undefined);
 let workoutList = $state<Workout[] | null>(null);
 let routineList = $state<Routine[] | null>(null);
 let programList = $state<Program[] | null>(null);
+let logList = $state<SessionLog[] | null>(null);
 let firstError = $state<string | null>(null);
 
 if (browser) {
@@ -29,6 +38,7 @@ if (browser) {
 	workouts.subscribe((v) => (workoutList = v));
 	routines.subscribe((v) => (routineList = v));
 	programs.subscribe((v) => (programList = v));
+	sessionLogs.subscribe((v) => (logList = v && v.filter((l) => l !== null)));
 	storeErrors.subscribe((all) => (firstError = Object.values(all)[0] ?? null));
 }
 
@@ -86,6 +96,10 @@ export const session = {
 	},
 	get programs() {
 		return programList;
+	},
+	/** Recent workout history, newest first. */
+	get sessionLogs() {
+		return logList;
 	},
 
 	workout(id: string | undefined) {

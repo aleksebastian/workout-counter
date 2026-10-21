@@ -7,7 +7,6 @@
 	import { navState } from '$lib/nav.svelte';
 	import { TAB_ROUTES } from '$lib/routes';
 	import Avatar from './Avatar.svelte';
-	import HomeIcon from '$lib/icons/home.svg?raw';
 
 	interface Props {
 		hasUser: boolean;
@@ -45,7 +44,7 @@
 	});
 
 	// Key for the left slot: changes when the slot type changes (home ↔ tab ↔ detail)
-	let leftKey = $derived(isHome ? 'pref' : isTab ? 'home-icon' : 'back');
+	let leftKey = $derived(isHome ? 'pref' : isTab ? 'tab' : 'back');
 	// Key for the center: changes on every tab title change
 	let centerKey = $derived(isHome || !hasUser ? 'setcount' : isTab ? tabTitle : navState.title);
 
@@ -92,10 +91,9 @@
 					</svg>
 				</a>
 			{:else if isTab}
-				<!-- Home icon -->
-				<a href="/" aria-label="Home" class="btn btn-square btn-ghost">
-					{@html HomeIcon}
-				</a>
+				<!-- Nothing: Home is a tab of its own, and a second way there just
+				     took a tap target from the corner. Holds the title centred. -->
+				<span class="btn btn-square invisible" aria-hidden="true"></span>
 			{:else}
 				<!-- Back button -->
 				<button class="btn btn-square btn-ghost" onclick={handleBack} aria-label="Back">

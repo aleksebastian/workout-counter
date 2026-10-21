@@ -156,7 +156,9 @@
 			<div class="flex items-center gap-2">
 				<span class="truncate text-sm font-semibold">{row.workout.name}</span>
 				{#if doneNow}
-					<span class="badge badge-success badge-xs shrink-0">Today</span>
+					<span class="badge badge-xs bg-primary/15 text-primary-strong shrink-0 border-none"
+						>Today</span
+					>
 				{/if}
 			</div>
 			{#if row.ex.targetSets || row.ex.minReps || row.ex.maxReps}

@@ -70,6 +70,15 @@
 		};
 	}
 
+	/** While resting, what the rest is for: the next set, or the next exercise. */
+	let restNext = $derived(
+		setNumber !== null
+			? `Next: set ${setNumber}`
+			: next
+				? `Next: ${next.name}`
+				: 'Last exercise done'
+	);
+
 	let field = $state<HTMLInputElement>();
 	let hasDraft = $derived(notes.trim() !== '');
 	let canNote = $derived(setNumber !== null);
@@ -166,7 +175,7 @@
 			<!-- Stacked, so the outgoing one can roll away while the other rolls in. -->
 			{#if restTimer.active}
 				<div class="absolute inset-0" in:rollIn out:rollOut>
-					<RestCard compact />
+					<RestCard compact next={restNext} />
 				</div>
 			{:else}
 				<div

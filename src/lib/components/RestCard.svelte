@@ -21,9 +21,11 @@
 		 * the set list above doesn't shrink and grow with every rest.
 		 */
 		compact?: boolean;
+		/** What comes after the rest, e.g. "Next: set 2", in place of the timer's source. */
+		next?: string;
 	}
 
-	let { resumable = false, class: className = '', compact = false }: Props = $props();
+	let { resumable = false, class: className = '', compact = false, next }: Props = $props();
 </script>
 
 {#snippet dismissIcon()}
@@ -68,16 +70,22 @@
 	</div>
 {:else if restTimer.active && compact}
 	<div class="bg-base-200 relative overflow-hidden rounded-2xl {className}">
-		<div class="flex items-center gap-2 py-1.5 pr-1.5 pl-4">
+		<div class="flex h-11 items-center gap-1 pl-4">
 			<span class="text-base-content/50 shrink-0 text-xs font-semibold tracking-widest uppercase"
 				>Rest</span
 			>
-			<span class="text-base-content/55 min-w-0 flex-1 truncate text-sm">
-				{restTimer.source ? `${restTimer.source} timer` : 'Next set coming up'}
+			<span class="text-base-content/55 ml-1 min-w-0 flex-1 truncate text-sm">
+				{next ?? (restTimer.source ? `${restTimer.source} timer` : 'Next set coming up')}
 			</span>
 			<span class="text-primary text-xl font-black tabular-nums">{restTimer.display}</span>
+			<!-- A hard set can need longer than planned; one tap, no settings. -->
 			<button
-				class="btn btn-circle btn-ghost btn-sm text-base-content/30"
+				class="btn btn-ghost h-11 min-h-0 rounded-full px-2.5 text-sm font-semibold"
+				onclick={() => restTimer.extend(30_000)}
+				aria-label="Add 30 seconds to rest">+30s</button
+			>
+			<button
+				class="btn btn-circle btn-ghost text-base-content/30 h-11 min-h-0 w-11"
 				onclick={() => restTimer.stop()}
 				aria-label="Dismiss rest timer"
 			>

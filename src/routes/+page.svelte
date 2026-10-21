@@ -5,7 +5,7 @@
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
-	import { formatDistanceToNow } from 'date-fns';
+	import { formatDistanceToNowStrict } from 'date-fns';
 	import { session } from '$lib/session.svelte';
 	import { user } from '$lib/data';
 	import { pwa } from '$lib/logic/pwa.svelte';
@@ -17,7 +17,9 @@
 		runProgramHref,
 		runRoutineHref
 	} from '$lib/routes';
-	import { itemsForDay } from '$lib/types';
+	import { itemsForDay, nextScheduledDay } from '$lib/types';
+	import { DAY_FULL } from '$lib/constants';
+	import { programDayName } from '$lib/logic/training';
 	import Chevron from '$lib/components/Chevron.svelte';
 	import CheckIcon from '$lib/components/CheckIcon.svelte';
 
@@ -159,22 +161,45 @@
 		return `${secs}s`;
 	});
 
-	let lastSetLabel = $derived.by(() => {
-		if (!sessionSetTimestamp) return '';
-		const secs = Math.floor((now - sessionSetTimestamp) / 1000);
+	/**
+	 * "12 seconds ago", "3 minutes ago", "10 days ago". Rounded down, like the
+	 * "since last set" tile: rounding to nearest had the card say "11 days
+	 * ago" beside a tile saying "10d".
+	 */
+	function ago(ts: number, at: number): string {
+		const secs = Math.floor((at - ts) / 1000);
 		const mins = Math.floor(secs / 60);
 		if (secs < 60) return secs <= 1 ? '1 second ago' : `${secs} seconds ago`;
 		if (mins < 10) return `${mins} minute${mins === 1 ? '' : 's'} ago`;
-		return formatDistanceToNow(sessionSetTimestamp, { addSuffix: true });
-	});
+		return formatDistanceToNowStrict(ts, { addSuffix: true, roundingMethod: 'floor' });
+	}
+
+	let lastSetLabel = $derived(sessionSetTimestamp ? ago(sessionSetTimestamp, now) : '');
 
 	// Was hardcoded to "kg" regardless of the user's preference.
 	let lastSetDetail = $derived.by(() => {
 		if (!sessionSet) return '';
 		const parts = [counted(sessionSet.reps, 'rep')];
-		if (sessionSet.weight) parts.push(`${sessionSet.weight} ${unit}`);
+		if (sessionSet.weight) parts.push(`${sessionSet.weight} ${unit === 'kg' ? 'kg' : 'lb'}`);
 		return parts.join(' · ');
 	});
+
+	/**
+	 * The last workout run start to finish (newest in the history). The card
+	 * used to show the last single set under a "Last session" heading; that's
+	 * now only the fallback, for history from before workouts were kept.
+	 */
+	let lastLog = $derived(session.sessionLogs?.[0] ?? null);
+	let lastLogHref = $derived(
+		lastLog?.source.type === 'routine'
+			? `/routines/${lastLog.source.routineId}`
+			: lastLog?.source.type === 'program'
+				? `/programs/${lastLog.source.programId}`
+				: null
+	);
+	let lastLogLabel = $derived(
+		lastLog ? `${ago(lastLog.endedAt, now)} · ${counted(lastLog.totals.sets, 'set')}` : ''
+	);
 
 	let greeting = $derived.by(() => {
 		const h = new Date(now).getHours();
@@ -210,6 +235,13 @@
 	let todayEntry = $derived(
 		activeProgram ? (activeProgram.schedule.find((d) => d.day === todayDow) ?? null) : null
 	);
+	/** On a rest day, the next day with something on: "Full Body A, Wednesday". */
+	let nextUp = $derived.by(() => {
+		if (!activeProgram) return null;
+		const day = nextScheduledDay(activeProgram, todayDow);
+		if (!day) return null;
+		return `${programDayName(day, (id) => session.routine(id))}, ${day.day === (todayDow + 1) % 7 ? 'tomorrow' : DAY_FULL[day.day]}`;
+	});
 	let todayCount = $derived.by(() => {
 		if (!activeProgram) return 0;
 		return itemsForDay(activeProgram, todayDow).reduce((sum, item) => {
@@ -467,7 +499,7 @@
 		{#if activeProgram}
 			<div in:landingFly|global={{ y: 20, duration: 400, delay: 200, easing: cubicOut }}>
 				<p class="text-base-content/40 mb-2 text-xs font-semibold tracking-wider uppercase">
-					Active Program
+					Active program
 				</p>
 				<div
 					class="bg-primary/8 border-primary/20 rounded-box flex items-center gap-3 border px-4 py-3"
@@ -479,7 +511,7 @@
 						{/if}
 						<span class="text-base-content/40 text-xs">
 							{#if todayCount === 0}
-								Rest day
+								Rest day{nextUp ? ` · Next: ${nextUp}` : ''}
 							{:else if endedToday?.complete}
 								Done today
 							{:else if endedToday}
@@ -530,13 +562,16 @@
 								>
 							</a>
 							{#if routine.exercises.length}
+								{@const running = training.isRunning({ type: 'routine', routineId: routine.id })}
+								<!-- Quiet unless resuming: the program's Start (or Resume) is
+								     the one green button, not one per routine. -->
 								<button
-									class="btn btn-primary btn-sm shrink-0"
+									class="btn btn-sm shrink-0 {running
+										? 'btn-primary'
+										: 'bg-base-300 border-none shadow-none'}"
 									aria-label="Start {routine.name}"
 									onclick={() => goto(runRoutineHref(routine.id))}
-									>{training.isRunning({ type: 'routine', routineId: routine.id })
-										? 'Resume'
-										: 'Start'}</button
+									>{running ? 'Resume' : 'Start'}</button
 								>
 							{/if}
 						</div>
@@ -546,7 +581,24 @@
 		{/if}
 
 		<!-- Last session -->
-		{#if lastWorkout}
+		{#if lastLog}
+			<div in:landingFly|global={{ y: 20, duration: 400, delay: 640, easing: cubicOut }}>
+				<p class="text-base-content/40 mb-2 text-xs font-semibold tracking-wider uppercase">
+					Last session
+				</p>
+				<svelte:element
+					this={lastLogHref ? 'a' : 'div'}
+					class="bg-base-200 hover:bg-base-300 rounded-box flex items-center gap-3 px-4 py-4 transition-all active:scale-[0.98]"
+					href={lastLogHref}
+				>
+					<div class="flex-1 overflow-hidden">
+						<p class="truncate font-semibold">{lastLog.name}</p>
+						<p class="text-base-content/50 text-sm">{lastLogLabel}</p>
+					</div>
+					{#if lastLogHref}<Chevron />{/if}
+				</svelte:element>
+			</div>
+		{:else if lastWorkout}
 			<div in:landingFly|global={{ y: 20, duration: 400, delay: 640, easing: cubicOut }}>
 				<p class="text-base-content/40 mb-2 text-xs font-semibold tracking-wider uppercase">
 					Last session

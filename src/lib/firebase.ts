@@ -4,6 +4,8 @@ import {
 	collection,
 	query,
 	orderBy,
+	limit,
+	type QueryConstraint,
 	getFirestore,
 	initializeFirestore,
 	memoryLocalCache,
@@ -15,8 +17,14 @@ import {
 import { connectAuthEmulator, getAuth, onAuthStateChanged, type User } from 'firebase/auth';
 import { env } from '$env/dynamic/public';
 import { writable, type Readable, derived } from 'svelte/store';
-import type { Workout, Routine, Program, UserData, Parse } from '$lib/types';
-import { parseWorkout, parseRoutine, parseProgram, parseUserData } from '$lib/types';
+import type { Workout, Routine, Program, SessionLog, UserData, Parse } from '$lib/types';
+import {
+	parseWorkout,
+	parseRoutine,
+	parseProgram,
+	parseSessionLog,
+	parseUserData
+} from '$lib/types';
 
 const firebaseConfig = {
 	apiKey: 'AIzaSyB2Wxz_yyr7spT7MrwhxpGPK9XXbo8SDmU',
@@ -171,12 +179,17 @@ export function docStore<T>(path: string, parse: Parse<T>) {
 /**
  * @param path collection path
  * @param parse turns each raw document into a trusted domain object
- * @returns a store with realtime updates on collection data, ordered by `createdAt`
+ * @param constraints ordering and limits; oldest first by `createdAt` unless given
+ * @returns a store with realtime updates on collection data
  */
-export function collectionStore<T>(path: string, parse: Parse<T>) {
+export function collectionStore<T>(
+	path: string,
+	parse: Parse<T>,
+	constraints: QueryConstraint[] = [orderBy('createdAt')]
+) {
 	let unsubscribe: () => void;
 
-	const ref = query(collection(db, path), orderBy('createdAt'));
+	const ref = query(collection(db, path), ...constraints);
 
 	const { subscribe } = writable<T[] | null>(null, (set) => {
 		unsubscribe = onSnapshot(
@@ -198,10 +211,14 @@ export function collectionStore<T>(path: string, parse: Parse<T>) {
 }
 
 /** Builds a store over a subcollection of the signed-in user's document. */
-function userCollection<T>(name: string, parse: Parse<T>): Readable<T[] | null> {
+function userCollection<T>(
+	name: string,
+	parse: Parse<T>,
+	constraints?: QueryConstraint[]
+): Readable<T[] | null> {
 	return derived(user, ($user, set) => {
 		if ($user) {
-			return collectionStore<T>(`users/${$user.uid}/${name}`, parse).subscribe(set);
+			return collectionStore<T>(`users/${$user.uid}/${name}`, parse, constraints).subscribe(set);
 		}
 		set(null);
 		return () => {};
@@ -220,6 +237,14 @@ function userCollection<T>(name: string, parse: Parse<T>): Readable<T[] | null> 
 export const workouts = userCollection<Workout>('workouts', parseWorkout);
 export const routines = userCollection<Routine>('routines', parseRoutine);
 export const programs = userCollection<Program>('programs', parseProgram);
+/**
+ * Recent workout history, newest first. Enough to say when each routine was
+ * last trained without reading every session ever kept.
+ */
+export const sessionLogs = userCollection<SessionLog | null>('sessions', parseSessionLog, [
+	orderBy('createdAt', 'desc'),
+	limit(100)
+]);
 
 export const userData: Readable<UserData | null | undefined> = derived(user, ($user, set) => {
 	if ($user) {

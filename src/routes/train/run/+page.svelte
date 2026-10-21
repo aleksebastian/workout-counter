@@ -12,10 +12,13 @@
 		previousSets,
 		sameSource,
 		setsSince,
+		formatClock,
 		sourceFromParams,
 		targetLabel
 	} from '$lib/logic/training';
 	import { formatDuration, pickRest } from '$lib/logic/rest';
+	import { loadCatalog, type Catalog } from '$lib/catalog';
+	import { catalogExerciseFor } from '$lib/catalog/match';
 	import { pwa } from '$lib/logic/pwa.svelte';
 	import { HAPTIC } from '$lib/haptic';
 	import { toaster } from '$lib/toast.svelte';
@@ -172,6 +175,20 @@
 
 	let unitLabel = $derived(session.prefs.weightUnit === 'kg' ? 'kg' : 'lb');
 
+	// The catalog says which exercises are bodyweight. It's its own chunk, so
+	// it loads after the screen does; until then nothing is called bodyweight.
+	let catalog = $state<Catalog | null>(null);
+	$effect(() => {
+		loadCatalog()
+			.then((c) => (catalog = c))
+			.catch(() => {});
+	});
+	let equipment = $derived(
+		catalog && currentWorkout
+			? catalogExerciseFor(currentWorkout, catalog.exercises)?.equipment
+			: undefined
+	);
+
 	/** Each exercise's share of its target logged, for the progress segments. */
 	let fills = $derived(
 		entries.map((e) => {
@@ -319,19 +336,39 @@
 		}
 	});
 
-	let draftLabel = $derived(
-		weight > 0 ? `${weight} ${unitLabel} × ${reps}` : `${counted(reps, 'rep')}`
+	/**
+	 * A first-ever set of a loaded exercise, still at 0: no weight has been
+	 * chosen yet. Calling that "bodyweight" made a bodyweight dumbbell press one
+	 * tap away. Once it has history, a 0 is a choice the user has made before.
+	 */
+	let weightUnset = $derived(
+		weight === 0 &&
+			!!currentWorkout &&
+			currentWorkout.sets.length === 0 &&
+			equipment !== 'bodyweight'
 	);
 
-	/** A finished workout's length: "42m 10s", "1h 5m". */
-	function formatLength(ms: number): string {
-		const total = Math.floor(ms / 1000);
-		const h = Math.floor(total / 3600);
-		const m = Math.floor((total % 3600) / 60);
-		const s = total % 60;
-		if (h > 0) return `${h}h ${m}m`;
-		if (m > 0) return `${m}m ${s}s`;
-		return `${s}s`;
+	let draftLabel = $derived(
+		weight > 0
+			? `${weight} ${unitLabel} × ${reps}`
+			: weightUnset
+				? `${counted(reps, 'rep')} · no weight`
+				: `${counted(reps, 'rep')}`
+	);
+
+	/** One exercise on the done screen: "3 × 10 · top 25 lb". */
+	function summaryLine(item: SessionSummary['list'][number], since: number): string {
+		const sets = setsSince(session.workout(item.workoutId), since);
+		const reps = new globalThis.Set(sets.map((s) => s.reps));
+		const top = Math.max(0, ...sets.map((s) => s.weight ?? 0));
+		return [
+			reps.size === 1
+				? `${item.sets} × ${sets[0].reps}`
+				: `${counted(item.sets, 'set')} · ${counted(item.reps, 'rep')}`,
+			top > 0 && `top ${top} ${unitLabel}`
+		]
+			.filter(Boolean)
+			.join(' · ');
 	}
 
 	// ── Actions ─────────────────────────────────────────────────────────────────
@@ -354,12 +391,29 @@
 		// to the complete card, which offers another. Not after the await — that
 		// waits for the server, so offline it would never come back.
 		recordingExtra = false;
+		// A stray tap on the big button shouldn't mean opening the set to delete
+		// it. Shown before the await, for the same reason as above.
+		const workoutId = currentWorkout.id;
+		toaster.show({
+			type: 'info',
+			message: `Set ${setsDone + 1} logged`,
+			timeout: 5000,
+			action: { label: 'Undo', onClick: () => undoSet(workoutId, set.id) }
+		});
 
 		const ok = await exercises.addSet(currentWorkout.id, set);
 		if (ok) {
 			notes = '';
 			noteOpen = false;
 		}
+	}
+
+	function undoSet(workoutId: string, setId: string) {
+		const workout = session.workout(workoutId);
+		if (!workout) return;
+		HAPTIC.tap();
+		restTimer.stop();
+		exercises.removeSet(workout, setId);
 	}
 
 	function advance() {
@@ -373,6 +427,10 @@
 
 	function finish() {
 		summary = training.finish();
+		// Typing a weight lets iOS scroll the page under the fixed logging column;
+		// the done screen is ordinary flow and would open with its heading under
+		// the header.
+		window.scrollTo(0, 0);
 		HAPTIC.success();
 	}
 
@@ -494,7 +552,7 @@
 	</div>
 {:else if summary}
 	<SessionHeader title={summary.name} />
-	<div class="mx-auto flex w-full max-w-lg flex-col items-center gap-6 py-8 text-center">
+	<div class="mx-auto flex w-full max-w-lg flex-col items-center gap-6 pt-8 pb-28 text-center">
 		{#if summary.complete}
 			<div class="bg-success/10 flex h-28 w-28 items-center justify-center rounded-full">
 				<svg class="text-success h-12 w-12" viewBox="0 0 36 36" aria-hidden="true">
@@ -511,14 +569,9 @@
 			<h1 class="text-2xl font-black">
 				{summary.complete ? 'Workout complete' : 'Workout ended'}
 			</h1>
-			<p class="text-base-content/50 mt-1 text-sm">{summary.name}</p>
 		</div>
 
 		<div class="bg-base-200 divide-base-300 grid w-full grid-cols-3 divide-x rounded-2xl">
-			<div class="flex flex-col items-center gap-0.5 px-4 py-4">
-				<span class="text-2xl font-black tabular-nums">{summary.exercises}</span>
-				<span class="text-base-content/50 text-xs">{plural(summary.exercises, 'exercise')}</span>
-			</div>
 			<div class="flex flex-col items-center gap-0.5 px-4 py-4">
 				<span class="text-2xl font-black tabular-nums">{summary.sets}</span>
 				<span class="text-base-content/50 text-xs">{plural(summary.sets, 'set')}</span>
@@ -527,11 +580,37 @@
 				<span class="text-2xl font-black tabular-nums">{summary.reps}</span>
 				<span class="text-base-content/50 text-xs">{plural(summary.reps, 'rep')}</span>
 			</div>
+			<div class="flex flex-col items-center gap-0.5 px-4 py-4">
+				<span class="text-2xl font-black tabular-nums">{formatClock(summary.durationMs)}</span>
+				<span class="text-base-content/50 text-xs">time</span>
+			</div>
 		</div>
 
-		<p class="text-base-content/40 text-sm">Duration: {formatLength(summary.durationMs)}</p>
+		{#if summary.list.length}
+			<!-- What each exercise got, so the screen says what was done and not
+			     only how much. -->
+			<ul class="bg-base-200 divide-base-300 w-full divide-y rounded-2xl text-left">
+				{#each summary.list as item (item.workoutId)}
+					<li class="flex items-baseline justify-between gap-3 px-4 py-3">
+						<span class="min-w-0 truncate font-semibold">{item.name}</span>
+						<span class="text-base-content/60 shrink-0 text-sm tabular-nums"
+							>{summaryLine(item, summary.startedAt)}</span
+						>
+					</li>
+				{/each}
+			</ul>
+		{/if}
+	</div>
 
-		<button class="btn btn-primary btn-lg w-full" onclick={() => goto('/train')}>Done</button>
+	<!-- Pinned where the Log set button was, under the thumb. -->
+	<div
+		class="bg-base-100 fixed inset-x-0 bottom-0 px-4 pt-3"
+		style:padding-bottom="calc(env(safe-area-inset-bottom, 0px) + 0.75rem)"
+	>
+		<button
+			class="btn btn-primary btn-lg mx-auto flex h-14 w-full max-w-lg rounded-2xl"
+			onclick={() => goto('/train')}>Done</button
+		>
 	</div>
 {:else if !ready || !active}
 	<SessionHeader title="" />
@@ -681,7 +760,7 @@
 					{logged}
 					{previous}
 					{rows}
-					draft={exerciseComplete ? null : { reps, weight, note: notes }}
+					draft={exerciseComplete ? null : { reps, weight, weightUnset, note: notes }}
 					unit={unitLabel}
 					onLog={recordSet}
 					onEdit={editSet}
@@ -729,7 +808,7 @@
 						>
 					</div>
 				{:else}
-					<SetAdjuster bind:reps bind:weight />
+					<SetAdjuster bind:reps bind:weight {weightUnset} />
 				{/if}
 			{/snippet}
 
@@ -738,7 +817,8 @@
 					{#if isLastEntry}
 						Finish workout
 					{:else}
-						Next exercise {@render arrow()}
+						<span class="min-w-0 truncate">Next: {upNext?.name ?? 'exercise'}</span>
+						{@render arrow()}
 					{/if}
 				</button>
 			{:else}

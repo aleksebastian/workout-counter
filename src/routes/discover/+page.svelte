@@ -59,7 +59,9 @@
 </script>
 
 {#snippet addedBadge()}
-	<span class="badge badge-success badge-xs shrink-0">In library</span>
+	<span class="badge badge-xs bg-primary/15 text-primary-strong shrink-0 border-none"
+		>In library</span
+	>
 {/snippet}
 
 {#snippet noMatches()}
@@ -155,12 +157,9 @@
 									{#if added.has(`routine:${routine.id}`)}{@render addedBadge()}{/if}
 								</div>
 								<p class="text-base-content/50 line-clamp-2 text-xs">{routine.description}</p>
-								<div class="flex items-center gap-1.5">
-									<span class="badge badge-ghost badge-sm"
-										>{routine.exercises.length} exercises</span
-									>
-									<span class="badge badge-ghost badge-sm">{LEVEL_LABELS[routine.level]}</span>
-								</div>
+								<p class="text-base-content/60 text-xs">
+									{routine.exercises.length} exercises · {LEVEL_LABELS[routine.level]}
+								</p>
 							</div>
 							<Chevron />
 						</a>
