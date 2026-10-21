@@ -52,7 +52,12 @@ export const db =
 				localCache: persistLocally
 					? persistentLocalCache({ tabManager: persistentMultipleTabManager() })
 					: memoryLocalCache(),
-				ignoreUndefinedProperties: true
+				ignoreUndefinedProperties: true,
+				// Linux WebKit (the end-to-end iPhone project in CI) never hands the
+				// page the emulator's streamed responses: writes land but are never
+				// acknowledged, so every awaited save hangs. Long polling ends each
+				// response instead.
+				...(usingEmulators && { experimentalForceLongPolling: true })
 			})
 		: getFirestore(app);
 
