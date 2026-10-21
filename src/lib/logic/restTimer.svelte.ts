@@ -201,6 +201,21 @@ export const restTimer = {
 	},
 
 	/**
+	 * Adds time to the running rest, e.g. +30s when a set took more out of
+	 * you. The rest-end push moves with it.
+	 */
+	extend(ms: number) {
+		if (!expiresAt) return;
+		expiresAt = new Date(expiresAt.getTime() + ms);
+		const left = expiresAt.getTime() - Date.now();
+		totalMs += ms;
+		remainingMs = left;
+		display = format(left);
+		push.start(left);
+		persist();
+	},
+
+	/**
 	 * Accepts the offer: turns the global timer on and starts it right away,
 	 * since the user has just finished a set.
 	 */

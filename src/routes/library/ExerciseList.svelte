@@ -20,9 +20,9 @@
 
 	type SortKey = 'last-done' | 'a-z' | 'most-sets';
 	const SORTS: [SortKey, string][] = [
-		['last-done', 'Most Recent'],
+		['last-done', 'Most recent'],
 		['a-z', 'A–Z'],
-		['most-sets', 'Most Sets']
+		['most-sets', 'Most sets']
 	];
 
 	let search = $state('');
@@ -134,7 +134,7 @@
 		{/snippet}
 
 		{#if filtered.length}
-			<ul class="flex flex-col gap-2 pb-16">
+			<ul class="flex flex-col gap-2 pb-24">
 				{#each filtered as workout (workout.id)}
 					{@const last = lastSetDate(workout)}
 					<li class="bg-base-200 rounded-box flex items-center gap-1 pr-1.5">
@@ -181,7 +181,7 @@
 
 <NameSheet
 	bind:open={showNew}
-	title="New Exercise"
+	title="New exercise"
 	placeholder="e.g., Push ups"
 	submitLabel="Add Exercise"
 	validate={(name) => getNameValidationMsg('Workout', name, session.workouts)}

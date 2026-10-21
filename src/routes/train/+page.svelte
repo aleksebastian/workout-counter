@@ -4,7 +4,8 @@
 	import { session } from '$lib/session.svelte';
 	import { DAY_NAMES } from '$lib/constants';
 	import { discoverHref, libraryHref, runProgramHref, runRoutineHref } from '$lib/routes';
-	import { itemsForDay, type Program } from '$lib/types';
+	import { itemsForDay, nextScheduledDay, type Program } from '$lib/types';
+	import { programDayName, whenNext } from '$lib/logic/training';
 	import Chevron from '$lib/components/Chevron.svelte';
 	import { training } from '$lib/logic/training.svelte';
 	import { counted } from '$lib/utils';
@@ -28,6 +29,14 @@
 		activeProgram ? (activeProgram.schedule.find((d) => d.day === todayDow) ?? null) : null
 	);
 	let todayCount = $derived(activeProgram ? exerciseCount(activeProgram, todayDow) : 0);
+
+	/** On a rest day, when the program picks up again. */
+	let nextDay = $derived(activeProgram ? nextScheduledDay(activeProgram, todayDow) : null);
+	let nextDayWhen = $derived.by(() => {
+		if (!nextDay) return '';
+		const when = whenNext(nextDay.day, todayDow);
+		return when === 'tomorrow' ? when : `on ${when}`;
+	});
 
 	/** Routines with at least one exercise — the only ones worth starting. */
 	let runnableRoutines = $derived((session.routines ?? []).filter((r) => r.exercises.length > 0));
@@ -167,8 +176,12 @@
 			<div class="bg-base-200 rounded-box px-4 py-4">
 				<p class="font-semibold">Rest day</p>
 				<p class="text-base-content/50 mt-0.5 text-sm">
-					Nothing scheduled in {activeProgram.name} for {DAY_NAMES[todayDow]}. Start a routine below
-					if you'd like to train anyway.
+					Nothing scheduled in {activeProgram.name} today.
+					{#if nextDay}
+						Next up is {programDayName(nextDay, (id) => session.routine(id))}
+						{nextDayWhen}.
+					{/if}
+					Start a routine below if you'd like to train anyway.
 				</p>
 			</div>
 		{/if}
@@ -177,6 +190,7 @@
 			<div class="flex flex-col gap-2">
 				<p class="text-base-content/40 text-xs font-semibold tracking-wider uppercase">Routines</p>
 				{#each runnableRoutines as routine (routine.id)}
+					{@const running = training.isRunning({ type: 'routine', routineId: routine.id })}
 					<div class="bg-base-200 rounded-box flex items-center gap-2 px-4 py-3">
 						<a href={`/routines/${routine.id}`} class="flex min-w-0 flex-1 flex-col">
 							<span class="truncate text-sm font-semibold">{routine.name}</span>
@@ -188,13 +202,14 @@
 								{/if}
 							</span>
 						</a>
+						<!-- Quiet unless resuming, so today's workout is the one green button. -->
 						<button
-							class="btn btn-primary btn-sm shrink-0"
+							class="btn btn-sm shrink-0 {running
+								? 'btn-primary'
+								: 'bg-base-300 border-none shadow-none'}"
 							aria-label="Start {routine.name}"
 							onclick={() => goto(runRoutineHref(routine.id))}
-							>{training.isRunning({ type: 'routine', routineId: routine.id })
-								? 'Resume'
-								: 'Start'}</button
+							>{running ? 'Resume' : 'Start'}</button
 						>
 					</div>
 				{/each}

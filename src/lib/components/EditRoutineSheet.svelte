@@ -52,7 +52,7 @@
 	}
 </script>
 
-<BottomSheet bind:open size="large" title="Edit Routine">
+<BottomSheet bind:open size="large" title="Edit routine">
 	<div class="flex flex-col gap-4">
 		<div class="flex flex-col gap-1.5">
 			<label class="text-base-content/60 text-sm font-medium" for="edit-routine-name">Name</label>

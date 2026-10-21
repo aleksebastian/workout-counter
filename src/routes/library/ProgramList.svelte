@@ -3,10 +3,11 @@
 	import { programs, user } from '$lib/data';
 	import { session } from '$lib/session.svelte';
 	import { getNameValidationMsg } from '$lib/utils';
-	import { DAY_NAMES, DAY_SHORT } from '$lib/constants';
+	import { DAY_SHORT } from '$lib/constants';
 	import { discoverHref, runProgramHref } from '$lib/routes';
 	import { training } from '$lib/logic/training.svelte';
-	import { itemsForDay, programDays, type Program } from '$lib/types';
+	import { itemsForDay, nextScheduledDay, programDays, type Program } from '$lib/types';
+	import { programDayName, whenNext } from '$lib/logic/training';
 	import Async from '$lib/components/Async.svelte';
 	import Chevron from '$lib/components/Chevron.svelte';
 	import ActionSheet, { type SheetAction } from '$lib/components/ActionSheet.svelte';
@@ -26,6 +27,14 @@
 	let deleteDialog = $state<HTMLDialogElement>()!;
 
 	let todayDow = $derived(new Date().getDay());
+
+	/** On a rest day, when the program picks up again: " · Next: Full Body A, Wednesday". */
+	function nextUpLabel(program: Program): string {
+		const next = nextScheduledDay(program, todayDow);
+		if (!next) return '';
+		const when = whenNext(next.day, todayDow);
+		return ` · Next: ${programDayName(next, (id) => session.routine(id))}, ${when}`;
+	}
 	let activeProgram = $derived(session.activeProgram);
 	let others = $derived((session.programs ?? []).filter((p) => p.id !== session.activeProgramId));
 
@@ -125,7 +134,7 @@
 		</div>
 	{/snippet}
 
-	<div class="flex flex-col gap-4 pb-16">
+	<div class="flex flex-col gap-4 pb-24">
 		{#if activeProgram}
 			{@const todayCount = exerciseCount(activeProgram, todayDow)}
 			<div class="flex flex-col gap-1.5">
@@ -194,7 +203,7 @@
 							{/if}
 						{:else}
 							<a href={`/programs/${activeProgram.id}`} class="text-base-content/40 text-xs"
-								>Rest day · {DAY_NAMES[todayDow]} — tap to view schedule</a
+								>Rest day{nextUpLabel(activeProgram)}</a
 							>
 						{/if}
 					</div>
@@ -243,7 +252,7 @@
 
 <NameSheet
 	bind:open={showNew}
-	title="New Program"
+	title="New program"
 	placeholder="e.g., Upper-Lower Split"
 	hint="You'll schedule the week after creating it"
 	submitLabel="Add Program"

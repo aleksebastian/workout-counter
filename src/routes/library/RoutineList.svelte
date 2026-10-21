@@ -6,7 +6,8 @@
 	import { routines } from '$lib/data';
 	import { session } from '$lib/session.svelte';
 	import { getNameValidationMsg } from '$lib/utils';
-	import { isDoneToday } from '$lib/logic/training';
+	import { routineLastTrained } from '$lib/logic/training';
+	import { training } from '$lib/logic/training.svelte';
 	import { discoverHref, runRoutineHref } from '$lib/routes';
 	import Async from '$lib/components/Async.svelte';
 	import Chevron from '$lib/components/Chevron.svelte';
@@ -39,20 +40,19 @@
 		goto(url, { replaceState: true, noScroll: true, keepFocus: true });
 	});
 
+	/** Built once per change, not once per row. */
+	let windows = $derived(training.windows());
+
+	// Both come from this routine's own sessions (or program days that run
+	// it), so a copy that shares its exercises doesn't light up when the
+	// original is trained.
 	function stats(routine: Routine) {
-		const entries = routine.exercises.flatMap((ex) => {
-			const workout = session.workout(ex.workoutId);
-			return workout ? [{ ex, workout }] : [];
-		});
-		const list = entries.map((e) => e.workout);
-		const doneToday = entries.filter(({ ex, workout }) =>
-			isDoneToday(workout, ex.targetSets)
-		).length;
-		const times = list.flatMap((w) => w.sets.map((s) => new Date(s.date).getTime()));
+		const today = training.routineProgressToday(routine.id);
+		const last = routineLastTrained(routine, training.lookups, windows);
 		return {
-			doneToday,
+			doneToday: today?.done ?? 0,
 			total: routine.exercises.length,
-			lastSession: times.length ? new Date(Math.max(...times)) : null
+			lastSession: last === null ? null : new Date(last)
 		};
 	}
 
@@ -118,7 +118,7 @@
 	{/snippet}
 
 	{#snippet children(list)}
-		<div class="flex flex-col gap-2 pb-16">
+		<div class="flex flex-col gap-2 pb-24">
 			{#each list as routine (routine.id)}
 				{@const s = stats(routine)}
 				<div class="bg-base-200 rounded-box flex items-center gap-1 pr-1.5">
@@ -130,7 +130,8 @@
 							<div class="flex items-center gap-2">
 								<span class="truncate font-semibold">{routine.name}</span>
 								{#if s.doneToday > 0}
-									<span class="badge badge-success badge-xs shrink-0"
+									<span
+										class="badge badge-xs bg-primary/15 text-primary-strong shrink-0 border-none"
 										>{s.doneToday}/{s.total} today</span
 									>
 								{:else if s.total > 0}
@@ -166,7 +167,7 @@
 
 <NameSheet
 	bind:open={showNew}
-	title="New Routine"
+	title="New routine"
 	placeholder="e.g., Push Day"
 	submitLabel="Add Routine"
 	validate={(name) => getNameValidationMsg('Routine', name, session.routines)}

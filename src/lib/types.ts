@@ -79,6 +79,16 @@ export function itemsForDay(program: Program, day: number): ProgramItem[] {
 	return program.schedule.find((d) => d.day === day)?.items ?? [];
 }
 
+/** The next day after `fromDay`, wrapping round the week, with anything scheduled; `null` if none. */
+export function nextScheduledDay(program: Program, fromDay: number): ProgramDay | null {
+	for (let i = 1; i <= 7; i++) {
+		const day = (fromDay + i) % 7;
+		const entry = program.schedule.find((d) => d.day === day && d.items.length > 0);
+		if (entry) return entry;
+	}
+	return null;
+}
+
 // ── Training sessions ────────────────────────────────────────────────────────
 
 /** What a guided session is running: one routine, or one day of a program. */
@@ -168,6 +178,8 @@ export type Toast = {
 	message: string;
 	dismissible?: boolean;
 	timeout?: number;
+	/** One button beside the message, e.g. Undo; tapping it also dismisses the toast. */
+	action?: { label: string; onClick: () => void };
 };
 
 // ── Document parsing ─────────────────────────────────────────────────────────
@@ -291,6 +303,26 @@ export function parseEndedSession(value: unknown): EndedSession | null {
 		complete: raw.complete === true
 	};
 }
+
+/** A workout history entry; `null` for one whose source isn't understood. */
+export const parseSessionLog: Parse<SessionLog | null> = (raw, id) => {
+	const source = sessionSource(raw.source);
+	if (!source) return null;
+	const startedAt = num(raw.startedAt);
+	const totals = (raw.totals ?? {}) as RawDoc;
+	return {
+		...(raw as SessionLog),
+		id: str(raw.id, id),
+		source,
+		name: str(raw.name),
+		startedAt,
+		endedAt: num(raw.endedAt, startedAt),
+		endReason: raw.endReason === 'abandoned' ? 'abandoned' : 'finished',
+		exercises: arrayOf<SessionLog['exercises'][number]>(raw.exercises),
+		totals: { sets: num(totals.sets), reps: num(totals.reps) },
+		createdAt: num(raw.createdAt)
+	};
+};
 
 export const parseUserData: Parse<UserData> = (raw) => ({
 	...(raw as UserData),

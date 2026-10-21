@@ -36,7 +36,7 @@
 	}
 </script>
 
-<BottomSheet bind:open size="medium" title="Edit Program">
+<BottomSheet bind:open size="medium" title="Edit program">
 	<div class="flex flex-col gap-4">
 		<div class="flex flex-col gap-1.5">
 			<label class="text-base-content/60 text-sm font-medium" for="edit-program-name">Name</label>

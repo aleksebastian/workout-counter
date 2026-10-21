@@ -16,7 +16,8 @@
 		previous: Set[];
 		rows: number;
 		/** The values about to be logged, or `null` when no set is open. */
-		draft: { reps: number; weight: number; note: string } | null;
+		/** `weightUnset`: no weight chosen yet for a first set, shown as a dash rather than BW. */
+		draft: { reps: number; weight: number; weightUnset?: boolean; note: string } | null;
 		/** "lb" or "kg". */
 		unit: string;
 		onLog: () => void;
@@ -109,7 +110,7 @@
 							<span class="font-bold">{i + 1}</span>
 							<span class="text-base-content/55 truncate text-sm">{previousText(previous[i])}</span>
 							<span class="text-right text-lg font-bold tabular-nums"
-								>{weightText(draft.weight)}</span
+								>{draft.weightUnset ? '—' : weightText(draft.weight)}</span
 							>
 							<span class="text-right text-lg font-bold tabular-nums">{draft.reps}</span>
 							<span class="flex justify-end">

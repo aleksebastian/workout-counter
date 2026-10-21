@@ -113,7 +113,7 @@
 
 	{@render stepper(
 		'weight',
-		`Weight (${unit})`,
+		`Weight (${unit === 'kg' ? 'kg' : 'lb'})`,
 		weight,
 		() => (weight = Math.max(0, round(weight - WEIGHT_STEP))),
 		() => (weight = round(weight + WEIGHT_STEP)),

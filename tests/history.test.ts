@@ -53,7 +53,8 @@ test.describe('a finished routine', () => {
 		await expect(page).toHaveURL(/\/train$/);
 		await openTab(page, 'Home');
 		await expect(page.getByText('Last session')).toBeVisible();
-		await expect(page.getByText(EXERCISES[0].name).first()).toBeVisible();
+		// The card is the workout, not its last set.
+		await expect(page.getByText(/ago · 1 set$/)).toBeVisible();
 	});
 });
 

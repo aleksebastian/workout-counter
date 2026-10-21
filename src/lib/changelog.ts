@@ -21,6 +21,26 @@ export interface ChangelogEntry {
 /** Newest first. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.16.0',
+		date: '2026-10-20',
+		new: [
+			'Undo a set right after logging it, from the message that confirms it',
+			'Add 30 seconds to a rest with one tap'
+		],
+		improved: [
+			'Bigger + and − buttons for reps and weight, easier to hit mid-workout',
+			'While you rest, the timer says what’s next: the next set or the next exercise',
+			'The button to move on names the next exercise',
+			'A first set of a new exercise says the weight isn’t set yet, instead of calling it bodyweight',
+			'The workout summary lists each exercise with its sets and top weight, and its Done button sits under your thumb',
+			'On a rest day, Home, Train and Library say when your program picks up again',
+			'Home’s Last session card shows your last workout, not just your last set',
+			'Only one green button on Home and Train, so today’s workout stands out',
+			'Clearer notes icon, and tidier labels throughout'
+		],
+		fixed: ['A copy of a routine no longer shows progress or a “last done” time from the original']
+	},
+	{
 		version: '0.15.1',
 		date: '2026-10-20',
 		fixed: [

@@ -34,7 +34,7 @@ test('create, validate, rename and delete an exercise', async ({ page }) => {
 	await page.getByRole('button', { name: 'New exercise', exact: true }).click();
 	await page.getByRole('button', { name: 'Add Exercise', exact: true }).click();
 	await expect(page.getByText('Workout name missing')).toBeVisible();
-	await page.getByRole('textbox', { name: 'New Exercise' }).fill('Goblet Squat');
+	await page.getByRole('textbox', { name: 'New exercise' }).fill('Goblet Squat');
 	await page.getByRole('button', { name: 'Add Exercise', exact: true }).click();
 	await expect.poll(async () => (await docsNamed('workouts', 'Goblet Squat')).length).toBe(1);
 	// A new exercise opens on its own page; go back to the list.
@@ -42,7 +42,7 @@ test('create, validate, rename and delete an exercise', async ({ page }) => {
 	await openTab(page, 'Library');
 	await librarySegment(page, 'Exercises');
 
-	await createNamed(page, 'New exercise', 'New Exercise', '  goblet SQUAT ', 'Add Exercise');
+	await createNamed(page, 'New exercise', 'New exercise', '  goblet SQUAT ', 'Add Exercise');
 	await expect(page.getByText('Workout already exists')).toBeVisible();
 	await page.getByRole('button', { name: 'Cancel', exact: true }).click();
 	expect((await listDocs(`users/${UID}/workouts`)).length).toBe(1);
@@ -72,14 +72,14 @@ test('build a routine with exercises and its own rest timer', async ({ page }) =
 	await signIn(page);
 	await openTab(page, 'Library');
 	await librarySegment(page, 'Exercises');
-	await createNamed(page, 'New exercise', 'New Exercise', 'Bench Press', 'Add Exercise');
+	await createNamed(page, 'New exercise', 'New exercise', 'Bench Press', 'Add Exercise');
 	await expect.poll(async () => (await docsNamed('workouts', 'Bench Press')).length).toBe(1);
 	await expect(page).toHaveURL(/\/workout\//);
 	await openTab(page, 'Library');
 
 	// A new routine opens on its own page.
 	await librarySegment(page, 'Routines');
-	await createNamed(page, 'New routine', 'New Routine', 'Push Day', 'Add Routine');
+	await createNamed(page, 'New routine', 'New routine', 'Push Day', 'Add Routine');
 	await expect(page).toHaveURL(/\/routines\//);
 
 	// Add the existing exercise and create another inline.
@@ -118,7 +118,7 @@ test('create and delete a program', async ({ page }) => {
 	await signIn(page);
 	await openTab(page, 'Library');
 	await librarySegment(page, 'Programs');
-	await createNamed(page, 'New program', 'New Program', 'Strength Block', 'Add Program');
+	await createNamed(page, 'New program', 'New program', 'Strength Block', 'Add Program');
 	await expect(page).toHaveURL(/\/programs\//);
 	await expect.poll(async () => (await docsNamed('programs', 'Strength Block')).length).toBe(1);
 

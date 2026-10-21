@@ -192,7 +192,7 @@
 		<p class="text-base-content/40 text-xs font-semibold tracking-widest uppercase">Training</p>
 
 		<div class="bg-base-200 flex items-center justify-between gap-4 rounded-2xl px-4 py-4">
-			{@render row('Weight Unit', 'Used across all exercises')}
+			{@render row('Weight unit', 'Used across all exercises')}
 			<div class="join">
 				{#each ['lbs', 'kg'] as const as value (value)}
 					<button
@@ -202,7 +202,7 @@
 						onclick={() => {
 							draft.weightUnit = value;
 							autoSave();
-						}}>{value}</button
+						}}>{value === 'lbs' ? 'lb' : value}</button
 					>
 				{/each}
 			</div>

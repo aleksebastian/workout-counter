@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
 	itemsForDay,
+	nextScheduledDay,
 	parseProgram,
 	parseRoutine,
 	parseWorkout,
@@ -112,5 +113,31 @@ describe('parseRoutine', () => {
 			'r1'
 		);
 		expect(routine.timer).toEqual({ minutes: 2, seconds: 0 });
+	});
+});
+
+describe('nextScheduledDay', () => {
+	const program: Program = {
+		id: 'p1',
+		name: 'Full Body',
+		schedule: [
+			{ day: 1, items: [{ type: 'routine', routineId: 'a' }] },
+			{ day: 3, items: [] },
+			{ day: 5, items: [{ type: 'routine', routineId: 'b' }] }
+		],
+		createdAt: 1
+	};
+
+	it('skips days with nothing scheduled', () => {
+		expect(nextScheduledDay(program, 2)?.day).toBe(5);
+	});
+
+	it('wraps round the week, back to the same day last', () => {
+		expect(nextScheduledDay(program, 5)?.day).toBe(1);
+		expect(nextScheduledDay({ ...program, schedule: [program.schedule[0]] }, 1)?.day).toBe(1);
+	});
+
+	it('is null for an empty schedule', () => {
+		expect(nextScheduledDay({ ...program, schedule: [] }, 0)).toBeNull();
 	});
 });

@@ -14,12 +14,14 @@ import {
 	lastActivity,
 	resolveIndex,
 	resumedSession,
+	runsRoutine,
 	sameSource,
 	setsSince,
 	sourceName,
 	summarize,
 	type Lookups,
-	type PlanEntry
+	type PlanEntry,
+	type SessionWindow
 } from '$lib/logic/training';
 import type { ActiveSession, EndedSession, SessionLog, SessionSource, Set } from '$lib/types';
 
@@ -47,6 +49,10 @@ export type SessionSummary = {
 	reps: number;
 	/** Every planned exercise got its sets; false when the user ended early. */
 	complete: boolean;
+	/** When it began, for reading its sets back off their exercises. */
+	startedAt: number;
+	/** What each exercise got, in plan order. */
+	list: SessionLog['exercises'];
 };
 
 /** The history entry for a session, or `null` if it has no sets worth keeping. */
@@ -103,6 +109,11 @@ export type EndedToday = { complete: boolean; done: number; total: number };
 let sweptId: string | null = null;
 
 export const training = {
+	/** Routine, program and exercise lookups over the live library. */
+	get lookups(): Lookups {
+		return lookups;
+	},
+
 	/** The workout in progress, or `null`. */
 	get session(): ActiveSession | null {
 		return session.data?.activeSession ?? null;
@@ -152,6 +163,39 @@ export const training = {
 		const plan = buildPlan(last.source, lookups) ?? [];
 		const done = entriesDone(plan, lookups, last.startedAt).filter(Boolean).length;
 		return { complete: last.complete, done, total: plan.length };
+	},
+
+	/**
+	 * How far today's run of a routine got — in the workout in progress, or one
+	 * that ended earlier today, either the routine itself or a program day that
+	 * includes it — or `null` if it hasn't been run today.
+	 */
+	routineProgressToday(routineId: string, now = Date.now()): EndedToday | null {
+		const s = this.session;
+		const last = session.data?.lastSession;
+		const run = s ?? (last && endedToday(last, last.source, now) ? last : null);
+		if (!run || !runsRoutine(run.source, routineId, lookups)) return null;
+		const plan = (buildPlan(run.source, lookups) ?? []).filter((e) => e.routineId === routineId);
+		const done = entriesDone(plan, lookups, run.startedAt).filter(Boolean).length;
+		return { complete: done === plan.length, done, total: plan.length };
+	},
+
+	/** Every stretch of time known to belong to one workout, for telling whose sets are whose. */
+	windows(): SessionWindow[] {
+		const logs = (session.sessionLogs ?? []).map((l) => ({
+			source: l.source,
+			start: l.startedAt,
+			end: l.endedAt
+		}));
+		// The latest ended one may not be back from the history query yet.
+		const last = session.data?.lastSession;
+		const active = this.session;
+		return [
+			...logs,
+			...(last ? [{ source: last.source, start: last.startedAt, end: last.endedAt }] : []),
+			// Still going: every set from here on is its own.
+			...(active ? [{ source: active.source, start: active.startedAt, end: Infinity }] : [])
+		];
 	},
 
 	/** Puts the workout that ended earlier today back in progress, where it left off. */
@@ -213,7 +257,9 @@ export const training = {
 			exercises: log?.exercises.length ?? 0,
 			sets: log?.totals.sets ?? 0,
 			reps: log?.totals.reps ?? 0,
-			complete
+			complete,
+			startedAt: s.startedAt,
+			list: log?.exercises ?? []
 		};
 	},
 

@@ -17,6 +17,7 @@
 			type={toast.type}
 			dismissible={toast.dismissible}
 			message={toast.message}
+			action={toast.action}
 			dismiss={() => toaster.dismiss(toast.id)}
 		/>
 	{/each}
