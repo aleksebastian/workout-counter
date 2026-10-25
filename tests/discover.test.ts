@@ -77,8 +77,9 @@ test("an active program offers the day's workout", async ({ page }) => {
 
 	// Set it active from its own page.
 	await page.goto(`/programs/${program.id}`);
-	await page.getByRole('button', { name: 'Set as active' }).click();
-	await expect(page.getByText('Active Program')).toBeVisible();
+	await expect(page.getByText(/^Not active/)).toBeVisible();
+	await page.getByRole('button', { name: 'Make active' }).click();
+	await expect(page.getByText('Active', { exact: true })).toBeVisible();
 	await expect.poll(async () => (await readDoc(`users/${UID}`))?.activeProgramId).toBe(program.id);
 
 	// Today leads with Monday's session, and starting it opens Full Body A.

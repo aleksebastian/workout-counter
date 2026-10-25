@@ -12,10 +12,12 @@
 		onReorder: (items: T[]) => void;
 		/** Hides the handles and disables dragging. */
 		disabled?: boolean;
+		/** Space between rows; rows that draw their own dividers sit flush. */
+		gap?: string;
 		children: Snippet<[T, number]>;
 	}
 
-	let { items, key, onReorder, disabled = false, children }: Props = $props();
+	let { items, key, onReorder, disabled = false, gap = 'gap-2', children }: Props = $props();
 
 	// Local mirror so rows animate as the finger moves; the parent is only told
 	// about the new order on drop.
@@ -87,7 +89,7 @@
 	}
 </script>
 
-<div bind:this={container} class="sortable-list flex flex-col gap-2">
+<div bind:this={container} class={['sortable-list flex flex-col', gap]}>
 	{#each order as item, i (key(item))}
 		<div
 			data-sortable-row

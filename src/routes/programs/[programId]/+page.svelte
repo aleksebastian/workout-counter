@@ -1,28 +1,49 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { v4 as uuidv4 } from 'uuid';
 	import { counted } from '$lib/utils';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { programs, user } from '$lib/data';
 	import { session } from '$lib/session.svelte';
+	import { training } from '$lib/logic/training.svelte';
 	import { setPageNav } from '$lib/nav.svelte';
 	import { DAY_FULL, DAY_NAMES } from '$lib/constants';
-	import { libraryHref, runProgramHref } from '$lib/routes';
+	import { historyItemHref, libraryHref, runProgramHref } from '$lib/routes';
 	import {
 		daySessions,
+		nextScheduledDay,
 		orderedSessions,
+		programDays,
 		slotLabel,
-		SLOT_LABEL,
 		type ProgramDay,
 		type ProgramItem,
 		type ProgramSession,
+		type SessionLog,
+		type SessionSource,
 		type Slot,
 		type Workout
 	} from '$lib/types';
-	import { sessionName } from '$lib/logic/training';
+	import {
+		buildPlan,
+		entriesDone,
+		sameSource,
+		programDayName,
+		sessionName,
+		targetLabel,
+		whenNext,
+		type PlanEntry
+	} from '$lib/logic/training';
+	import { todayPlan, type PlanRow } from '$lib/logic/today';
+	import { estimateMinutes, logDuration, weekDays } from '$lib/logic/history';
+	import { restSeconds } from '$lib/logic/rest';
+	import { measureOf, measureTarget } from '$lib/logic/measure';
+	import { clampTarget } from '$lib/logic/targets';
 	import ActionSheet, { type SheetAction } from '$lib/components/ActionSheet.svelte';
 	import AddToPlanSheet, { type PlanChange } from '$lib/components/AddToPlanSheet.svelte';
+	import Chevron from '$lib/components/Chevron.svelte';
 	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
+	import DayRing, { dayLabel } from '$lib/components/DayRing.svelte';
 	import EditProgramSheet from '$lib/components/EditProgramSheet.svelte';
 	import NameSheet from '$lib/components/NameSheet.svelte';
 	import SortableList from '$lib/components/SortableList.svelte';
@@ -31,15 +52,20 @@
 	import AddIcon from '$lib/icons/add.svg?raw';
 	import EditIcon from '$lib/icons/edit.svg?raw';
 	import DeleteIcon from '$lib/icons/delete.svg?raw';
-	import DragIndicatorIcon from '$lib/icons/drag_indicator.svg?raw';
 	import CheckIcon from '$lib/icons/check.svg?raw';
 	import NotesIcon from '$lib/icons/notes.svg?raw';
-	import ClockIcon from '$lib/icons/clock.svg?raw';
 	import DownIcon from '$lib/icons/down.svg?raw';
+	import RemoveIcon from '$lib/icons/remove.svg?raw';
+
+	/**
+	 * A program's week. It opens as a plan to read and start from, with only
+	 * the day's next session in green; Edit turns on the controls for changing
+	 * it (times of day, order, set counts, adding and removing).
+	 */
 
 	let program = $derived(session.program(page.params.programId));
 	let isActive = $derived(session.activeProgramId === program?.id);
-	let unit = $derived(session.prefs.weightUnit);
+	let logs = $derived(session.sessionLogs ?? []);
 
 	setPageNav(
 		() => program?.name ?? '',
@@ -47,16 +73,189 @@
 	);
 
 	const todayDow = new Date().getDay();
-	const todayStr = new Date().toDateString();
+	/** Up next moves with the time-of-day slot, so the plan follows the clock by the minute. */
+	let minute = $state(Date.now());
+	onMount(() => {
+		const t = setInterval(() => (minute = Date.now()), 60_000);
+		return () => clearInterval(t);
+	});
 
+	let editing = $state(false);
 	let selectedDay = $state(todayDow);
+	let isToday = $derived(selectedDay === todayDow);
 	let schedule = $derived<ProgramDay[]>(program?.schedule ?? []);
 	let dayEntry = $derived(schedule.find((d) => d.day === selectedDay) ?? null);
 	/** The day's sessions in slot order, empty ones too, so a new one can be filled in. */
 	let sessions = $derived(orderedSessions(dayEntry));
 	let multi = $derived(sessions.length > 1);
 
-	/** The session the add sheet, session menu and item menu act on. */
+	let dayCount = $derived(program ? programDays(program).length : 0);
+	let sessionCount = $derived(schedule.reduce((n, d) => n + daySessions(d).length, 0));
+	/** "3 days a week", and how many sessions when some days have more than one. */
+	let summary = $derived(
+		[
+			dayCount ? `${counted(dayCount, 'day')} a week` : 'nothing planned yet',
+			sessionCount > dayCount ? counted(sessionCount, 'session') : null
+		]
+			.filter(Boolean)
+			.join(' · ')
+	);
+
+	/**
+	 * This program's week. Unlike Today's strip, only its own sessions fill a
+	 * day: a set of something else doesn't tick off a day of this plan.
+	 */
+	let week = $derived(
+		weekDays(program ?? null, logs, [], session.prefs.weekStart).map((d) => ({
+			...d,
+			trained: d.done > 0
+		}))
+	);
+
+	// ── Viewing ─────────────────────────────────────────────────────────────────
+
+	/** Where each of today's sessions stands; on any other day nothing has happened yet. */
+	let todayRows = $derived(
+		program && isToday ? todayPlan(program, todayDow, logs, training.session, minute) : []
+	);
+
+	type SessionView = {
+		session: ProgramSession;
+		source: Extract<SessionSource, { type: 'program' }>;
+		plan: PlanEntry[];
+		title: string;
+		/** The routine a session is made of, when it's exactly one, to open from its header. */
+		routineId: string | null;
+		meta: string;
+		/** Today's run of it, if any. */
+		row: PlanRow | null;
+		/** Per plan entry, whether today's run got its sets; empty when there's no run. */
+		done: boolean[];
+		/** Today's finished run, when it's done: not a later try ended early. */
+		doneLog: SessionLog | null;
+		/** It ended early today and is the workout that can pick up where it stopped. */
+		resumable: boolean;
+	};
+
+	/** Sessions with something in them, ready to read. */
+	let views = $derived.by((): SessionView[] => {
+		if (!program) return [];
+		return sessions
+			.filter((s) => s.items.length > 0)
+			.map((s) => {
+				const source = {
+					type: 'program',
+					programId: program!.id,
+					day: selectedDay,
+					sessionId: s.id
+				} as const;
+				const plan = buildPlan(source, training.lookups) ?? [];
+				const only = s.items.length === 1 && s.items[0].type === 'routine' ? s.items[0] : null;
+				const sets = plan.reduce((n, e) => n + (e.targetSets ?? 0), 0);
+				const minutes = estimateMinutes(
+					plan,
+					(e) => restSeconds(session.routine(e.routineId), session.prefs),
+					logs,
+					source
+				).minutes;
+				const row = todayRows.find((r) => r.session.id === s.id) ?? null;
+				// Ticks only for the run under way or the one ended early.
+				const since =
+					row?.status === 'live'
+						? training.session!.startedAt
+						: row?.status === 'partial'
+							? row.log?.startedAt
+							: undefined;
+				return {
+					session: s,
+					source,
+					plan,
+					title: sessionName(
+						s,
+						(id) => session.routine(id),
+						(id) => session.workout(id)
+					),
+					routineId: only?.routineId ?? null,
+					meta: [
+						only ? 'Routine' : null,
+						counted(plan.length, 'exercise'),
+						sets ? counted(sets, 'set') : null,
+						`about ${minutes} min`
+					]
+						.filter(Boolean)
+						.join(' · '),
+					row,
+					done: since === undefined ? [] : entriesDone(plan, training.lookups, since),
+					doneLog:
+						row?.status === 'done'
+							? (logs.find(
+									(l) =>
+										l.complete &&
+										sameSource(l.source, source) &&
+										new Date(l.endedAt).toDateString() === new Date(minute).toDateString()
+								) ?? null)
+							: null,
+					resumable: row?.status === 'partial' && !!training.endedToday(source)
+				};
+			});
+	});
+	let doneCount = $derived(views.filter((v) => v.row?.status === 'done').length);
+
+	function eyebrow(v: SessionView): string {
+		const status =
+			v.row?.status === 'live'
+				? 'In progress'
+				: v.row?.status === 'partial'
+					? 'Ended early'
+					: v.row?.upNext
+						? 'Up next'
+						: null;
+		return [views.length > 1 ? slotLabel(v.session.slot) : null, status]
+			.filter(Boolean)
+			.join(' · ');
+	}
+
+	/** Green only for what to do now: the session up next today, or the one under way. */
+	function startButton(v: SessionView): { label: string; primary: boolean } {
+		const row = v.row;
+		if (row?.status === 'live') return { label: 'Continue', primary: true };
+		if (row?.status === 'partial')
+			return { label: v.resumable ? 'Resume' : 'Start again', primary: row.upNext };
+		if (row?.upNext) return { label: `Start ${v.title}`, primary: true };
+		return { label: isToday ? 'Start' : 'Start now', primary: false };
+	}
+
+	function start(v: SessionView, opts?: { fresh?: boolean }) {
+		goto(
+			runProgramHref(v.source.programId, v.source.day, v.source.sessionId, {
+				resume: v.resumable,
+				...opts
+			})
+		);
+	}
+
+	function entryTarget(e: PlanEntry): string | null {
+		return targetLabel(e, measureOf(session.workout(e.workoutId)), session.prefs.distanceUnit);
+	}
+
+	let nextDay = $derived(program ? nextScheduledDay(program, selectedDay) : null);
+	let nextUp = $derived(
+		nextDay
+			? {
+					day: nextDay.day,
+					name: programDayName(
+						nextDay,
+						(id) => session.routine(id),
+						(id) => session.workout(id)
+					),
+					when: isToday ? whenNext(nextDay.day, todayDow) : DAY_FULL[nextDay.day]
+				}
+			: null
+	);
+
+	// ── Editing ─────────────────────────────────────────────────────────────────
+
+	/** The session the add sheet, session menu and remove dialog act on. */
 	let targetId = $state<string | null>(null);
 	let target = $derived(sessions.find((s) => s.id === targetId) ?? null);
 	let targetItems = $derived(target?.items ?? []);
@@ -86,59 +285,46 @@
 		targetItems.filter((i) => i.type === 'routine').map((i) => i.routineId)
 	);
 
-	function setsToday(workoutId: string): number {
-		return (
-			session.workout(workoutId)?.sets.filter((s) => new Date(s.date).toDateString() === todayStr)
-				.length ?? 0
-		);
-	}
-
-	/** Flat exercise count, expanding routines. */
-	function countExercises(items: ProgramItem[]): number {
-		return items.reduce((sum, item) => {
-			if (item.type === 'exercise') return sum + 1;
-			return sum + (session.routine(item.routineId)?.exercises.length ?? 0);
-		}, 0);
-	}
-
-	/** Exercises that have had their sets today. */
-	function countDone(items: ProgramItem[]): number {
-		return items.reduce((sum, item) => {
-			if (item.type === 'exercise') {
-				return sum + (setsToday(item.workoutId) >= item.targetSets ? 1 : 0);
-			}
-			const routine = session.routine(item.routineId);
-			if (!routine) return sum;
-			return (
-				sum +
-				routine.exercises.filter((ex) =>
-					ex.targetSets ? setsToday(ex.workoutId) >= ex.targetSets : setsToday(ex.workoutId) > 0
-				).length
-			);
-		}, 0);
-	}
-
-	/** A day with one session keeps the page-wide Start button it has always had. */
-	let only = $derived(sessions.length === 1 ? sessions[0] : null);
-	let totalToday = $derived(only ? countExercises(only.items) : 0);
-	let doneToday = $derived(only ? countDone(only.items) : 0);
-
 	/** A lone session without a slot doesn't need one; its chip invites setting it. */
 	function chipLabel(s: ProgramSession): string {
 		return !s.slot && !multi ? 'Set a time' : slotLabel(s.slot);
-	}
-	function addLabel(s: ProgramSession): string {
-		return s.slot ? `Add to ${SLOT_LABEL[s.slot].toLowerCase()}` : 'Add to session';
 	}
 	let targetTitle = $derived(
 		multi && target ? `${DAY_FULL[selectedDay]} · ${slotLabel(target.slot)}` : DAY_FULL[selectedDay]
 	);
 
+	function itemName(item: ProgramItem): string {
+		return item.type === 'routine'
+			? (session.routine(item.routineId)?.name ?? 'Routine')
+			: (session.workout(item.workoutId)?.name ?? 'Exercise');
+	}
+
+	/**
+	 * Items with keys for the sortable list. A session may list the same
+	 * exercise or routine twice, so the key counts repeats as well as the id.
+	 */
+	function keyed(items: ProgramItem[]): { item: ProgramItem; key: string }[] {
+		const seen = new Map<string, number>();
+		return items.map((item) => {
+			const id = item.type === 'routine' ? `r:${item.routineId}` : `w:${item.workoutId}`;
+			const n = seen.get(id) ?? 0;
+			seen.set(id, n + 1);
+			return { item, key: `${id}#${n}` };
+		});
+	}
+
+	/** Under an item's name while editing: what a routine holds, or an exercise's per-set target. */
+	function itemDetail(item: ProgramItem): string | null {
+		if (item.type === 'routine') {
+			return `Routine · ${counted(session.routine(item.routineId)?.exercises.length ?? 0, 'exercise')}`;
+		}
+		const measure = measureOf(session.workout(item.workoutId));
+		return measure === 'reps' ? null : measureTarget(item, measure, session.prefs.distanceUnit);
+	}
+
 	// ── Sheets ──────────────────────────────────────────────────────────────────
-	let reorderingId = $state<string | null>(null);
 	let showProgramMenu = $state(false);
 	let showSessionMenu = $state(false);
-	let showItemMenu = $state(false);
 	let showAdd = $state(false);
 	let showSlots = $state(false);
 	/** `add`: the slot sheet makes a new session; `change`: it moves the target. */
@@ -152,15 +338,10 @@
 	let deleteSessionDialog = $state<HTMLDialogElement>()!;
 	let selectedItemIndex = $state<number | null>(null);
 
-	let selectedItem = $derived(
-		selectedItemIndex === null ? null : (targetItems[selectedItemIndex] ?? null)
-	);
 	let selectedItemName = $derived(
-		selectedItem === null
-			? ''
-			: selectedItem.type === 'routine'
-				? (session.routine(selectedItem.routineId)?.name ?? 'Routine')
-				: (session.workout(selectedItem.workoutId)?.name ?? 'Exercise')
+		selectedItemIndex !== null && targetItems[selectedItemIndex]
+			? itemName(targetItems[selectedItemIndex])
+			: ''
 	);
 
 	/** What each slot already holds, so picking one says what it joins. */
@@ -179,8 +360,8 @@
 		return notes;
 	});
 
-	// No "Start workout" here: the page's own Start buttons show under the same
-	// condition. Destructive actions come last, set apart by the sheet.
+	// No Edit here: the page's own Edit button sits right beside this menu.
+	// Destructive actions come last, set apart by the sheet.
 	let programActions = $derived<SheetAction[]>(
 		[
 			{
@@ -188,8 +369,7 @@
 				icon: CheckIcon,
 				onSelect: () => user.setActiveProgram(isActive ? null : program!.id)
 			},
-			{ label: `Add session to ${DAY_NAMES[selectedDay]}`, icon: AddIcon, onSelect: addSession },
-			{ label: 'Edit program', icon: EditIcon, onSelect: () => (showEditProgram = true) },
+			{ label: 'Name and notes', icon: EditIcon, onSelect: () => (showEditProgram = true) },
 			sessions.length
 				? {
 						label: `Clear ${DAY_NAMES[selectedDay]}`,
@@ -207,25 +387,10 @@
 		].filter((a) => a !== null)
 	);
 
+	// Its time is the chip, its order the handles, adding the row at its foot.
 	let sessionActions = $derived<SheetAction[]>(
 		target
 			? [
-					{ label: addLabel(target), icon: AddIcon, onSelect: () => (showAdd = true) },
-					target.items.length > 1
-						? {
-								label: 'Reorder',
-								icon: DragIndicatorIcon,
-								onSelect: () => (reorderingId = target!.id)
-							}
-						: null,
-					{
-						label: 'Change time',
-						icon: ClockIcon,
-						onSelect: () => {
-							slotMode = 'change';
-							showSlots = true;
-						}
-					},
 					{
 						label: target.label ? 'Rename' : 'Add a label',
 						icon: NotesIcon,
@@ -241,40 +406,8 @@
 						onSelect: () =>
 							target!.items.length ? deleteSessionDialog?.showModal() : removeSession(target!.id)
 					}
-				].filter((a) => a !== null)
+				]
 			: []
-	);
-
-	let itemActions = $derived<SheetAction[]>(
-		[
-			selectedItem?.type === 'exercise'
-				? {
-						label: 'More sets',
-						icon: AddIcon,
-						onSelect: () => stepTargetSets(selectedItemIndex!, 1)
-					}
-				: null,
-			selectedItem?.type === 'exercise'
-				? {
-						label: 'Fewer sets',
-						icon: EditIcon,
-						onSelect: () => stepTargetSets(selectedItemIndex!, -1)
-					}
-				: null,
-			selectedItem?.type === 'routine'
-				? {
-						label: 'Open routine',
-						icon: EditIcon,
-						onSelect: () => goto(`/routines/${selectedItem.routineId}`)
-					}
-				: null,
-			{
-				label: multi ? 'Remove from session' : 'Remove from day',
-				icon: DeleteIcon,
-				destructive: true,
-				onSelect: () => removeItemDialog?.showModal()
-			}
-		].filter((a) => a !== null)
 	);
 
 	// ── Mutations ───────────────────────────────────────────────────────────────
@@ -297,8 +430,8 @@
 		saveSessions(sessions.map((s) => (s.id === id ? patch(s) : s)));
 	}
 
-	function setItems(items: ProgramItem[]) {
-		if (target) patchSession(target.id, (s) => ({ ...s, items }));
+	function setItems(id: string, items: ProgramItem[]) {
+		patchSession(id, (s) => ({ ...s, items }));
 	}
 
 	/**
@@ -355,16 +488,19 @@
 	}
 
 	function removeItem(index: number) {
-		setItems(targetItems.filter((_, i) => i !== index));
+		if (target)
+			setItems(
+				target.id,
+				targetItems.filter((_, i) => i !== index)
+			);
 	}
 
-	function stepTargetSets(index: number, delta: number) {
-		const item = targetItems[index];
-		if (item?.type !== 'exercise') return;
+	function stepTargetSets(s: ProgramSession, index: number, delta: number) {
 		setItems(
-			targetItems.map((it, i) =>
+			s.id,
+			s.items.map((it, i) =>
 				i === index && it.type === 'exercise'
-					? { ...it, targetSets: Math.max(1, Math.min(99, it.targetSets + delta)) }
+					? { ...it, targetSets: clampTarget(it.targetSets + delta) }
 					: it
 			)
 		);
@@ -386,240 +522,410 @@
 		showSlots = true;
 	}
 
-	function openItemMenu(s: ProgramSession, index: number) {
+	function askRemove(s: ProgramSession, index: number) {
 		targetId = s.id;
 		selectedItemIndex = index;
-		showItemMenu = true;
+		removeItemDialog?.showModal();
 	}
 
-	function startSession(s: ProgramSession) {
-		if (program) goto(runProgramHref(program.id, selectedDay, s.id));
+	function editLabel(s: ProgramSession) {
+		targetId = s.id;
+		labelDraft = s.label ?? '';
+		showLabelSheet = true;
 	}
 </script>
 
-{#snippet itemBody(item: ProgramItem)}
-	{#if item.type === 'routine'}
-		{@const routine = session.routine(item.routineId)}
-		<div class="flex min-w-0 flex-1 flex-col gap-1">
-			<div class="flex items-center gap-2">
-				<span class="bg-primary/15 text-primary rounded px-1.5 py-0.5 text-xs font-semibold"
-					>Routine</span
-				>
-				<span class="truncate font-semibold">{routine?.name ?? 'Unknown'}</span>
-			</div>
-			{#if routine?.exercises.length}
-				<div class="mt-0.5 flex flex-col gap-0.5">
-					{#each routine.exercises as ex (ex.workoutId)}
-						{@const done = setsToday(ex.workoutId)}
-						<div class="flex items-center gap-2">
-							<span class="text-base-content/60 min-w-0 flex-1 truncate text-xs"
-								>{session.workout(ex.workoutId)?.name ?? '—'}</span
-							>
-							{#if ex.targetSets}
-								<span
-									class={done >= ex.targetSets
-										? 'text-success text-xs'
-										: 'text-base-content/40 text-xs'}
-									>{done >= ex.targetSets ? '✓' : `${done}/${ex.targetSets}`}</span
-								>
-							{:else}
-								<span class="text-base-content/30 text-xs"
-									>{done > 0 ? counted(done, 'set') : '—'}</span
-								>
-							{/if}
-						</div>
-					{/each}
-				</div>
-			{/if}
-		</div>
-	{:else}
-		{@const done = setsToday(item.workoutId)}
-		{@const last = session.workout(item.workoutId)?.sets.at(-1)}
-		<div class="flex min-w-0 flex-1 flex-col gap-1">
-			<span class="truncate text-sm font-semibold"
-				>{session.workout(item.workoutId)?.name ?? '—'}</span
-			>
-			<div class="text-base-content/40 flex items-center gap-1.5 text-xs">
-				{#if done >= item.targetSets}
-					<span class="text-success font-semibold">✓ Done ({done} sets)</span>
-				{:else if done > 0}
-					<span>{done}/{item.targetSets} sets today</span>
-				{:else if last}
-					<span>{last.reps} reps{last.weight ? ` · ${last.weight} ${unit}` : ''}</span>
-				{:else}
-					<span>{counted(item.targetSets, 'set')} planned</span>
-				{/if}
-			</div>
-		</div>
-		<span class="badge badge-ghost badge-sm shrink-0 self-center"
-			>{counted(item.targetSets, 'set')}</span
-		>
-	{/if}
+{#snippet check(cls: string)}
+	<svg
+		class={cls}
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="currentColor"
+		stroke-width="3"
+		aria-hidden="true"
+		><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" /></svg
+	>
 {/snippet}
 
-{#snippet sessionItems(s: ProgramSession)}
-	{#if reorderingId === s.id}
-		<p class="text-primary-strong py-2 text-sm font-medium">Drag the handles to reorder.</p>
-		<SortableList
-			items={s.items}
-			key={(item) => (item.type === 'routine' ? item.routineId : item.workoutId)}
-			onReorder={(next) => patchSession(s.id, (old) => ({ ...old, items: next }))}
-		>
-			{#snippet children(item)}
-				<div class="bg-base-100 rounded-box flex items-start gap-3 px-4 py-3">
-					{@render itemBody(item)}
-				</div>
-			{/snippet}
-		</SortableList>
-		<button class="btn btn-primary btn-sm my-2 w-full" onclick={() => (reorderingId = null)}
-			>Done</button
-		>
-	{:else}
-		<ul class="flex flex-col">
-			{#each s.items as item, i (i)}
-				<li class="border-base-300 flex items-start gap-2 border-t py-3">
-					{@render itemBody(item)}
-					<RowMenuButton label="Options for this item" onclick={() => openItemMenu(s, i)} />
+{#snippet plus(cls: string)}
+	<span class={cls}>{@html AddIcon}</span>
+{/snippet}
+
+{#snippet slotEyebrow(s: ProgramSession, text: string)}
+	<p
+		class="text-base-content/55 flex items-center gap-1.5 text-xs font-semibold tracking-widest uppercase [&_svg]:h-3.5 [&_svg]:w-3.5"
+	>
+		{#if views.length > 1}{@html slotIcon(s.slot)}{/if}
+		{text}
+	</p>
+{/snippet}
+
+{#snippet sessionCard(v: SessionView)}
+	{@const button = startButton(v)}
+	{@const label = eyebrow(v)}
+	<section class="bg-base-200 rounded-2xl" aria-label="{v.title} session">
+		{#snippet head()}
+			<div class="min-w-0 flex-1">
+				{#if label}{@render slotEyebrow(v.session, label)}{/if}
+				<h3 class={['text-[17px] leading-snug font-bold', label && 'mt-1']}>{v.title}</h3>
+				<p class="text-base-content/55 text-sm">{v.meta}</p>
+			</div>
+		{/snippet}
+		{#if v.routineId}
+			<a
+				class="hover:bg-base-300 flex items-center gap-3 rounded-t-2xl px-4 pt-4 pb-2.5 transition-colors"
+				href="/routines/{v.routineId}"
+			>
+				{@render head()}
+				<Chevron />
+			</a>
+		{:else}
+			<div class="flex items-center gap-3 px-4 pt-4 pb-2.5">{@render head()}</div>
+		{/if}
+		<ul>
+			{#each v.plan as entry, i (i)}
+				{@const name = session.workout(entry.workoutId)?.name ?? '—'}
+				{@const target = entryTarget(entry)}
+				<li>
+					<a
+						class="hover:bg-base-300 flex h-11 items-center gap-3 px-4 transition-colors"
+						href="/workout/{entry.workoutId}?from=/programs/{v.source.programId}"
+					>
+						<span class="text-base-content/35 w-4 shrink-0 text-right text-xs tabular-nums"
+							>{i + 1}</span
+						>
+						<span class="min-w-0 flex-1 truncate text-[15px]">{name}</span>
+						{#if v.done[i]}
+							<span class="text-primary-strong flex items-center gap-1 text-sm font-semibold">
+								{@render check('h-4 w-4')} Done
+							</span>
+						{:else if target}
+							<span class="text-base-content/55 shrink-0 text-sm tabular-nums">{target}</span>
+						{/if}
+					</a>
 				</li>
 			{/each}
 		</ul>
-	{/if}
+		<div class="px-4 pt-2 pb-4">
+			<button
+				class={[
+					'btn h-12 w-full rounded-xl text-base',
+					button.primary ? 'btn-primary' : 'bg-base-300 border-0'
+				]}
+				onclick={() => start(v)}
+			>
+				<svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"
+					><path d="M7 4.5v15l12-7.5z" /></svg
+				>
+				{button.label}
+			</button>
+		</div>
+	</section>
+{/snippet}
+
+{#snippet doneCard(v: SessionView)}
+	{@const log = v.doneLog}
+	<div class="bg-base-200 flex items-center gap-1 rounded-2xl pr-3">
+		<a
+			class="hover:bg-base-300 flex min-w-0 flex-1 items-center gap-3 rounded-2xl py-3.5 pr-2 pl-4 transition-colors"
+			href={log ? historyItemHref(log.id) : undefined}
+			aria-label="{v.title}: done"
+		>
+			<span
+				class="bg-primary text-primary-content flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+			>
+				{@render check('h-4.5 w-4.5')}
+			</span>
+			<div class="min-w-0 flex-1">
+				{#if views.length > 1}{@render slotEyebrow(v.session, slotLabel(v.session.slot))}{/if}
+				<p class="truncate text-[17px] leading-snug font-bold">{v.title}</p>
+				<p class="text-base-content/55 text-sm">
+					{[
+						'Done',
+						...(log
+							? [counted(log.totals.sets, 'set'), `${Math.round(logDuration(log) / 60_000)} min`]
+							: [])
+					].join(' · ')}
+				</p>
+			</div>
+		</a>
+		<!-- A second run is a fresh workout, never a resume of the finished one. -->
+		<button
+			class="btn btn-sm bg-base-300 shrink-0 rounded-full border-0"
+			aria-label="Do {v.title} again"
+			onclick={() => start(v, { fresh: true })}>Do again</button
+		>
+	</div>
+{/snippet}
+
+{#snippet editCard(s: ProgramSession)}
+	<section class="bg-base-200 rounded-2xl" aria-label="{slotLabel(s.slot)} session">
+		<div class="flex items-center justify-between gap-2 pt-3 pr-2 pl-4">
+			<button
+				class="btn btn-sm bg-base-300 gap-1.5 rounded-full border-0 pr-2.5 pl-3 [&_svg]:h-4 [&_svg]:w-4"
+				aria-label="When: {slotLabel(s.slot)}. Change"
+				onclick={() => changeSlot(s)}
+			>
+				{@html slotIcon(s.slot)}
+				{chipLabel(s)}
+				<span class="text-base-content/45 [&>svg]:h-3.5 [&>svg]:w-3.5">{@html DownIcon}</span>
+			</button>
+			<RowMenuButton
+				label="Options for the {slotLabel(s.slot).toLowerCase()} session"
+				onclick={() => openSessionMenu(s)}
+			/>
+		</div>
+		<button
+			class="flex items-center gap-2 px-4 pt-2 pb-3 text-left text-[17px] font-bold [&>span>svg]:h-4 [&>span>svg]:w-4"
+			aria-label="Rename session"
+			onclick={() => editLabel(s)}
+		>
+			{s.items.length || s.label
+				? sessionName(
+						s,
+						(id) => session.routine(id),
+						(id) => session.workout(id)
+					)
+				: 'New session'}
+			<span class="text-base-content/40">{@html EditIcon}</span>
+		</button>
+		{#if s.items.length}
+			<div class="border-base-300 border-t">
+				<SortableList
+					items={keyed(s.items)}
+					key={(row) => row.key}
+					onReorder={(next) =>
+						setItems(
+							s.id,
+							next.map((row) => row.item)
+						)}
+					disabled={s.items.length < 2}
+					gap="gap-0"
+				>
+					{#snippet children({ item }, i)}
+						{@const detail = itemDetail(item)}
+						<div class="flex min-h-14 items-center gap-2 py-1.5 pl-4">
+							<a
+								class="flex min-w-0 flex-1 flex-col"
+								href={item.type === 'routine'
+									? `/routines/${item.routineId}`
+									: `/workout/${item.workoutId}?from=/programs/${program!.id}`}
+							>
+								<span class="truncate text-[15px]">{itemName(item)}</span>
+								{#if detail}<span class="text-base-content/50 text-xs">{detail}</span>{/if}
+							</a>
+							{#if item.type === 'exercise'}
+								<div class="bg-base-300 flex h-8 shrink-0 items-center rounded-full">
+									<button
+										class="text-base-content/75 flex h-8 w-8 items-center justify-center disabled:opacity-30 [&>svg]:h-3.5 [&>svg]:w-3.5"
+										aria-label="Fewer sets of {itemName(item)}"
+										disabled={item.targetSets <= 1}
+										onclick={() => stepTargetSets(s, i, -1)}>{@html RemoveIcon}</button
+									>
+									<span class="min-w-11 text-center text-[13px] font-semibold tabular-nums"
+										>{counted(item.targetSets, 'set')}</span
+									>
+									<button
+										class="text-base-content/75 flex h-8 w-8 items-center justify-center [&>svg]:h-3.5 [&>svg]:w-3.5"
+										aria-label="More sets of {itemName(item)}"
+										onclick={() => stepTargetSets(s, i, 1)}>{@html AddIcon}</button
+									>
+								</div>
+							{/if}
+							<button
+								class="text-error flex h-11 w-9 shrink-0 items-center justify-center"
+								aria-label="Remove {itemName(item)}"
+								onclick={() => askRemove(s, i)}
+							>
+								<svg
+									class="h-5 w-5"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><path d="M8 12h8" /></svg
+								>
+							</button>
+						</div>
+					{/snippet}
+				</SortableList>
+			</div>
+		{/if}
+		<button
+			class="border-base-300 text-primary-strong flex h-12 w-full items-center gap-2.5 border-t px-4 text-[15px] font-semibold"
+			onclick={() => openAdd(s)}
+		>
+			{@render plus('[&>svg]:h-4.5 [&>svg]:w-4.5')}
+			Add exercise or routine
+		</button>
+	</section>
 {/snippet}
 
 {#if session.programs === null}
-	<div class="mx-auto flex w-full max-w-lg flex-col gap-4">
-		<div class="skeleton h-12 w-full rounded-2xl"></div>
-		<div class="skeleton h-64 w-full rounded-2xl"></div>
+	<div class="mx-auto flex w-full max-w-lg flex-col gap-5">
+		<div class="skeleton h-8 w-full rounded-xl"></div>
+		<div class="skeleton h-19.5 w-full rounded-2xl"></div>
+		<div class="skeleton h-72 w-full rounded-2xl"></div>
 	</div>
 {:else if program}
-	<div class="mx-auto flex w-full max-w-lg flex-col gap-4">
-		<div class="flex items-center justify-between gap-2">
-			{#if isActive}
-				<span class="badge badge-primary badge-sm">Active Program</span>
-			{:else}
-				<button class="btn btn-ghost btn-xs" onclick={() => user.setActiveProgram(program.id)}
-					>Set as active</button
-				>
-			{/if}
-			<RowMenuButton label="Program options" onclick={() => (showProgramMenu = true)} />
-		</div>
-
-		<!-- Day picker. Today's ring is inset: the row scrolls sideways, which
-		     clips anything drawn outside a button's edge. One dot per session. -->
-		<div class="-mr-2 flex items-center gap-1.5 overflow-x-auto pr-2 pb-0.5">
-			{#each [0, 1, 2, 3, 4, 5, 6] as dayNum (dayNum)}
-				{@const dots = daySessions(schedule.find((d) => d.day === dayNum)).length}
-				<div class="flex shrink-0 flex-col items-center">
-					<button
-						class="btn btn-sm"
-						class:btn-primary={selectedDay === dayNum}
-						class:btn-ghost={selectedDay !== dayNum}
-						class:ring-2={dayNum === todayDow && selectedDay !== dayNum}
-						class:ring-inset={dayNum === todayDow && selectedDay !== dayNum}
-						class:ring-primary={dayNum === todayDow && selectedDay !== dayNum}
-						aria-label="{DAY_FULL[dayNum]} — {counted(dots, 'session')}"
-						onclick={() => {
-							selectedDay = dayNum;
-							reorderingId = null;
-						}}
-					>
-						{DAY_NAMES[dayNum]}
-					</button>
-					<span class="mt-0.5 flex h-1.5 gap-0.5">
-						{#each { length: Math.min(dots, 4) } as _, i (i)}
-							<span class="bg-primary h-1.5 w-1.5 rounded-full"></span>
-						{/each}
-					</span>
-				</div>
-			{/each}
-		</div>
-
-		<!-- Start CTA, for a day with one session -->
-		{#if only && totalToday > 0}
-			<div class="flex gap-2">
-				{#if selectedDay === todayDow}
-					<div class="bg-base-200 flex-1 rounded-xl px-4 py-2.5 text-center">
-						<p class="text-base-content/50 text-xs">Today</p>
-						<p class="text-sm font-semibold">{doneToday}/{totalToday}</p>
-					</div>
+	<div class="mx-auto flex w-full max-w-lg flex-col gap-5 pb-2">
+		<section>
+			<div class="flex min-h-10 items-center justify-between gap-2">
+				{#if editing}
+					<p class="text-base-content/55 text-sm">Editing · changes save as you go</p>
+				{:else}
+					<p class="text-base-content/55 flex min-w-0 items-center gap-1.5 text-sm">
+						<span
+							class={[
+								'h-1.75 w-1.75 shrink-0 rounded-full',
+								isActive ? 'bg-primary' : 'ring-base-content/40 ring-[1.5px] ring-inset'
+							]}
+						></span>
+						<span class="truncate">
+							{#if isActive}<b class="text-primary-strong font-semibold">Active</b>{:else}Not active{/if}
+							· {summary}
+						</span>
+					</p>
 				{/if}
-				<button
-					class="btn btn-primary"
-					class:flex-3={selectedDay === todayDow}
-					class:w-full={selectedDay !== todayDow}
-					onclick={() => startSession(only!)}
-				>
-					{#if selectedDay !== todayDow}
-						Start {DAY_NAMES[selectedDay]} workout
-					{:else if doneToday > 0 && doneToday < totalToday}
-						Continue
-					{:else if doneToday >= totalToday}
-						Do Again
-					{:else}
-						Start
-					{/if}
-				</button>
-			</div>
-		{/if}
-
-		{#if sessions.length}
-			<div class="flex flex-col gap-3 pb-2">
-				{#each sessions as s (s.id)}
-					{@const count = countExercises(s.items)}
-					<section
-						class="bg-base-200 rounded-box flex flex-col px-4 pt-2"
-						aria-label="{slotLabel(s.slot)} session"
-					>
-						<div class="flex min-h-11 items-center gap-2">
-							<button
-								class="btn btn-sm bg-base-300 gap-1.5 border-0 pr-2.5 pl-3 [&_svg]:h-4 [&_svg]:w-4"
-								aria-label="When: {slotLabel(s.slot)}. Change"
-								onclick={() => changeSlot(s)}
-							>
-								{@html slotIcon(s.slot)}
-								{chipLabel(s)}
-								<span class="[&>svg]:h-3.5 [&>svg]:w-3.5">{@html DownIcon}</span>
-							</button>
-							{#if count}
-								<span class="text-base-content/50 text-xs">{counted(count, 'exercise')}</span>
-							{/if}
-							<span class="flex-1"></span>
-							{#if multi && s.items.length}
-								<button class="btn btn-ghost btn-sm" onclick={() => startSession(s)}>Start</button>
-							{/if}
-							<RowMenuButton
-								label="Options for the {slotLabel(s.slot).toLowerCase()} session"
-								onclick={() => openSessionMenu(s)}
-							/>
-						</div>
-						{#if s.label}
-							<p class="text-base-content/60 pb-2 text-sm font-medium">{s.label}</p>
-						{/if}
-						{@render sessionItems(s)}
+				<div class="flex shrink-0 items-center gap-1">
+					{#if !isActive && !editing}
 						<button
-							class="border-base-300 text-primary-strong flex h-11 items-center gap-2 border-t text-sm font-semibold [&>svg]:h-4.5 [&>svg]:w-4.5"
-							onclick={() => openAdd(s)}
+							class="btn btn-sm bg-primary/15 text-primary-strong rounded-full border-0"
+							onclick={() => user.setActiveProgram(program.id)}>Make active</button
 						>
-							{@html AddIcon}
-							{addLabel(s)}
-						</button>
-					</section>
+					{/if}
+					<button
+						class={[
+							'btn btn-sm rounded-full border-0 px-4',
+							editing ? 'btn-primary' : 'bg-base-200'
+						]}
+						onclick={() => (editing = !editing)}>{editing ? 'Done' : 'Edit'}</button
+					>
+					<RowMenuButton label="Program options" onclick={() => (showProgramMenu = true)} />
+				</div>
+			</div>
+			{#if program.notes && !editing}
+				<p class="text-base-content/70 mt-2 text-sm whitespace-pre-line">{program.notes}</p>
+			{/if}
+		</section>
+
+		<!-- The same rings as Today's week strip; the selected day gets the tint. -->
+		<nav class="bg-base-200 grid grid-cols-7 gap-0.5 rounded-2xl p-2" aria-label="Days of the week">
+			{#each week as day (day.start)}
+				{@const selected = day.dow === selectedDay}
+				<button
+					class={[
+						'flex h-15.5 flex-col items-center justify-center gap-1.5 rounded-xl text-[11px]',
+						selected
+							? 'bg-primary/15 text-primary-strong font-bold'
+							: day.today
+								? 'text-base-content font-bold'
+								: 'text-base-content/45'
+					]}
+					aria-label={dayLabel(day)}
+					aria-pressed={selected}
+					onclick={() => (selectedDay = day.dow)}
+				>
+					<DayRing {day} />
+					<span aria-hidden="true">{day.today ? 'Today' : DAY_NAMES[day.dow]}</span>
+				</button>
+			{/each}
+		</nav>
+
+		<section class="flex flex-col gap-3" aria-label={DAY_FULL[selectedDay]}>
+			<div class="flex items-baseline justify-between gap-3">
+				<h2 class="text-xl font-bold">
+					{DAY_FULL[selectedDay]}
+					{#if isToday}
+						<span
+							class="bg-primary/15 text-primary-strong ml-1.5 rounded-full px-2 py-0.5 align-[3px] text-[11px] font-bold tracking-wide uppercase"
+							>Today</span
+						>
+					{/if}
+				</h2>
+				{#if editing}
+					{#if sessions.length}
+						<span class="text-base-content/55 text-sm">{counted(sessions.length, 'session')}</span>
+					{/if}
+				{:else if views.length > 1}
+					<span class="text-base-content/55 text-sm tabular-nums">
+						{isToday ? `${doneCount} of ${views.length} done` : counted(views.length, 'session')}
+					</span>
+				{/if}
+			</div>
+
+			{#if editing}
+				{#each sessions as s (s.id)}
+					{@render editCard(s)}
 				{/each}
 				<button
-					class="btn border-base-300 w-full border-dashed bg-transparent"
-					onclick={addSession}
+					class="border-base-content/20 text-base-content/75 flex h-12 w-full items-center justify-center gap-2 rounded-2xl border-[1.5px] border-dashed text-[15px] font-semibold"
+					onclick={() => (sessions.length ? addSession() : openAdd(null))}
 				>
-					{@html AddIcon} Add session
+					{@render plus('[&>svg]:h-4.5 [&>svg]:w-4.5')}
+					{sessions.length ? 'Add another session' : 'Add a session'}
 				</button>
-			</div>
-		{:else}
-			<div class="flex flex-col items-center gap-3 py-12 text-center">
-				<p class="text-base-content/50 text-sm">Nothing scheduled for {DAY_FULL[selectedDay]}.</p>
-				<button class="btn btn-primary btn-sm" onclick={() => openAdd(null)}>
-					{@html AddIcon} Add to {DAY_NAMES[selectedDay]}
+				{#if sessions.length}
+					<p class="text-base-content/55 px-6 text-center text-sm">
+						Split a day into morning and evening sessions you start separately.
+					</p>
+				{/if}
+			{:else if views.length}
+				{#each views as v (v.session.id)}
+					{#if v.row?.status === 'done'}
+						{@render doneCard(v)}
+					{:else}
+						{@render sessionCard(v)}
+					{/if}
+				{/each}
+			{:else}
+				<!-- The same rest card as Today: a rest day is part of the plan, not a gap. -->
+				<div class="bg-base-200 flex flex-col gap-3.5 rounded-2xl p-4">
+					<div class="flex items-center gap-3.5">
+						<span
+							class="bg-base-300 text-base-content/60 flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
+						>
+							<svg
+								class="h-5.5 w-5.5"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="1.8"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								aria-hidden="true"><path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z" /></svg
+							>
+						</span>
+						<div>
+							<p class="text-[17px] leading-snug font-bold">Rest day</p>
+							<p class="text-base-content/55 text-sm">
+								Nothing planned for {DAY_FULL[selectedDay]}.
+							</p>
+						</div>
+					</div>
+					{#if nextUp && nextUp.day !== selectedDay}
+						<button
+							class="bg-base-100/40 hover:bg-base-300 flex items-center gap-3 rounded-xl px-3.5 py-3 text-left transition-colors"
+							onclick={() => (selectedDay = nextUp.day)}
+						>
+							<div class="min-w-0 flex-1">
+								<p class="text-base-content/55 text-sm">Next up · {nextUp.when}</p>
+								<p class="truncate font-semibold">{nextUp.name}</p>
+							</div>
+							<Chevron />
+						</button>
+					{/if}
+				</div>
+				<button
+					class="text-primary-strong flex h-11 w-full items-center justify-center gap-2 text-[15px] font-semibold"
+					onclick={() => openAdd(null)}
+				>
+					{@render plus('[&>svg]:h-4.5 [&>svg]:w-4.5')}
+					Plan a session for {DAY_FULL[selectedDay]}
 				</button>
-			</div>
-		{/if}
+			{/if}
+		</section>
 	</div>
 {:else}
 	<div class="mx-auto flex max-w-lg flex-col items-center gap-4 py-16 text-center">
@@ -635,7 +941,6 @@
 	title={target ? `${slotLabel(target.slot)} session` : ''}
 	actions={sessionActions}
 />
-<ActionSheet bind:open={showItemMenu} title={selectedItemName} actions={itemActions} />
 
 <SlotSheet
 	bind:open={showSlots}
@@ -663,7 +968,7 @@
 
 <ConfirmationDialog
 	bind:dialog={removeItemDialog}
-	header="Remove from {targetTitle}?"
+	header="Remove {selectedItemName || 'this'} from {targetTitle}?"
 	content="This only changes the schedule. Nothing else is deleted."
 	actionLabel="Remove"
 	destructive

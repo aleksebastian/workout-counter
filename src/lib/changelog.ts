@@ -21,6 +21,17 @@ export interface ChangelogEntry {
 /** Newest first. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.20.0',
+		date: '2026-10-25',
+		improved: [
+			'A program now opens as your week to read and start from: each day lists its sessions with their exercises, sets and about how long they take, and only what’s next today is in green',
+			'Tap Edit to change a day: set its time, drag exercises into order, add or remove sets right in the list, and add more sessions',
+			'The program’s week uses the same rings as Today, a finished session folds down to one line, and a day off shows as a rest day with what’s next',
+			'Your program’s notes now show on its page'
+		],
+		fixed: ['Other days of a program no longer show today’s sets as their progress']
+	},
+	{
 		version: '0.19.1',
 		date: '2026-10-25',
 		improved: [
