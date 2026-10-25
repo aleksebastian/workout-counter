@@ -23,7 +23,15 @@ import {
 	type PlanEntry,
 	type SessionWindow
 } from '$lib/logic/training';
-import type { ActiveSession, EndedSession, SessionLog, SessionSource, Set } from '$lib/types';
+import { pauseTimer, resumeTimer, startTimer } from '$lib/logic/setTimer';
+import type {
+	ActiveSession,
+	EndedSession,
+	SessionLog,
+	SessionSource,
+	Set,
+	SetTimer
+} from '$lib/types';
 
 /**
  * The workout in progress. It's stored on the user document (see
@@ -242,6 +250,29 @@ export const training = {
 		if (!this.session || !plan?.length) return;
 		const i = Math.min(Math.max(index, 0), plan.length - 1);
 		repo.move({ currentWorkoutId: plan[i].workoutId, currentIndex: i, lastActiveAt: Date.now() });
+	},
+
+	/** The set timer of the workout in progress, if one is running or paused. */
+	get timer(): SetTimer | null {
+		return this.session?.timer ?? null;
+	},
+
+	startTimer(workoutId: string) {
+		if (this.session) repo.setTimer(startTimer(workoutId, Date.now()));
+	},
+
+	pauseTimer() {
+		const t = this.timer;
+		if (t) repo.setTimer(pauseTimer(t, Date.now()));
+	},
+
+	resumeTimer() {
+		const t = this.timer;
+		if (t) repo.setTimer(resumeTimer(t, Date.now()));
+	},
+
+	clearTimer() {
+		if (this.timer) repo.setTimer(null);
 	},
 
 	/** Ends the workout by choice and returns what it amounted to, for the done screen. */

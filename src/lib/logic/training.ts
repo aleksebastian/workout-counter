@@ -202,9 +202,11 @@ export function formatClock(ms: number): string {
 	return h > 0 ? `${h}:${m.toString().padStart(2, '0')}:${sec}` : `${m}:${sec}`;
 }
 
-/** The latest sign of life: a move between exercises, or a set logged on a planned exercise. */
+/** The latest sign of life: a move between exercises, a set logged on a planned exercise, or a running set timer. */
 export function lastActivity(session: ActiveSession, plan: PlanEntry[], lookups: Lookups): number {
-	let latest = session.lastActiveAt;
+	// A stopwatch still running counts as being at it: a long ride isn't abandoned.
+	if (session.timer && session.timer.pausedAt === undefined) return Infinity;
+	let latest = session.timer?.pausedAt ?? session.lastActiveAt;
 	for (const id of new globalThis.Set(plan.map((e) => e.workoutId))) {
 		for (const set of setsSince(lookups.workout(id), session.startedAt)) {
 			latest = Math.max(latest, new Date(set.date).getTime());

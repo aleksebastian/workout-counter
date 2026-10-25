@@ -27,6 +27,7 @@ import type {
 	Routine,
 	RoutineExercise,
 	Set,
+	SetTimer,
 	Workout
 } from '$lib/types';
 
@@ -294,6 +295,13 @@ export const library = {
 export const sessions = {
 	start(session: ActiveSession) {
 		return mutate('start workout', () => updateDoc(userRef(), { activeSession: session }));
+	},
+
+	/** Saves the set timer, or clears it with `null`. */
+	setTimer(timer: SetTimer | null) {
+		return mutate('save timer', () =>
+			updateDoc(userRef(), { 'activeSession.timer': timer ?? deleteField() })
+		);
 	},
 
 	/** Records moving to another exercise — field paths, so nothing else is rewritten. */

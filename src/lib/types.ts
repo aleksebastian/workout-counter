@@ -191,6 +191,21 @@ export type SessionSource =
 	| { type: 'program'; programId: string; day: number; sessionId: string };
 
 /**
+ * A running stopwatch for a time or distance set. Kept with the workout in
+ * progress and counted from the clock, so it keeps going while the app is
+ * closed and carries across devices.
+ */
+export type SetTimer = {
+	workoutId: string;
+	/** Epoch ms of the tap on Start. */
+	startedAt: number;
+	/** Time spent paused before now, in ms. */
+	pausedMs: number;
+	/** Epoch ms it was paused at, while paused. */
+	pausedAt?: number;
+};
+
+/**
  * The workout in progress, kept on the user document so it survives leaving
  * the screen, closing the app, and switching devices. Its sets are the ones
  * logged since `startedAt`, so nothing about them is duplicated here.
@@ -215,6 +230,8 @@ export type ActiveSession = {
 	 * duration leave it out, so a resumed workout doesn't count the break.
 	 */
 	pausedMs: number;
+	/** The stopwatch for the current time or distance set, while one is running or paused. */
+	timer?: SetTimer;
 };
 
 /**
@@ -410,7 +427,20 @@ export function parseActiveSession(value: unknown): ActiveSession | null {
 		lastActiveAt: num(raw.lastActiveAt, startedAt),
 		currentWorkoutId: typeof raw.currentWorkoutId === 'string' ? raw.currentWorkoutId : null,
 		currentIndex: num(raw.currentIndex),
-		pausedMs: num(raw.pausedMs)
+		pausedMs: num(raw.pausedMs),
+		...(parseTimer(raw.timer) && { timer: parseTimer(raw.timer)! })
+	};
+}
+
+/** A timer missing its exercise or start is treated as none. */
+function parseTimer(value: unknown): SetTimer | null {
+	const raw = (value ?? {}) as RawDoc;
+	if (typeof raw.workoutId !== 'string' || typeof raw.startedAt !== 'number') return null;
+	return {
+		workoutId: raw.workoutId,
+		startedAt: raw.startedAt,
+		pausedMs: num(raw.pausedMs),
+		...(typeof raw.pausedAt === 'number' && { pausedAt: raw.pausedAt })
 	};
 }
 

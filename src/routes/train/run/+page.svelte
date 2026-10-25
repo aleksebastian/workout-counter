@@ -29,6 +29,11 @@
 	import SetTable from './SetTable.svelte';
 	import SetAdjuster from '$lib/components/SetAdjuster.svelte';
 	import MeasureEntry from '$lib/components/MeasureEntry.svelte';
+	import TimerCard from '$lib/components/TimerCard.svelte';
+	import HoldTimer from '$lib/components/HoldTimer.svelte';
+	import BottomSheet from '$lib/components/BottomSheet.svelte';
+	import { pastTarget, timerSeconds } from '$lib/logic/setTimer';
+	import { onMount } from 'svelte';
 	import {
 		formatSeconds,
 		formatSet,
@@ -262,6 +267,62 @@
 	/** The note field in the footer is open. */
 	let noteOpen = $state(false);
 
+	// ── Timers ────────────────────────────────────────────────────────────────
+	/** Typing a time, distance or hold in, instead of timing it. */
+	let manualEntry = $state(false);
+	/** This exercise's set timer, if one is running or paused. */
+	let timer = $derived(
+		training.timer && training.timer.workoutId === currentWorkout?.id ? training.timer : null
+	);
+	let clock = $state(Date.now());
+	$effect(() => {
+		if (!timer || timer.pausedAt !== undefined) return;
+		clock = Date.now();
+		const id = setInterval(() => (clock = Date.now()), 250);
+		return () => clearInterval(id);
+	});
+	let timerSecs = $derived(timer ? timerSeconds(timer, timer.pausedAt ?? clock) : null);
+	/** The reps a hold set aims for: the routine's, else last time's, else 10. */
+	let holdTarget = $derived(
+		currentEntry?.maxReps ?? currentEntry?.minReps ?? currentWorkout?.sets.at(-1)?.reps ?? 10
+	);
+
+	/** Ends the timer with this time: a time set logs it; a distance set asks for the distance. */
+	function logTime(time: number) {
+		seconds = time;
+		training.clearTimer();
+		if (measure === 'distance') manualEntry = true;
+		else recordSet();
+	}
+
+	// Back from the background with the timer past its target: log which time?
+	let pastOpen = $state(false);
+	let askedFor = $state<number | null>(null);
+	function checkPastTarget() {
+		if (!timer || askedFor === timer.startedAt) return;
+		if (!pastTarget(timer, currentEntry?.targetSeconds, Date.now())) return;
+		askedFor = timer.startedAt;
+		pastOpen = true;
+	}
+	// On opening, once the workout (and so its timer) has loaded. A timer
+	// started here is being watched, so it needs no asking.
+	let checkedOnOpen = false;
+	function startTiming() {
+		if (!currentWorkout) return;
+		checkedOnOpen = true;
+		training.startTimer(currentWorkout.id);
+	}
+	$effect(() => {
+		if (checkedOnOpen || !timer || !currentEntry) return;
+		checkedOnOpen = true;
+		checkPastTarget();
+	});
+	onMount(() => {
+		const onVisible = () => document.visibilityState === 'visible' && checkPastTarget();
+		document.addEventListener('visibilitychange', onVisible);
+		return () => document.removeEventListener('visibilitychange', onVisible);
+	});
+
 	// Seed from the last recorded set whenever the exercise changes; a first
 	// ever set starts at the bottom of the routine's rep range.
 	let seededFor = $state<string | null>(null);
@@ -277,6 +338,7 @@
 		seconds = last?.seconds ?? currentEntry?.targetSeconds ?? 0;
 		meters = last?.meters ?? currentEntry?.targetMeters ?? 0;
 		holdSeconds = last?.holdSeconds ?? currentEntry?.holdSeconds ?? 5;
+		manualEntry = false;
 		notes = '';
 		noteOpen = false;
 	});
@@ -829,6 +891,26 @@
 				{:else}
 					{#if measure === 'reps'}
 						<SetAdjuster bind:reps bind:weight {weightUnset} />
+					{:else if isTimed(measure) && !manualEntry}
+						<TimerCard
+							seconds={timerSecs}
+							target={currentEntry?.targetSeconds}
+							paused={timer?.pausedAt !== undefined}
+							onPause={() => training.pauseTimer()}
+							onResume={() => training.resumeTimer()}
+							onManual={() => {
+								if (timerSecs) seconds = timerSecs;
+								training.clearTimer();
+								manualEntry = true;
+							}}
+						/>
+					{:else if measure === 'hold' && !manualEntry}
+						<HoldTimer
+							{holdSeconds}
+							targetReps={holdTarget}
+							bind:reps
+							onManual={() => (manualEntry = true)}
+						/>
 					{:else}
 						<MeasureEntry {measure} bind:reps bind:seconds bind:meters bind:holdSeconds />
 					{/if}
@@ -845,10 +927,34 @@
 					{/if}
 				</button>
 			{:else}
-				<button class="btn btn-primary btn-lg h-14 flex-1 gap-2 rounded-2xl" onclick={recordSet}>
-					<span class="font-bold">Log set {setsDone + 1}</span>
-					<span class="font-medium opacity-75">{draftLabel}</span>
-				</button>
+				{#if isTimed(measure) && !manualEntry}
+					<!-- Timing a set: start it, then stop it to log the time. -->
+					{#if timerSecs === null}
+						<button
+							class="btn btn-primary btn-lg h-14 flex-1 gap-2 rounded-2xl"
+							onclick={startTiming}
+						>
+							<span class="font-bold">Start set {setsDone + 1}</span>
+						</button>
+					{:else}
+						<button
+							class="btn btn-primary btn-lg h-14 flex-1 gap-2 rounded-2xl"
+							onclick={() => logTime(timerSecs ?? 0)}
+						>
+							<span class="font-bold">Stop and log</span>
+							<span class="font-medium tabular-nums opacity-75">{formatSeconds(timerSecs)}</span>
+						</button>
+					{/if}
+				{:else}
+					<button
+						class="btn btn-primary btn-lg h-14 flex-1 gap-2 rounded-2xl"
+						disabled={isTimed(measure) && (seconds <= 0 || (measure === 'distance' && meters <= 0))}
+						onclick={recordSet}
+					>
+						<span class="font-bold">Log set {setsDone + 1}</span>
+						<span class="font-medium opacity-75">{draftLabel}</span>
+					</button>
+				{/if}
 				{#if isFreeForm && setsDone > 0}
 					<button
 						class="btn btn-lg bg-base-200 h-14 gap-1 rounded-2xl border-none shadow-none"
@@ -872,6 +978,44 @@
 />
 
 <ActionSheet bind:open={menuOpen} title={currentWorkout?.name} actions={menuActions} />
+
+<BottomSheet
+	bind:open={pastOpen}
+	size="large"
+	title="You passed {formatSeconds(currentEntry?.targetSeconds ?? 0)} while away"
+>
+	<div class="flex flex-col gap-2">
+		<p class="text-base-content/55 mb-2 text-sm">
+			The timer kept going. Log your target, the full time, or keep going.
+		</p>
+		<button
+			class="btn btn-primary btn-lg w-full"
+			onclick={() => {
+				pastOpen = false;
+				logTime(currentEntry?.targetSeconds ?? timerSecs ?? 0);
+			}}>Log {formatSeconds(currentEntry?.targetSeconds ?? 0)}</button
+		>
+		<button
+			class="btn btn-lg bg-base-200 w-full border-none shadow-none"
+			onclick={() => {
+				pastOpen = false;
+				logTime(timerSecs ?? 0);
+			}}>Log {formatSeconds(timerSecs ?? 0)}</button
+		>
+		<button class="btn btn-ghost btn-lg w-full" onclick={() => (pastOpen = false)}
+			>Keep going</button
+		>
+		<button
+			class="text-primary-strong min-h-11 text-sm font-semibold"
+			onclick={() => {
+				pastOpen = false;
+				seconds = timerSecs ?? 0;
+				training.clearTimer();
+				manualEntry = true;
+			}}>Enter a different time</button
+		>
+	</div>
+</BottomSheet>
 
 <EditSetSheet
 	bind:open={editOpen}
