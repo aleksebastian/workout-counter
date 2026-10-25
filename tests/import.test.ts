@@ -64,7 +64,8 @@ test('import a photo as a new routine from the Library', async ({ page }) => {
 	expect(names).toContain('Cable Fly');
 });
 
-test("put a photo's routine on a program's Monday morning", async ({ page }) => {
+/** Seeds a program and imports the sample with a note naming it: Mon, Wed and Fri mornings. */
+async function importToProgram(page: Page) {
 	await fixWeekday(page, 3);
 	await writeDoc(`users/${UID}/programs/ppl`, {
 		id: 'ppl',
@@ -80,21 +81,48 @@ test("put a photo's routine on a program's Monday morning", async ({ page }) => 
 		.getByRole('dialog')
 		.getByRole('button', { name: /^Import from photo/ })
 		.click();
-	await importPhoto(page, 'Add to my program on Monday morning');
+	await importPhoto(page, 'Add to my program Mon, Wed and Fri mornings');
+	await expect(page.getByText('E2E Program · Mon, Wed, Fri · Morning')).toBeVisible();
+}
 
-	await expect(page.getByText('E2E Program · Monday · Morning')).toBeVisible();
+/** The saved program's days, each with its sessions. */
+async function savedSchedule() {
+	await expect
+		.poll(async () => ((await listDocs(`users/${UID}/programs`)) as Program[])[0].schedule.length)
+		.toBeGreaterThan(0);
+	return ((await listDocs(`users/${UID}/programs`)) as Program[])[0].schedule;
+}
+
+test("put a photo's routine on every day the note names", async ({ page }) => {
+	await importToProgram(page);
 	await page.getByRole('button', { name: 'Add to program' }).click();
 
 	await expect(page).toHaveURL(/\/programs\/ppl/);
-	await expect
-		.poll(async () => ((await listDocs(`users/${UID}/programs`)) as Program[])[0].schedule)
-		.toHaveLength(1);
-	const [program] = (await listDocs(`users/${UID}/programs`)) as Program[];
+	await expect(page.getByText('Added to 3 days of your program')).toBeVisible();
+	const schedule = await savedSchedule();
 	const [routine] = (await listDocs(`users/${UID}/routines`)) as Routine[];
-	expect(program.schedule[0].day).toBe(1);
-	expect(program.schedule[0].sessions).toMatchObject([
-		{ slot: 'morning', items: [{ routineId: routine.id }] }
-	]);
+	expect(schedule.map((d) => d.day)).toEqual([1, 3, 5]);
+	for (const day of schedule) {
+		expect(day.sessions).toMatchObject([{ slot: 'morning', items: [{ routineId: routine.id }] }]);
+	}
+});
+
+test('change the days in the picker before saving', async ({ page }) => {
+	await importToProgram(page);
+	await page.getByRole('button', { name: /Save to/ }).click();
+	const days = page.getByRole('group', { name: 'Days' });
+	await days.getByRole('button', { name: 'Sunday' }).click();
+	await days.getByRole('button', { name: 'Wednesday' }).click();
+	await expect(days.getByRole('button', { name: 'Wednesday' })).toHaveAttribute(
+		'aria-pressed',
+		'false'
+	);
+	await page.getByRole('button', { name: 'Done' }).click();
+	await expect(page.getByText('E2E Program · Sun, Mon, Fri · Morning')).toBeVisible();
+	await page.getByRole('button', { name: 'Add to program' }).click();
+
+	await expect(page).toHaveURL(/\/programs\/ppl/);
+	expect((await savedSchedule()).map((d) => d.day)).toEqual([0, 1, 5]);
 });
 
 test('Discover offers uploading your own workout', async ({ page }) => {
