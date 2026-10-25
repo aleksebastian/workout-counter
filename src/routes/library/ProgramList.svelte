@@ -6,14 +6,9 @@
 	import { DAY_SHORT } from '$lib/constants';
 	import { discoverHref, runProgramHref } from '$lib/routes';
 	import { training } from '$lib/logic/training.svelte';
-	import {
-		itemsForDay,
-		nextScheduledDay,
-		programDays,
-		sessionsForDay,
-		type Program
-	} from '$lib/types';
+	import { itemsForDay, nextScheduledDay, programDays, type Program } from '$lib/types';
 	import { programDayName, whenNext } from '$lib/logic/training';
+	import { todayPlan } from '$lib/logic/today';
 	import Async from '$lib/components/Async.svelte';
 	import Chevron from '$lib/components/Chevron.svelte';
 	import ActionSheet, { type SheetAction } from '$lib/components/ActionSheet.svelte';
@@ -174,7 +169,14 @@
 						{/if}
 
 						{#if todayCount > 0}
-							{@const sessionId = sessionsForDay(activeProgram, todayDow)[0].id}
+							{@const plan = todayPlan(
+								activeProgram,
+								todayDow,
+								session.sessionLogs ?? [],
+								training.session,
+								Date.now()
+							)}
+							{@const sessionId = (plan.find((r) => r.upNext) ?? plan[0]).session.id}
 							{@const ended = training.endedToday({
 								type: 'program',
 								programId: activeProgram.id,
