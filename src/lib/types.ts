@@ -112,11 +112,20 @@ export type Program = {
  * first, sessions without a slot last, ties kept in the order they were added.
  */
 export function daySessions(day: ProgramDay | null | undefined): ProgramSession[] {
+	return orderedSessions(day).filter((s) => s.items.length > 0);
+}
+
+/** Every session in a day, empty ones too (the editor shows them), in slot order. */
+export function orderedSessions(day: ProgramDay | null | undefined): ProgramSession[] {
 	return (day?.sessions ?? [])
-		.filter((s) => s.items.length > 0)
 		.map((s, i) => ({ s, i }))
 		.sort((a, b) => slotRank(a.s.slot) - slotRank(b.s.slot) || a.i - b.i)
 		.map(({ s }) => s);
+}
+
+/** What a session's slot is called in a list: its slot, or Anytime. */
+export function slotLabel(slot: Slot | undefined): string {
+	return slot ? SLOT_LABEL[slot] : ANYTIME;
 }
 
 /** Sessions scheduled for one day of the week, in slot order. */
