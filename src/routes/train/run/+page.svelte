@@ -12,8 +12,10 @@
 		setsSince,
 		formatClock,
 		sourceFromParams,
+		sourceSlot,
 		targetLabel
 	} from '$lib/logic/training';
+	import { SLOT_LABEL } from '$lib/types';
 	import { formatDuration, pickRest } from '$lib/logic/rest';
 	import { loadCatalog, type Catalog } from '$lib/catalog';
 	import { catalogExerciseFor } from '$lib/catalog/match';
@@ -26,6 +28,20 @@
 	import SessionProgress from '$lib/components/SessionProgress.svelte';
 	import SetTable from './SetTable.svelte';
 	import SetAdjuster from '$lib/components/SetAdjuster.svelte';
+	import MeasureEntry from '$lib/components/MeasureEntry.svelte';
+	import TimerCard from '$lib/components/TimerCard.svelte';
+	import HoldTimer from '$lib/components/HoldTimer.svelte';
+	import BottomSheet from '$lib/components/BottomSheet.svelte';
+	import { pastTarget, timerSeconds } from '$lib/logic/setTimer';
+	import { onMount } from 'svelte';
+	import {
+		formatSeconds,
+		formatSet,
+		isTimed,
+		measureOf,
+		measureValues,
+		unitsOf
+	} from '$lib/logic/measure';
 	import { recordSet as recordSet_ } from '$lib/logic/logSet';
 	import RunFooter from './RunFooter.svelte';
 	import HowToSheet from './HowToSheet.svelte';
@@ -135,6 +151,7 @@
 	}
 
 	let sourceName = $derived(summary?.name ?? training.name);
+	let slot = $derived(active ? sourceSlot(active.source, training.lookups) : undefined);
 	let backHref = $derived(
 		active?.source.type === 'program'
 			? `/programs/${active.source.programId}`
@@ -159,6 +176,8 @@
 	let currentIndex = $derived(training.index);
 	let currentEntry = $derived(entries[currentIndex] ?? null);
 	let currentWorkout = $derived(session.workout(currentEntry?.workoutId));
+	let measure = $derived(measureOf(currentWorkout));
+	let units = $derived(unitsOf(session.prefs));
 	let isFreeForm = $derived(currentEntry?.targetSets === undefined);
 	let targetSets = $derived(currentEntry?.targetSets ?? 0);
 	let logged = $derived(setsSince(currentWorkout, startedAt));
@@ -214,7 +233,7 @@
 	);
 	let targetLine = $derived.by(() => {
 		if (!currentEntry) return '';
-		const target = targetLabel(currentEntry);
+		const target = targetLabel(currentEntry, measure, units.distance);
 		return [
 			target ? `Target ${target}` : 'Free-form',
 			rest && `Rest ${formatDuration(rest.duration)}`
@@ -229,7 +248,10 @@
 		const lastWeight = workout?.sets.at(-1)?.weight;
 		return {
 			name: workout?.name ?? '—',
-			detail: [targetLabel(nextEntry) ?? 'Free-form', lastWeight && `${lastWeight} ${unitLabel}`]
+			detail: [
+				targetLabel(nextEntry, measureOf(workout), units.distance) ?? 'Free-form',
+				lastWeight && `${lastWeight} ${unitLabel}`
+			]
 				.filter(Boolean)
 				.join(' · ')
 		};
@@ -238,9 +260,76 @@
 	// ── Set entry ───────────────────────────────────────────────────────────────
 	let reps = $state(10);
 	let weight = $state(0);
+	let seconds = $state(0);
+	let meters = $state(0);
+	let holdSeconds = $state(5);
 	let notes = $state('');
 	/** The note field in the footer is open. */
 	let noteOpen = $state(false);
+
+	// ── Timers ────────────────────────────────────────────────────────────────
+	/** Typing a time, distance or hold in, instead of timing it. */
+	let manualEntry = $state(false);
+	/** This exercise's set timer, if one is running or paused. */
+	let timer = $derived(
+		training.timer && training.timer.workoutId === currentWorkout?.id ? training.timer : null
+	);
+	let clock = $state(Date.now());
+	$effect(() => {
+		if (!timer || timer.pausedAt !== undefined) return;
+		clock = Date.now();
+		const id = setInterval(() => (clock = Date.now()), 250);
+		return () => clearInterval(id);
+	});
+	let timerSecs = $derived(timer ? timerSeconds(timer, timer.pausedAt ?? clock) : null);
+	/** Another exercise's timer still running, which starting this one would throw away. */
+	let otherTimer = $derived.by(() => {
+		const t = training.timer;
+		if (!t || t.workoutId === currentWorkout?.id) return null;
+		const index = (planEntries ?? []).findIndex((e) => e.workoutId === t.workoutId);
+		return index === -1 ? null : { index, name: session.workout(t.workoutId)?.name ?? 'it' };
+	});
+
+	/** The reps a hold set aims for: the routine's, else last time's, else 10. */
+	let holdTarget = $derived(
+		currentEntry?.maxReps ?? currentEntry?.minReps ?? currentWorkout?.sets.at(-1)?.reps ?? 10
+	);
+
+	/** Ends the timer with this time: a time set logs it; a distance set asks for the distance. */
+	function logTime(time: number) {
+		seconds = time;
+		training.clearTimer();
+		if (measure === 'distance') manualEntry = true;
+		else recordSet();
+	}
+
+	// Back from the background with the timer past its target: log which time?
+	let pastOpen = $state(false);
+	let askedFor = $state<number | null>(null);
+	function checkPastTarget() {
+		if (!timer || askedFor === timer.startedAt) return;
+		if (!pastTarget(timer, currentEntry?.targetSeconds, Date.now())) return;
+		askedFor = timer.startedAt;
+		pastOpen = true;
+	}
+	// On opening, once the workout (and so its timer) has loaded. A timer
+	// started here is being watched, so it needs no asking.
+	let checkedOnOpen = false;
+	function startTiming() {
+		if (!currentWorkout) return;
+		checkedOnOpen = true;
+		training.startTimer(currentWorkout.id);
+	}
+	$effect(() => {
+		if (checkedOnOpen || !timer || !currentEntry) return;
+		checkedOnOpen = true;
+		checkPastTarget();
+	});
+	onMount(() => {
+		const onVisible = () => document.visibilityState === 'visible' && checkPastTarget();
+		document.addEventListener('visibilitychange', onVisible);
+		return () => document.removeEventListener('visibilitychange', onVisible);
+	});
 
 	// Seed from the last recorded set whenever the exercise changes; a first
 	// ever set starts at the bottom of the routine's rep range.
@@ -253,6 +342,11 @@
 		const last = currentWorkout!.sets.at(-1);
 		reps = last?.reps ?? currentEntry?.minReps ?? 10;
 		weight = last?.weight ?? 0;
+		// Time, distance and hold start from last time, else the target.
+		seconds = last?.seconds ?? currentEntry?.targetSeconds ?? 0;
+		meters = last?.meters ?? currentEntry?.targetMeters ?? 0;
+		holdSeconds = last?.holdSeconds ?? currentEntry?.holdSeconds ?? 5;
+		manualEntry = false;
 		notes = '';
 		noteOpen = false;
 	});
@@ -350,11 +444,13 @@
 	);
 
 	let draftLabel = $derived(
-		weight > 0
-			? `${weight} ${unitLabel} × ${reps}`
-			: weightUnset
-				? `${counted(reps, 'rep')} · no weight`
-				: `${counted(reps, 'rep')}`
+		measure !== 'reps'
+			? formatSet({ id: '', date: '', reps, seconds, meters, holdSeconds }, measure, units)
+			: weight > 0
+				? `${weight} ${unitLabel} × ${reps}`
+				: weightUnset
+					? `${counted(reps, 'rep')} · no weight`
+					: `${counted(reps, 'rep')}`
 	);
 
 	/** One exercise on the done screen: "3 × 10 · top 25 lb". */
@@ -375,17 +471,28 @@
 	// ── Actions ─────────────────────────────────────────────────────────────────
 	async function recordSet() {
 		if (!currentWorkout || !currentEntry) return;
+		const draft =
+			measure === 'reps'
+				? { reps, weight, notes }
+				: {
+						reps: measure === 'hold' ? reps : 0,
+						weight: 0,
+						notes,
+						...measureValues(measure, { seconds, meters, holdSeconds })
+					};
 		const { saved } = recordSet_(
 			currentWorkout.id,
-			{ reps, weight, notes },
+			draft,
 			// Routine timer beats the global default. A program-day exercise
-			// outside any routine gets the global timer.
-			{ routineId: currentEntry.routineId, message: `Set ${setsDone + 1} logged` }
+			// outside any routine gets the global timer. Timed sets start none.
+			{ routineId: currentEntry.routineId, message: `Set ${setsDone + 1} logged`, measure }
 		);
 		// An extra set past the target is one set, not a way out of "done": back
 		// to the complete card, which offers another. Not after the await, which
 		// waits for the server and offline would never come back.
 		recordingExtra = false;
+		// The next set starts on the timer again, however this one was entered.
+		manualEntry = false;
 		if (await saved) {
 			notes = '';
 			noteOpen = false;
@@ -599,6 +706,7 @@
 	<SessionHeader
 		title={sourceName || 'Workout'}
 		startedAt={training.clockStart}
+		slot={slot ? SLOT_LABEL[slot] : undefined}
 		onFinish={requestFinish}
 	/>
 
@@ -631,6 +739,7 @@
 			class="mx-auto w-full max-w-lg shrink-0"
 			title={sourceName || 'Workout'}
 			startedAt={training.clockStart}
+			slot={slot ? SLOT_LABEL[slot] : undefined}
 			onFinish={requestFinish}
 		/>
 
@@ -736,8 +845,12 @@
 					{logged}
 					{previous}
 					{rows}
-					draft={exerciseComplete ? null : { reps, weight, weightUnset, note: notes }}
+					draft={exerciseComplete
+						? null
+						: { reps, weight, seconds, meters, holdSeconds, weightUnset, note: notes }}
 					unit={unitLabel}
+					{measure}
+					{units}
 					onLog={recordSet}
 					onEdit={editSet}
 				/>
@@ -772,10 +885,12 @@
 						<div class="min-w-0 flex-1">
 							<p class="font-semibold">Exercise complete</p>
 							<p class="text-base-content/50 text-sm">
-								{counted(setsDone, 'set')} · {counted(
-									logged.reduce((sum, s) => sum + s.reps, 0),
-									'rep'
-								)}
+								{counted(setsDone, 'set')} · {isTimed(measure)
+									? formatSeconds(logged.reduce((sum, s) => sum + (s.seconds ?? 0), 0))
+									: counted(
+											logged.reduce((sum, s) => sum + s.reps, 0),
+											'rep'
+										)}
 							</p>
 						</div>
 						<!-- Escape hatch: extra sets beyond target are still allowed. -->
@@ -784,7 +899,33 @@
 						>
 					</div>
 				{:else}
-					<SetAdjuster bind:reps bind:weight {weightUnset} />
+					{#if measure === 'reps'}
+						<SetAdjuster bind:reps bind:weight {weightUnset} />
+					{:else if isTimed(measure) && !manualEntry}
+						<TimerCard
+							seconds={timerSecs}
+							target={currentEntry?.targetSeconds}
+							paused={timer?.pausedAt !== undefined}
+							onPause={() => training.pauseTimer()}
+							onResume={() => training.resumeTimer()}
+							onManual={() => {
+								if (timerSecs) seconds = timerSecs;
+								training.clearTimer();
+								manualEntry = true;
+							}}
+						/>
+					{:else if measure === 'hold' && !manualEntry}
+						{#key currentWorkout?.id}
+							<HoldTimer
+								{holdSeconds}
+								targetReps={holdTarget}
+								bind:reps
+								onManual={() => (manualEntry = true)}
+							/>
+						{/key}
+					{:else}
+						<MeasureEntry {measure} bind:reps bind:seconds bind:meters bind:holdSeconds />
+					{/if}
 				{/if}
 			{/snippet}
 
@@ -798,10 +939,42 @@
 					{/if}
 				</button>
 			{:else}
-				<button class="btn btn-primary btn-lg h-14 flex-1 gap-2 rounded-2xl" onclick={recordSet}>
-					<span class="font-bold">Log set {setsDone + 1}</span>
-					<span class="font-medium opacity-75">{draftLabel}</span>
-				</button>
+				{#if isTimed(measure) && !manualEntry}
+					<!-- Timing a set: start it, then stop it to log the time. One timer
+					     at a time: another exercise's still running is gone back to, not lost. -->
+					{#if otherTimer}
+						<button
+							class="btn btn-lg bg-base-200 h-14 flex-1 gap-2 rounded-2xl border-none shadow-none"
+							onclick={() => training.moveTo(otherTimer!.index)}
+						>
+							<span class="min-w-0 truncate font-bold">Timer running on {otherTimer.name}</span>
+						</button>
+					{:else if timerSecs === null}
+						<button
+							class="btn btn-primary btn-lg h-14 flex-1 gap-2 rounded-2xl"
+							onclick={startTiming}
+						>
+							<span class="font-bold">Start set {setsDone + 1}</span>
+						</button>
+					{:else}
+						<button
+							class="btn btn-primary btn-lg h-14 flex-1 gap-2 rounded-2xl"
+							onclick={() => logTime(timerSecs ?? 0)}
+						>
+							<span class="font-bold">Stop and log</span>
+							<span class="font-medium tabular-nums opacity-75">{formatSeconds(timerSecs)}</span>
+						</button>
+					{/if}
+				{:else}
+					<button
+						class="btn btn-primary btn-lg h-14 flex-1 gap-2 rounded-2xl"
+						disabled={isTimed(measure) && (seconds <= 0 || (measure === 'distance' && meters <= 0))}
+						onclick={recordSet}
+					>
+						<span class="font-bold">Log set {setsDone + 1}</span>
+						<span class="font-medium opacity-75">{draftLabel}</span>
+					</button>
+				{/if}
 				{#if isFreeForm && setsDone > 0}
 					<button
 						class="btn btn-lg bg-base-200 h-14 gap-1 rounded-2xl border-none shadow-none"
@@ -826,16 +999,56 @@
 
 <ActionSheet bind:open={menuOpen} title={currentWorkout?.name} actions={menuActions} />
 
+<BottomSheet
+	bind:open={pastOpen}
+	size="large"
+	title="You passed {formatSeconds(currentEntry?.targetSeconds ?? 0)} while away"
+>
+	<div class="flex flex-col gap-2">
+		<p class="text-base-content/55 mb-2 text-sm">
+			The timer kept going. Log your target, the full time, or keep going.
+		</p>
+		<button
+			class="btn btn-primary btn-lg w-full"
+			onclick={() => {
+				pastOpen = false;
+				logTime(currentEntry?.targetSeconds ?? timerSecs ?? 0);
+			}}>Log {formatSeconds(currentEntry?.targetSeconds ?? 0)}</button
+		>
+		<button
+			class="btn btn-lg bg-base-200 w-full border-none shadow-none"
+			onclick={() => {
+				pastOpen = false;
+				logTime(timerSecs ?? 0);
+			}}>Log {formatSeconds(timerSecs ?? 0)}</button
+		>
+		<button class="btn btn-ghost btn-lg w-full" onclick={() => (pastOpen = false)}
+			>Keep going</button
+		>
+		<button
+			class="text-primary-strong min-h-11 text-sm font-semibold"
+			onclick={() => {
+				pastOpen = false;
+				seconds = timerSecs ?? 0;
+				training.clearTimer();
+				manualEntry = true;
+			}}>Enter a different time</button
+		>
+	</div>
+</BottomSheet>
+
 <EditSetSheet
 	bind:open={editOpen}
 	set={editing}
-	onSave={(newReps, newWeight, date, newNotes) => {
+	{measure}
+	onSave={(newReps, newWeight, date, newNotes, values) => {
 		if (!currentWorkout || !editing) return;
 		exercises.updateSet(currentWorkout, editing.id, {
 			reps: newReps,
 			weight: newWeight,
 			date,
-			notes: newNotes
+			notes: newNotes,
+			...values
 		});
 	}}
 	onDelete={() => {

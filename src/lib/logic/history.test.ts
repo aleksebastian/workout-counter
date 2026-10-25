@@ -6,9 +6,11 @@ import {
 	logDuration,
 	recordIds,
 	streakTarget,
+	topSet,
 	vsLast,
 	volume,
 	weekStartOf,
+	weekDays,
 	weekStreak,
 	weekTotals
 } from './history';
@@ -35,6 +37,7 @@ function log(id: string, start: number, end: number, workoutIds: string[]): Sess
 		startedAt: T0 + start * 60_000,
 		endedAt: T0 + end * 60_000,
 		endReason: 'finished',
+		complete: true,
 		exercises: workoutIds.map((w) => ({ workoutId: w, name: w, sets: 0, reps: 0 })),
 		totals: { sets: 0, reps: 0 },
 		createdAt: T0 + end * 60_000
@@ -148,14 +151,17 @@ describe('the week', () => {
 	it('totals this week’s volume and workout time', () => {
 		const w = workout('w', [set(0, 10, 100), set(-30 * DAY, 10, 100)]);
 		const totals = weekTotals([log('l', 0, 45, ['w'])], [w], 0, T0 + 3_600_000);
-		expect(totals).toEqual({ volume: 1000, durationMs: 45 * 60_000 });
+		expect(totals).toEqual({ volume: 1000, durationMs: 45 * 60_000, meters: 0 });
 	});
 
 	it('targets the lower of the goal and the program’s planned days', () => {
 		const program = {
 			id: 'p',
 			name: 'P',
-			schedule: [1, 3, 5].map((day) => ({ day, items: [{ type: 'routine', routineId: 'r' }] })),
+			schedule: [1, 3, 5].map((day) => ({
+				day,
+				sessions: [{ id: 's', items: [{ type: 'routine', routineId: 'r' }] }]
+			})),
 			createdAt: 0
 		} as Program;
 		expect(streakTarget(4, program)).toBe(3);
@@ -184,5 +190,93 @@ describe('estimateMinutes', () => {
 		const logs = [log('a', 0, 40, []), log('b', 0, 50, [])];
 		expect(estimateMinutes(plan, () => 90, logs, source)).toEqual({ minutes: 45, measured: true });
 		expect(logDuration(logs[0])).toBe(40 * 60_000);
+	});
+});
+
+describe('weekDays', () => {
+	const item = { type: 'routine', routineId: 'r' } as const;
+	const program: Program = {
+		id: 'p',
+		name: 'P',
+		schedule: [
+			{ day: 1, sessions: [{ id: 'mon', items: [item] }] },
+			{
+				day: 3,
+				sessions: [
+					{ id: 'am', slot: 'morning', items: [item] },
+					{ id: 'pm', slot: 'evening', items: [item] },
+					{ id: 'night', slot: 'night', items: [item] }
+				]
+			}
+		],
+		createdAt: 0
+	};
+	const done = (sessionId: string, day: number, endedAt: number, complete = true): SessionLog => ({
+		...log(sessionId, 0, 0, []),
+		source: { type: 'program', programId: 'p', day, sessionId },
+		endedAt,
+		complete
+	});
+
+	it('counts each day’s planned sessions and the ones done that day', () => {
+		const logs = [
+			done('am', 3, T0 - 9 * 3_600_000),
+			done('pm', 3, T0),
+			done('night', 3, T0, false)
+		];
+		const week = weekDays(program, logs, [T0], 0, T0);
+		expect(week.map((d) => d.dow)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+		expect(week[3]).toMatchObject({ planned: 3, done: 2, trained: true, today: true });
+		expect(week[1]).toMatchObject({ planned: 1, done: 0, trained: false, today: false });
+		expect(week[0]).toMatchObject({ planned: 0, done: 0 });
+	});
+
+	it('ignores another day’s workout of the same session', () => {
+		const lastWeek = done('am', 3, T0 - 7 * DAY * 60_000);
+		expect(weekDays(program, [lastWeek], [], 0, T0)[3].done).toBe(0);
+	});
+
+	it('starts the week on Monday when asked', () => {
+		expect(weekDays(null, [], [], 1, T0).map((d) => d.dow)).toEqual([1, 2, 3, 4, 5, 6, 0]);
+	});
+});
+
+describe('records by measure', () => {
+	const timed = (minutes: number, fields: Partial<Set>): Set => ({ ...set(minutes, 0), ...fields });
+
+	it('counts the longest time', () => {
+		const earlier = [timed(0, { seconds: 1800 })];
+		expect(isRecord(timed(1, { seconds: 1900 }), earlier, 'time')).toBe(true);
+		expect(isRecord(timed(1, { seconds: 1700 }), earlier, 'time')).toBe(false);
+	});
+
+	it('counts the farthest distance or the best pace', () => {
+		const earlier = [timed(0, { meters: 5000, seconds: 1800 })];
+		expect(isRecord(timed(1, { meters: 6000, seconds: 2400 }), earlier, 'distance')).toBe(true);
+		expect(isRecord(timed(1, { meters: 4000, seconds: 1200 }), earlier, 'distance')).toBe(true);
+		expect(isRecord(timed(1, { meters: 4000, seconds: 1600 }), earlier, 'distance')).toBe(false);
+	});
+
+	it('counts the longest hold, or more reps at it', () => {
+		const earlier = [timed(0, { reps: 10, holdSeconds: 5 })];
+		expect(isRecord(timed(1, { reps: 8, holdSeconds: 6 }), earlier, 'hold')).toBe(true);
+		expect(isRecord(timed(1, { reps: 12, holdSeconds: 5 }), earlier, 'hold')).toBe(true);
+		expect(isRecord(timed(1, { reps: 10, holdSeconds: 5 }), earlier, 'hold')).toBe(false);
+	});
+
+	it('picks the set that stands for a session, and compares it with last time', () => {
+		const run = (minutes: number, meters: number, seconds: number) =>
+			timed(minutes, { meters, seconds });
+		expect(topSet([run(0, 3000, 900), run(1, 5000, 1800)], 'distance')?.meters).toBe(5000);
+		const w: Workout = {
+			...workout('run', [run(-2 * DAY, 4800, 1700), run(0, 5200, 1710)]),
+			measure: 'distance'
+		};
+		expect(vsLast(w, [w.sets[1]], 'lb', 'km')).toBe('+0.4 km vs last');
+		const bike: Workout = {
+			...workout('bike', [timed(-2 * DAY, { seconds: 1800 }), timed(0, { seconds: 1920 })]),
+			measure: 'time'
+		};
+		expect(vsLast(bike, [bike.sets[1]], 'lb')).toBe('+2:00 vs last');
 	});
 });

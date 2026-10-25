@@ -6,6 +6,7 @@
 	import { exercises, sessions } from '$lib/data';
 	import { setPageNav } from '$lib/nav.svelte';
 	import { formatClock } from '$lib/logic/training';
+	import { formatSet, measureOf, unitsOf } from '$lib/logic/measure';
 	import { logDuration, recordIds, sessionSets, volume, vsLast } from '$lib/logic/history';
 	import { runProgramHref, runRoutineHref } from '$lib/routes';
 	import { HAPTIC } from '$lib/haptic';
@@ -13,7 +14,7 @@
 	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
 	import EditSetSheet from '$lib/components/EditSetSheet.svelte';
 	import DeleteIcon from '$lib/icons/delete.svg?raw';
-	import type { Set, Workout } from '$lib/types';
+	import { SLOT_LABEL, type Set, type Workout } from '$lib/types';
 
 	/**
 	 * One past workout: what each exercise got, how it compares with that
@@ -38,7 +39,12 @@
 			const sets = sessionSets(workout, log!);
 			if (!sets.length) return [];
 			return [
-				{ workout, sets, records: recordIds(workout, sets), vs: vsLast(workout, sets, unit) }
+				{
+					workout,
+					sets,
+					records: recordIds(workout, sets),
+					vs: vsLast(workout, sets, unit, session.prefs.distanceUnit)
+				}
 			];
 		});
 	});
@@ -60,7 +66,7 @@
 		const time = date.toLocaleTimeString('en', { hour: 'numeric', minute: '2-digit' });
 		const program =
 			log.source.type === 'program' ? session.program(log.source.programId)?.name : null;
-		return [day, time, program].filter(Boolean).join(' · ');
+		return [day, time, log.slot && SLOT_LABEL[log.slot], program].filter(Boolean).join(' · ');
 	});
 
 	// ── Editing a set ───────────────────────────────────────────────────────────
@@ -98,12 +104,13 @@
 		const s = log.source;
 		goto(
 			s.type === 'program'
-				? runProgramHref(s.programId, s.day, { fresh: true })
+				? runProgramHref(s.programId, s.day, s.sessionId, { fresh: true })
 				: runRoutineHref(s.routineId, { fresh: true })
 		);
 	}
 
-	const setLabel = (s: Set) => `${s.weight ? `${s.weight} ${unit} × ` : ''}${s.reps}`;
+	const setLabel = (s: Set, workout: Workout) =>
+		formatSet(s, measureOf(workout), unitsOf(session.prefs));
 </script>
 
 <div class="mx-auto flex w-full max-w-lg flex-col gap-5 pb-4">
@@ -172,11 +179,11 @@
 						<button
 							type="button"
 							class="hover:bg-base-300 grid h-10 grid-cols-[1.75rem_1fr_auto] items-center gap-2 rounded-xl px-2 text-left tabular-nums"
-							aria-label="Edit set {i + 1}: {setLabel(set)}"
+							aria-label="Edit set {i + 1}: {setLabel(set, card.workout)}"
 							onclick={() => edit(card.workout, set)}
 						>
 							<span class="text-base-content/40">{i + 1}</span>
-							<span>{setLabel(set)}</span>
+							<span>{setLabel(set, card.workout)}</span>
 							{#if card.records.has(set.id)}
 								<span class="text-primary-strong text-xs font-semibold">PR</span>
 							{:else if set.notes}
@@ -204,9 +211,10 @@
 <EditSetSheet
 	bind:open={editOpen}
 	set={editing?.set}
-	onSave={(reps, weight, date, notes) => {
+	measure={editing ? measureOf(editing.workout) : 'reps'}
+	onSave={(reps, weight, date, notes, values) => {
 		if (!editing) return;
-		exercises.updateSet(editing.workout, editing.set.id, { reps, weight, date, notes });
+		exercises.updateSet(editing.workout, editing.set.id, { reps, weight, date, notes, ...values });
 	}}
 	onDelete={() => {
 		if (!editing) return;

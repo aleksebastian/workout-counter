@@ -21,6 +21,23 @@ export interface ChangelogEntry {
 /** Newest first. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.18.0',
+		date: '2026-10-24',
+		new: [
+			'More than one workout a day: give each session in your program a time (Morning, Midday, Afternoon, Evening or Night) and Today lists them as your plan, with the next one up front',
+			'Measure an exercise by time (planks, cardio), distance and time (runs, rows, with your pace), or reps with a hold (PT and isometric work)',
+			'A stopwatch for timed sets that keeps counting with your phone locked, and asks which time to log if you come back past your target',
+			'A hold timer that counts each rep’s hold and buzzes as it ends',
+			'New in Discover: plank, side plank, wall sit, dead hang, glute bridge hold, outdoor and treadmill runs, stationary bike and rowing machine'
+		],
+		improved: [
+			'The week strip splits a day’s ring into one part per session and fills each as you finish it',
+			'Program workouts are named for what you do, like “PT homework + Full Body A”, and History shows when in the day you did them',
+			'History adds up your distance for the week, and a personal record can be your longest time, best pace or longest hold',
+			'Choose kilometres or miles in Preferences'
+		]
+	},
+	{
 		version: '0.17.0',
 		date: '2026-10-21',
 		new: [

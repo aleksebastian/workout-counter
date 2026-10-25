@@ -18,12 +18,21 @@ import {
 	sameSource,
 	setsSince,
 	sourceName,
+	sourceSlot,
 	summarize,
 	type Lookups,
 	type PlanEntry,
 	type SessionWindow
 } from '$lib/logic/training';
-import type { ActiveSession, EndedSession, SessionLog, SessionSource, Set } from '$lib/types';
+import { pauseTimer, resumeTimer, startTimer } from '$lib/logic/setTimer';
+import type {
+	ActiveSession,
+	EndedSession,
+	SessionLog,
+	SessionSource,
+	Set,
+	SetTimer
+} from '$lib/types';
 
 /**
  * The workout in progress. It's stored on the user document (see
@@ -61,7 +70,8 @@ function toLog(
 	endedAt: number,
 	endReason: SessionLog['endReason']
 ): SessionLog | null {
-	const { exercises, totals } = summarize(buildPlan(s.source, lookups) ?? [], lookups, s.startedAt);
+	const plan = buildPlan(s.source, lookups) ?? [];
+	const { exercises, totals } = summarize(plan, lookups, s.startedAt);
 	if (totals.sets === 0) return null;
 	return {
 		id: s.id,
@@ -70,6 +80,8 @@ function toLog(
 		startedAt: s.startedAt,
 		endedAt,
 		endReason,
+		complete: isPlanComplete(plan, lookups, s.startedAt),
+		...(sourceSlot(s.source, lookups) && { slot: sourceSlot(s.source, lookups) }),
 		...(s.pausedMs > 0 && { pausedMs: s.pausedMs }),
 		exercises,
 		totals,
@@ -242,13 +254,36 @@ export const training = {
 		repo.move({ currentWorkoutId: plan[i].workoutId, currentIndex: i, lastActiveAt: Date.now() });
 	},
 
+	/** The set timer of the workout in progress, if one is running or paused. */
+	get timer(): SetTimer | null {
+		return this.session?.timer ?? null;
+	},
+
+	startTimer(workoutId: string) {
+		if (this.session) repo.setTimer(startTimer(workoutId, Date.now()));
+	},
+
+	pauseTimer() {
+		const t = this.timer;
+		if (t) repo.setTimer(pauseTimer(t, Date.now()));
+	},
+
+	resumeTimer() {
+		const t = this.timer;
+		if (t) repo.setTimer(resumeTimer(t, Date.now()));
+	},
+
+	clearTimer() {
+		if (this.timer) repo.setTimer(null);
+	},
+
 	/** Ends the workout by choice and returns what it amounted to, for the done screen. */
 	finish(): SessionSummary | null {
 		const s = this.session;
 		if (!s) return null;
 		const now = Date.now();
 		const log = toLog(s, now, 'finished');
-		const complete = isPlanComplete(buildPlan(s.source, lookups) ?? [], lookups, s.startedAt);
+		const complete = log?.complete ?? false;
 		repo.close(log, toEnded(s, now, log, complete));
 		restTimer.stop();
 		return {
@@ -294,8 +329,7 @@ export const training = {
 		if (!isStale(last, now)) return;
 		sweptId = s.id;
 		const log = toLog(s, last, 'abandoned');
-		const complete = isPlanComplete(this.plan ?? [], lookups, s.startedAt);
-		repo.close(log, toEnded(s, last, log, complete));
+		repo.close(log, toEnded(s, last, log, log?.complete ?? false));
 		toaster.show({
 			id: `session-abandoned-${s.id}`,
 			type: 'info',

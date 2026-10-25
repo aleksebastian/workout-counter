@@ -1,5 +1,20 @@
 import { counted } from '$lib/utils';
-import { programDays, type Program, type SessionLog, type Set, type Workout } from '$lib/types';
+import {
+	fromMeters,
+	formatSeconds,
+	measureOf,
+	paceSeconds,
+	type DistanceUnit
+} from '$lib/logic/measure';
+import {
+	programDays,
+	sessionsForDay,
+	type Measure,
+	type Program,
+	type SessionLog,
+	type Set,
+	type Workout
+} from '$lib/types';
 import {
 	elapsedMs,
 	previousSets,
@@ -29,14 +44,40 @@ export const setVolume = (set: Set) => set.reps * (set.weight ?? 0);
 export const volume = (sets: Set[]) => sets.reduce((sum, s) => sum + setVolume(s), 0);
 
 /**
+ * For the measures other than reps, whether `set` beats every set before it:
+ * the longest time; the longest distance or the best pace; the longest hold,
+ * or the same hold for more reps.
+ */
+function beatsOtherMeasure(set: Set, earlier: Set[], measure: Measure, unit: DistanceUnit) {
+	const most = (pick: (s: Set) => number) => Math.max(0, ...earlier.map(pick));
+	if (measure === 'time') return (set.seconds ?? 0) > most((s) => s.seconds ?? 0);
+	if (measure === 'distance') {
+		if ((set.meters ?? 0) > most((s) => s.meters ?? 0)) return true;
+		const pace = paceSeconds(set.meters ?? 0, set.seconds ?? 0, unit);
+		const paces = earlier.flatMap((s) => paceSeconds(s.meters ?? 0, s.seconds ?? 0, unit) ?? []);
+		return pace !== null && paces.length > 0 && pace < Math.min(...paces);
+	}
+	const hold = set.holdSeconds ?? 0;
+	const longest = most((s) => s.holdSeconds ?? 0);
+	if (hold !== longest) return hold > longest;
+	return set.reps > most((s) => ((s.holdSeconds ?? 0) === hold ? s.reps : 0));
+}
+
+/**
  * Whether `set` is a personal record against every set logged before it. A
  * weighted set beats the heaviest weight so far, or matches it for more reps
  * than that weight has seen. A bodyweight set beats the most reps so far,
- * unless the exercise is otherwise trained with weight. A first set is a
- * start, not a record.
+ * unless the exercise is otherwise trained with weight. Other measures:
+ * see `beatsOtherMeasure`. A first set is a start, not a record.
  */
-export function isRecord(set: Set, earlier: Set[]): boolean {
+export function isRecord(
+	set: Set,
+	earlier: Set[],
+	measure: Measure = 'reps',
+	unit: DistanceUnit = 'km'
+): boolean {
 	if (earlier.length === 0) return false;
+	if (measure !== 'reps') return beatsOtherMeasure(set, earlier, measure, unit);
 	const weight = set.weight ?? 0;
 	const heaviest = Math.max(...earlier.map((s) => s.weight ?? 0));
 	if (weight > 0) {
@@ -70,6 +111,16 @@ function allRecords(workout: Workout): globalThis.Set<string> {
 	const cached = recordCache.get(workout);
 	if (cached) return cached;
 	const ids = new globalThis.Set<string>();
+	const measure = measureOf(workout);
+	if (measure !== 'reps') {
+		// Pace doesn't depend on the unit, so km stands in for both.
+		const sorted = [...workout.sets].sort((a, b) => timeOf(a) - timeOf(b));
+		sorted.forEach((set, i) => {
+			if (i > 0 && beatsOtherMeasure(set, sorted.slice(0, i), measure, 'km')) ids.add(set.id);
+		});
+		recordCache.set(workout, ids);
+		return ids;
+	}
 	let heaviest = 0;
 	let mostReps = -Infinity;
 	let seen = 0;
@@ -99,13 +150,28 @@ export function recordIds(workout: Workout, sets: Set[]): globalThis.Set<string>
 	return new globalThis.Set(sets.filter((s) => all.has(s.id)).map((s) => s.id));
 }
 
-/** The set that best stands for a session: heaviest, then most reps. */
-function topSet(sets: Set[]): Set | null {
+/**
+ * The set that best stands for a session: heaviest, then most reps; the
+ * longest for time; the farthest for distance; the longest hold, then most reps.
+ */
+export function topSet(sets: Set[], measure: Measure = 'reps'): Set | null {
 	if (!sets.length) return null;
+	const key = (s: Set): [number, number] => {
+		switch (measure) {
+			case 'time':
+				return [s.seconds ?? 0, 0];
+			case 'distance':
+				return [s.meters ?? 0, -(s.seconds ?? 0)];
+			case 'hold':
+				return [s.holdSeconds ?? 0, s.reps];
+			default:
+				return [s.weight ?? 0, s.reps];
+		}
+	};
 	return sets.reduce((a, b) => {
-		const wa = a.weight ?? 0;
-		const wb = b.weight ?? 0;
-		return wb > wa || (wb === wa && b.reps > a.reps) ? b : a;
+		const [a1, a2] = key(a);
+		const [b1, b2] = key(b);
+		return b1 > a1 || (b1 === a1 && b2 > a2) ? b : a;
 	});
 }
 
@@ -114,12 +180,32 @@ function topSet(sets: Set[]): Set | null {
  * anywhere (not only in the same routine): "+20 lb vs last", "+1 rep",
  * "same as last". `null` the first time it's done.
  */
-export function vsLast(workout: Workout, sets: Set[], unit: string): string | null {
+export function vsLast(
+	workout: Workout,
+	sets: Set[],
+	unit: string,
+	distanceUnit: DistanceUnit = 'km'
+): string | null {
 	if (!sets.length) return null;
+	const measure = measureOf(workout);
 	const before = previousSets(workout, timeOf(sets[0]));
-	const now = topSet(sets);
-	const then = topSet(before);
+	const now = topSet(sets, measure);
+	const then = topSet(before, measure);
 	if (!now || !then) return null;
+	const sign = (n: number) => (n > 0 ? '+' : '−');
+	if (measure === 'time' || measure === 'hold') {
+		const pick = (s: Set) => (measure === 'time' ? (s.seconds ?? 0) : (s.holdSeconds ?? 0));
+		const ds = pick(now) - pick(then);
+		if (ds !== 0) return `${sign(ds)}${formatSeconds(Math.abs(ds))} vs last`;
+		if (measure === 'time') return 'same as last';
+	}
+	if (measure === 'distance') {
+		const dm =
+			fromMeters(now.meters ?? 0, distanceUnit) - fromMeters(then.meters ?? 0, distanceUnit);
+		const rounded = Math.round(dm * 100) / 100;
+		if (rounded !== 0) return `${sign(rounded)}${Math.abs(rounded)} ${distanceUnit} vs last`;
+		return 'same as last';
+	}
 	const dw = Math.round(((now.weight ?? 0) - (then.weight ?? 0)) * 10) / 10;
 	if (dw !== 0) return `${dw > 0 ? '+' : '−'}${Math.abs(dw)} ${unit} vs last`;
 	const dr = now.reps - then.reps;
@@ -218,19 +304,78 @@ export function weekStartOf(at: number, weekStart: 0 | 1): number {
 	return day.getTime();
 }
 
-/** Volume lifted and time spent in workouts this week. */
+/** Volume lifted, time spent in workouts and distance covered this week. */
 export function weekTotals(
 	logs: SessionLog[],
 	workouts: Workout[],
 	weekStart: 0 | 1,
 	now = Date.now()
-): { volume: number; durationMs: number } {
+): { volume: number; durationMs: number; meters: number } {
 	const from = weekStartOf(now, weekStart);
 	const sets = workouts.flatMap((w) => w.sets.filter((s) => timeOf(s) >= from));
 	const durationMs = logs
 		.filter((l) => l.endedAt >= from)
 		.reduce((sum, l) => sum + logDuration(l), 0);
-	return { volume: volume(sets), durationMs };
+	const meters = sets.reduce((sum, s) => sum + (s.meters ?? 0), 0);
+	return { volume: volume(sets), durationMs, meters };
+}
+
+/** One day on the week strip. */
+export type WeekDay = {
+	/** Midnight at the start of the day, epoch ms. */
+	start: number;
+	dow: number;
+	/** Sessions the active program schedules that weekday. */
+	planned: number;
+	/** Of those, how many got every planned exercise's sets that day. */
+	done: number;
+	/** Any set was logged that day, which is what counts toward the streak. */
+	trained: boolean;
+	today: boolean;
+};
+
+/**
+ * This week, day by day: what the active program planned, how many of those
+ * sessions were done, and whether anything was trained at all. Any session,
+ * or any set, counts the day for the streak; the per-session count only
+ * drives the segmented ring.
+ */
+export function weekDays(
+	program: Program | null,
+	logs: SessionLog[],
+	setTimes: number[],
+	weekStart: 0 | 1,
+	now = Date.now()
+): WeekDay[] {
+	const trainedOn = new globalThis.Set(setTimes.map((t) => new Date(t).toDateString()));
+	const first = weekStartOf(now, weekStart);
+	const todayKey = new Date(now).toDateString();
+	return Array.from({ length: 7 }, (_, i) => {
+		const date = new Date(first);
+		date.setDate(date.getDate() + i);
+		const key = date.toDateString();
+		const dow = date.getDay();
+		const sessions = program ? sessionsForDay(program, dow) : [];
+		const done = sessions.filter((s) =>
+			logs.some(
+				(l) =>
+					l.complete &&
+					l.source.type === 'program' &&
+					l.source.programId === program!.id &&
+					l.source.day === dow &&
+					l.source.sessionId === s.id &&
+					new Date(l.endedAt).toDateString() === key
+			)
+		).length;
+		return {
+			start: date.getTime(),
+			dow,
+			planned: sessions.length,
+			done,
+			trained: trainedOn.has(key),
+			today: key === todayKey
+		};
+	});
 }
 
 /**

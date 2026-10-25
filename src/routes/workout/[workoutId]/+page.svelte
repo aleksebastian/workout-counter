@@ -11,6 +11,7 @@
 	import { HAPTIC } from '$lib/haptic';
 	import { recordSet as recordSet_ } from '$lib/logic/logSet';
 	import { isRecord } from '$lib/logic/history';
+	import { measureOf, type MeasureValues } from '$lib/logic/measure';
 	import type { Set } from '$lib/types';
 
 	let workout = $derived(session.workout(page.params.workoutId));
@@ -29,6 +30,10 @@
 	let showRecordSheet = $state(false);
 	let reps = $state(10);
 	let weight = $state(0);
+	let seconds = $state(0);
+	let meters = $state(0);
+	let holdSeconds = $state(5);
+	let measure = $derived(measureOf(workout));
 
 	// Seed the sheet from the most recent set for this exercise.
 	let seededFor = $state<string | null>(null);
@@ -39,6 +44,9 @@
 		const last = workout!.sets.at(-1);
 		reps = last?.reps ?? 10;
 		weight = last?.weight ?? 0;
+		seconds = last?.seconds ?? 0;
+		meters = last?.meters ?? 0;
+		holdSeconds = last?.holdSeconds ?? 5;
 	});
 
 	// ── Session comparison ─────────────────────────────────────────────────────
@@ -132,20 +140,39 @@
 	});
 
 	// ── Recording ───────────────────────────────────────────────────────────────
-	async function recordSet(newReps: number, newWeight: number, notes: string, date: string) {
+	async function recordSet(
+		newReps: number,
+		newWeight: number,
+		notes: string,
+		date: string,
+		values: MeasureValues
+	) {
 		if (!workout) return;
-		const draft = { reps: newReps, weight: newWeight, notes, date };
+		const isReps = measure === 'reps';
+		const draft = {
+			reps: isReps || measure === 'hold' ? newReps : 0,
+			weight: isReps ? newWeight : 0,
+			notes,
+			date,
+			...values
+		};
 		// Before the save, which adds the new set to the live list.
 		const earlier = [...workout.sets];
 		// Opened from a routine: that routine's timer applies. Otherwise the global one.
-		const { set, saved } = recordSet_(workout.id, draft, { routineId, message: 'Set logged' });
-		if ((await saved) && isRecord(set, earlier)) HAPTIC.success();
+		const { set, saved } = recordSet_(workout.id, draft, {
+			routineId,
+			message: 'Set logged',
+			measure
+		});
+		if ((await saved) && isRecord(set, earlier, measure, session.prefs.distanceUnit))
+			HAPTIC.success();
 	}
 </script>
 
 {#if workout}
 	<div class="mx-auto flex w-full max-w-lg flex-col gap-4">
-		{#if comparisonStats.length && latestHeader}
+		<!-- The session comparison counts reps and weight; other measures skip it. -->
+		{#if measure === 'reps' && comparisonStats.length && latestHeader}
 			<div class="flex items-baseline justify-between">
 				<span class="text-base font-bold capitalize">{latestHeader.date}</span>
 				<span class="text-base font-bold">{counted(latestHeader.reps, 'rep')}</span>
@@ -174,7 +201,11 @@
 			</div>
 		{/if}
 
-		<SetsHistoryTable {workout} {routineId} hideFirstHeader={comparisonStats.length > 0} />
+		<SetsHistoryTable
+			{workout}
+			{routineId}
+			hideFirstHeader={measure === 'reps' && comparisonStats.length > 0}
+		/>
 	</div>
 
 	<FAB onclick={() => (showRecordSheet = true)} label="Record a set" />
@@ -183,6 +214,10 @@
 		bind:open={showRecordSheet}
 		bind:reps
 		bind:weight
+		bind:seconds
+		bind:meters
+		bind:holdSeconds
+		{measure}
 		exerciseName={workout.name}
 		onRecord={recordSet}
 	/>

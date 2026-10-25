@@ -570,5 +570,93 @@ export const exercises: CatalogExercise[] = [
 		equipment: 'cable',
 		instructions:
 			'Stand side-on to a chest-height cable. Press the handle straight out from your chest and resist the pull to rotate, then bring it back. Count reps per side.'
+	},
+	// ── Timed, distance and hold work ──────────────────────────────────────────
+	{
+		id: 'plank',
+		name: 'Plank',
+		aliases: ['Front Plank', 'Forearm Plank'],
+		muscles: ['core'],
+		equipment: 'bodyweight',
+		measure: 'time',
+		instructions:
+			'Forearms under shoulders, body in one straight line from head to heels. Brace your stomach and squeeze your glutes; stop when your hips sag.'
+	},
+	{
+		id: 'side-plank',
+		name: 'Side Plank',
+		aliases: ['Side Planks'],
+		muscles: ['core'],
+		equipment: 'bodyweight',
+		measure: 'time',
+		instructions:
+			'On one forearm, feet stacked, lift your hips until your body is straight. Hold, then switch sides. Log each side as its own set.'
+	},
+	{
+		id: 'wall-sit',
+		name: 'Wall Sit',
+		muscles: ['quads', 'glutes'],
+		equipment: 'bodyweight',
+		measure: 'time',
+		instructions:
+			'Back flat against a wall, slide down until your knees are at about 90 degrees over your ankles. Hold the position without pushing on your thighs.'
+	},
+	{
+		id: 'dead-hang',
+		name: 'Dead Hang',
+		aliases: ['Bar Hang'],
+		muscles: ['forearms', 'back'],
+		equipment: 'bodyweight',
+		measure: 'time',
+		instructions:
+			'Hang from a pull-up bar with straight arms and a shoulder-width grip. Let your shoulders relax up toward your ears, and hold as long as your grip lasts.'
+	},
+	{
+		id: 'glute-bridge-hold',
+		name: 'Glute Bridge Hold',
+		muscles: ['glutes', 'hamstrings'],
+		equipment: 'bodyweight',
+		measure: 'hold',
+		instructions:
+			'On your back, knees bent, drive through your heels to lift your hips. Hold at the top for the set time each rep, then lower slowly.'
+	},
+	{
+		id: 'outdoor-run',
+		name: 'Outdoor Run',
+		aliases: ['Run', 'Running', 'Jog'],
+		muscles: ['quads', 'hamstrings', 'calves'],
+		equipment: 'bodyweight',
+		measure: 'distance',
+		instructions:
+			'Run at a pace you could hold a conversation at for easy days. Log the distance and the time it took; pace is worked out for you.'
+	},
+	{
+		id: 'treadmill-run',
+		name: 'Treadmill Run',
+		muscles: ['quads', 'hamstrings', 'calves'],
+		equipment: 'machine',
+		measure: 'distance',
+		instructions:
+			'Set a 1% incline to match running outside. Log the distance and time from the display.'
+	},
+	{
+		id: 'stationary-bike',
+		name: 'Stationary Bike',
+		aliases: ['Exercise Bike', 'Spin Bike'],
+		muscles: ['quads', 'glutes'],
+		equipment: 'machine',
+		measure: 'time',
+		instructions:
+			'Saddle at hip height so your knee is nearly straight at the bottom. Keep a steady cadence; for zone 2, a pace you could still talk at.'
+	},
+	{
+		id: 'rowing-machine',
+		name: 'Rowing Machine',
+		aliases: ['Rower', 'Erg'],
+		muscles: ['back', 'quads', 'hamstrings'],
+		equipment: 'machine',
+		measure: 'distance',
+		instructions:
+			'Drive with your legs first, then lean back slightly and pull the handle to your lower ribs. Return in reverse: arms, body, legs.'
 	}
 ];

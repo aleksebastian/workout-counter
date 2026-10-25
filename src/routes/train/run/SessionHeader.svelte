@@ -12,6 +12,8 @@
 		title: string;
 		/** Epoch ms the elapsed clock counts from; shows the clock when set. */
 		startedAt?: number;
+		/** When in the day this session is planned, e.g. "Evening", shown before the clock. */
+		slot?: string;
 		/** Shows the Finish button when set. */
 		onFinish?: () => void;
 		/**
@@ -25,6 +27,7 @@
 	let {
 		title,
 		startedAt,
+		slot,
 		onFinish,
 		class: className = 'sticky top-0 -mx-4 -mt-4 mb-2'
 	}: Props = $props();
@@ -82,6 +85,7 @@
 				class="text-base-content/55 mt-0.5 flex items-center justify-center gap-1.5 text-xs tabular-nums"
 			>
 				<span class="bg-primary h-1.5 w-1.5 shrink-0 rounded-full" aria-hidden="true"></span>
+				{#if slot}{slot} ·{/if}
 				{formatClock(now - startedAt)} elapsed
 			</p>
 		{/if}

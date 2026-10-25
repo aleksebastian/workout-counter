@@ -1,15 +1,21 @@
 import { counted } from '$lib/utils';
+import { formatSeconds, measureTarget, type DistanceUnit } from '$lib/logic/measure';
 import { DAY_FULL } from '$lib/constants';
 import {
-	itemsForDay,
+	daySessions,
+	sessionOf,
 	type ActiveSession,
 	type EndedSession,
 	type Program,
 	type ProgramDay,
+	type ProgramSession,
 	type Routine,
 	type SessionLog,
 	type SessionSource,
 	type Set,
+	type Slot,
+	type Measure,
+	type MeasureTargets,
 	type Workout
 } from '$lib/types';
 
@@ -22,7 +28,7 @@ import {
 /** No set logged and no move between exercises for this long: the workout was abandoned. */
 export const STALE_AFTER_MS = 2 * 60 * 60 * 1000;
 
-export type PlanEntry = {
+export type PlanEntry = MeasureTargets & {
 	workoutId: string;
 	/** undefined = free-form: the user decides when to move on. */
 	targetSets?: number;
@@ -41,12 +47,22 @@ export type Lookups = {
 	workout(id: string): Workout | null;
 };
 
+/** Just the measure targets that are set, so a plan entry carries no empty keys. */
+function measureTargets(from: MeasureTargets): MeasureTargets {
+	return {
+		...(from.targetSeconds !== undefined && { targetSeconds: from.targetSeconds }),
+		...(from.targetMeters !== undefined && { targetMeters: from.targetMeters }),
+		...(from.holdSeconds !== undefined && { holdSeconds: from.holdSeconds })
+	};
+}
+
 function expandRoutine(routine: Routine, grouped: boolean): PlanEntry[] {
 	return routine.exercises.map((ex, idx) => ({
 		workoutId: ex.workoutId,
 		targetSets: ex.targetSets,
 		...(ex.minReps !== undefined && { minReps: ex.minReps }),
 		...(ex.maxReps !== undefined && { maxReps: ex.maxReps }),
+		...measureTargets(ex),
 		routineId: routine.id,
 		...(grouped
 			? {
@@ -68,37 +84,48 @@ export function buildPlan(source: SessionSource, lookups: Lookups): PlanEntry[] 
 		return routine ? expandRoutine(routine, false) : null;
 	}
 	const program = lookups.program(source.programId);
-	if (!program) return null;
-	return itemsForDay(program, source.day).flatMap((item) => {
+	const programSession = program && sessionOf(program, source.day, source.sessionId);
+	if (!programSession) return null;
+	return programSession.items.flatMap((item) => {
 		if (item.type === 'exercise')
-			return [{ workoutId: item.workoutId, targetSets: item.targetSets }];
+			return [{ workoutId: item.workoutId, targetSets: item.targetSets, ...measureTargets(item) }];
 		const routine = lookups.routine(item.routineId);
 		return routine ? expandRoutine(routine, true) : [];
 	});
 }
 
+/** When in the day a program session is planned; nothing for a routine or an untimed session. */
+export function sourceSlot(source: SessionSource, lookups: Lookups): Slot | undefined {
+	if (source.type !== 'program') return undefined;
+	const program = lookups.program(source.programId);
+	return program ? sessionOf(program, source.day, source.sessionId)?.slot : undefined;
+}
+
+/** What a workout is called: its routine, or its program session (e.g. "PT homework + Full Body A"). */
 export function sourceName(source: SessionSource, lookups: Lookups): string | null {
-	return source.type === 'routine'
-		? (lookups.routine(source.routineId)?.name ?? null)
-		: (lookups.program(source.programId)?.name ?? null);
+	if (source.type === 'routine') return lookups.routine(source.routineId)?.name ?? null;
+	const program = lookups.program(source.programId);
+	const programSession = program && sessionOf(program, source.day, source.sessionId);
+	return programSession ? sessionName(programSession, lookups.routine, lookups.workout) : null;
 }
 
 export function sameSource(a: SessionSource, b: SessionSource): boolean {
 	if (a.type === 'routine' && b.type === 'routine') return a.routineId === b.routineId;
 	if (a.type === 'program' && b.type === 'program') {
-		return a.programId === b.programId && a.day === b.day;
+		return a.programId === b.programId && a.day === b.day && a.sessionId === b.sessionId;
 	}
 	return false;
 }
 
-/** `/train/run?routine=…` or `?program=…&day=…` (day defaults to today). */
+/** `/train/run?routine=…` or `?program=…&day=…&session=…` (day defaults to today). */
 export function sourceFromParams(params: URLSearchParams, today: number): SessionSource | null {
 	const routineId = params.get('routine');
 	if (routineId) return { type: 'routine', routineId };
 	const programId = params.get('program');
-	if (!programId) return null;
+	const sessionId = params.get('session');
+	if (!programId || !sessionId) return null;
 	const day = parseInt(params.get('day') ?? '', 10);
-	return { type: 'program', programId, day: Number.isInteger(day) ? day : today };
+	return { type: 'program', programId, day: Number.isInteger(day) ? day : today, sessionId };
 }
 
 /**
@@ -143,11 +170,24 @@ export function previousSets(workout: Workout | null, since: number): Set[] {
 		.sort((a, b) => timeOf(a) - timeOf(b));
 }
 
-/** "3 × 10", "3 × 8–12", or "3 sets" without a rep range; `null` for free-form. */
+/**
+ * "3 × 10", "3 × 8–12", or "3 sets" without a rep range; for other measures,
+ * "30 min", "3 × 45s", "5 km" or "3 × 10 × 5s hold". `null` for free-form.
+ */
 export function targetLabel(
-	entry: Pick<PlanEntry, 'targetSets' | 'minReps' | 'maxReps'>
+	entry: Pick<
+		PlanEntry,
+		'targetSets' | 'minReps' | 'maxReps' | 'targetSeconds' | 'targetMeters' | 'holdSeconds'
+	>,
+	measure: Measure = 'reps',
+	unit: DistanceUnit = 'km'
 ): string | null {
 	const { targetSets, minReps: lo, maxReps: hi } = entry;
+	if (measure !== 'reps') {
+		const each = measureTarget(entry, measure, unit);
+		if (!each) return targetSets === undefined ? null : counted(targetSets, 'set');
+		return targetSets && targetSets > 1 ? `${targetSets} × ${each}` : each;
+	}
 	if (targetSets === undefined) return null;
 	const reps = lo !== undefined && hi !== undefined && lo !== hi ? `${lo}–${hi}` : (lo ?? hi);
 	return reps === undefined ? counted(targetSets, 'set') : `${targetSets} × ${reps}`;
@@ -155,16 +195,19 @@ export function targetLabel(
 
 /** A running clock: "1:05", or "1:02:05" past the hour. */
 export function formatClock(ms: number): string {
-	const s = Math.max(0, Math.floor(ms / 1000));
-	const h = Math.floor(s / 3600);
-	const m = Math.floor((s % 3600) / 60);
-	const sec = (s % 60).toString().padStart(2, '0');
-	return h > 0 ? `${h}:${m.toString().padStart(2, '0')}:${sec}` : `${m}:${sec}`;
+	return formatSeconds(ms / 1000);
 }
 
-/** The latest sign of life: a move between exercises, or a set logged on a planned exercise. */
+/** The latest sign of life: a move between exercises, a set logged on a planned exercise, or a running set timer. */
 export function lastActivity(session: ActiveSession, plan: PlanEntry[], lookups: Lookups): number {
-	let latest = session.lastActiveAt;
+	// A running stopwatch counts as being at it for as long as the abandon
+	// window after it started, so a long ride isn't closed under you but a
+	// timer forgotten overnight doesn't keep the workout open for good.
+	const { timer } = session;
+	let latest = Math.max(
+		session.lastActiveAt,
+		timer ? (timer.pausedAt ?? timer.startedAt + STALE_AFTER_MS) : 0
+	);
 	for (const id of new globalThis.Set(plan.map((e) => e.workoutId))) {
 		for (const set of setsSince(lookups.workout(id), session.startedAt)) {
 			latest = Math.max(latest, new Date(set.date).getTime());
@@ -218,11 +261,15 @@ export function summarize(
 		const workout = lookups.workout(id);
 		const sets = setsSince(workout, since);
 		if (!workout || sets.length === 0) continue;
+		const seconds = sets.reduce((sum, s) => sum + (s.seconds ?? 0), 0);
+		const meters = sets.reduce((sum, s) => sum + (s.meters ?? 0), 0);
 		exercises.push({
 			workoutId: id,
 			name: workout.name,
 			sets: sets.length,
-			reps: sets.reduce((sum, s) => sum + s.reps, 0)
+			reps: sets.reduce((sum, s) => sum + s.reps, 0),
+			...(seconds > 0 && { seconds }),
+			...(meters > 0 && { meters })
 		});
 	}
 	return {
@@ -311,11 +358,10 @@ export type SessionWindow = { source: SessionSource; start: number; end: number 
 export function runsRoutine(source: SessionSource, routineId: string, lookups: Lookups): boolean {
 	if (source.type === 'routine') return source.routineId === routineId;
 	const program = lookups.program(source.programId);
+	const programSession = program && sessionOf(program, source.day, source.sessionId);
 	return (
-		!!program &&
-		itemsForDay(program, source.day).some(
-			(item) => item.type === 'routine' && item.routineId === routineId
-		)
+		!!programSession &&
+		programSession.items.some((item) => item.type === 'routine' && item.routineId === routineId)
 	);
 }
 
@@ -361,12 +407,33 @@ export function whenNext(day: number, today: number): string {
 	return day === (today + 1) % 7 ? 'tomorrow' : DAY_FULL[day];
 }
 
-/** What a program day is called: its label, else its routines' names, else its size. */
-export function programDayName(day: ProgramDay, routine: (id: string) => Routine | null): string {
-	if (day.label) return day.label;
-	const names = day.items.flatMap((item) => {
+/**
+ * What a program session is called: its label, else its routines' names,
+ * else its one exercise's name, else its size.
+ */
+export function sessionName(
+	programSession: ProgramSession,
+	routine: (id: string) => Routine | null,
+	workout?: (id: string) => Workout | null
+): string {
+	if (programSession.label) return programSession.label;
+	const { items } = programSession;
+	const names = items.flatMap((item) => {
 		const name = item.type === 'routine' ? routine(item.routineId)?.name : undefined;
 		return name ? [name] : [];
 	});
-	return names.length ? names.join(' + ') : counted(day.items.length, 'exercise');
+	if (names.length) return names.join(' + ');
+	const only = items.length === 1 && items[0].type === 'exercise' ? items[0] : null;
+	return (only && workout?.(only.workoutId)?.name) || counted(items.length, 'exercise');
+}
+
+/** What a program day is called: its sessions' names, in slot order. */
+export function programDayName(
+	day: ProgramDay,
+	routine: (id: string) => Routine | null,
+	workout?: (id: string) => Workout | null
+): string {
+	return daySessions(day)
+		.map((s) => sessionName(s, routine, workout))
+		.join(' · ');
 }

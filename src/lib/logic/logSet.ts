@@ -5,7 +5,8 @@ import { restTimer } from '$lib/logic/restTimer.svelte';
 import { pwa } from '$lib/logic/pwa.svelte';
 import { HAPTIC } from '$lib/haptic';
 import { toaster } from '$lib/toast.svelte';
-import type { Set } from '$lib/types';
+import { isTimed } from '$lib/logic/measure';
+import type { Measure, Set } from '$lib/types';
 
 /**
  * Recording one set, the same everywhere a set is logged (the run screen,
@@ -14,7 +15,17 @@ import type { Set } from '$lib/types';
  * settles: offline, the write waits for the server and would never come back.
  */
 
-export type Draft = { reps: number; weight: number; notes?: string; date?: string };
+export type Draft = {
+	reps: number;
+	weight: number;
+	/** Time and distance sets. */
+	seconds?: number;
+	meters?: number;
+	/** Hold sets. */
+	holdSeconds?: number;
+	notes?: string;
+	date?: string;
+};
 
 /** The set whose rest is counting down, so undoing an earlier one leaves it running. */
 let restAfter: string | null = null;
@@ -27,6 +38,8 @@ export function recordSet(
 		routineId?: string;
 		/** The toast, e.g. "Set 2 logged". */
 		message: string;
+		/** How the exercise is measured: time and distance sets start no rest. */
+		measure?: Measure;
 	}
 ): { set: Set; saved: Promise<boolean> } {
 	const set: Set = {
@@ -34,12 +47,17 @@ export function recordSet(
 		reps: draft.reps,
 		date: draft.date ?? new Date().toISOString(),
 		...(draft.weight > 0 ? { weight: draft.weight } : {}),
+		...(draft.seconds ? { seconds: draft.seconds } : {}),
+		...(draft.meters ? { meters: draft.meters } : {}),
+		...(draft.holdSeconds ? { holdSeconds: draft.holdSeconds } : {}),
 		...(draft.notes?.trim() ? { notes: draft.notes.trim() } : {})
 	};
 
 	HAPTIC.medium();
-	pwa.noteSetRecorded(restTimer.start({ routineId: opts.routineId }));
-	restAfter = set.id;
+	if (!isTimed(opts.measure ?? 'reps')) {
+		pwa.noteSetRecorded(restTimer.start({ routineId: opts.routineId }));
+		restAfter = set.id;
+	}
 	toaster.show({
 		type: 'info',
 		message: opts.message,

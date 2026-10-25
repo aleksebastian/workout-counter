@@ -8,6 +8,7 @@
 	import { training } from '$lib/logic/training.svelte';
 	import { itemsForDay, nextScheduledDay, programDays, type Program } from '$lib/types';
 	import { programDayName, whenNext } from '$lib/logic/training';
+	import { todayPlan } from '$lib/logic/today';
 	import Async from '$lib/components/Async.svelte';
 	import Chevron from '$lib/components/Chevron.svelte';
 	import ActionSheet, { type SheetAction } from '$lib/components/ActionSheet.svelte';
@@ -33,7 +34,11 @@
 		const next = nextScheduledDay(program, todayDow);
 		if (!next) return '';
 		const when = whenNext(next.day, todayDow);
-		return ` · Next: ${programDayName(next, (id) => session.routine(id))}, ${when}`;
+		return ` · Next: ${programDayName(
+			next,
+			(id) => session.routine(id),
+			(id) => session.workout(id)
+		)}, ${when}`;
 	}
 	let activeProgram = $derived(session.activeProgram);
 	let others = $derived((session.programs ?? []).filter((p) => p.id !== session.activeProgramId));
@@ -168,15 +173,25 @@
 						{/if}
 
 						{#if todayCount > 0}
+							{@const plan = todayPlan(
+								activeProgram,
+								todayDow,
+								session.sessionLogs ?? [],
+								training.session,
+								Date.now()
+							)}
+							{@const sessionId = (plan.find((r) => r.upNext) ?? plan[0]).session.id}
 							{@const ended = training.endedToday({
 								type: 'program',
 								programId: activeProgram.id,
-								day: todayDow
+								day: todayDow,
+								sessionId
 							})}
 							{#if ended?.complete}
 								<button
 									class="btn btn-ghost btn-sm w-full"
-									onclick={() => goto(runProgramHref(activeProgram.id, todayDow, { fresh: true }))}
+									onclick={() =>
+										goto(runProgramHref(activeProgram.id, todayDow, sessionId, { fresh: true }))}
 									>Done today · Start again</button
 								>
 							{:else if ended}
@@ -184,20 +199,20 @@
 									<button
 										class="btn btn-primary btn-sm flex-1"
 										onclick={() =>
-											goto(runProgramHref(activeProgram.id, todayDow, { resume: true }))}
+											goto(runProgramHref(activeProgram.id, todayDow, sessionId, { resume: true }))}
 										>Resume · {ended.done} of {ended.total} done</button
 									>
 									<button
 										class="btn btn-ghost btn-sm"
 										onclick={() =>
-											goto(runProgramHref(activeProgram.id, todayDow, { fresh: true }))}
+											goto(runProgramHref(activeProgram.id, todayDow, sessionId, { fresh: true }))}
 										>Start over</button
 									>
 								</div>
 							{:else}
 								<button
 									class="btn btn-primary btn-sm w-full"
-									onclick={() => goto(runProgramHref(activeProgram.id, todayDow))}
+									onclick={() => goto(runProgramHref(activeProgram.id, todayDow, sessionId))}
 									>Start today's workout</button
 								>
 							{/if}

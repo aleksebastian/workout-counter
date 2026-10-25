@@ -11,6 +11,7 @@
 		buildPlan,
 		formatClock,
 		programDayName,
+		sessionName,
 		routineLastTrained,
 		sameSource,
 		setsSince,
@@ -27,7 +28,15 @@
 		runProgramHref,
 		runRoutineHref
 	} from '$lib/routes';
-	import { nextScheduledDay, programDays, type SessionSource } from '$lib/types';
+	import {
+		itemsForDay,
+		nextScheduledDay,
+		programDays,
+		slotLabel,
+		type SessionSource
+	} from '$lib/types';
+	import { todayPlan, type PlanRow } from '$lib/logic/today';
+	import { formatSet, measureOf, unitsOf } from '$lib/logic/measure';
 	import Chevron from '$lib/components/Chevron.svelte';
 	import SessionProgress from '$lib/components/SessionProgress.svelte';
 	import LogSetSheet from '$lib/components/LogSetSheet.svelte';
@@ -51,16 +60,22 @@
 		session.workouts === null || session.routines === null || session.programs === null
 	);
 	let logs = $derived(session.sessionLogs ?? []);
-	let unit = $derived(session.prefs.weightUnit === 'kg' ? 'kg' : 'lb');
 
 	const todayDow = new Date().getDay();
 	let program = $derived(session.activeProgram);
-	let todayDay = $derived(
-		program?.schedule.find((d) => d.day === todayDow && d.items.length > 0) ?? null
-	);
-	let programSource = $derived<SessionSource | null>(
-		program && todayDay ? { type: 'program', programId: program.id, day: todayDow } : null
-	);
+	/**
+	 * Today's sessions and where each stands; a day with several shows them as
+	 * a list. Up next only moves with the time-of-day slot, so the plan follows
+	 * the clock by the minute, not the second the clock ticks at.
+	 */
+	let minute = $derived(Math.floor(now / 60_000) * 60_000);
+	let plan = $derived(program ? todayPlan(program, todayDow, logs, training.session, minute) : []);
+	let multi = $derived(plan.length > 1);
+	let upNext = $derived(plan.find((r) => r.upNext) ?? null);
+	let doneCount = $derived(plan.filter((r) => r.status === 'done').length);
+	/** The program session the hero offers: the one up next, or a lone session done today. */
+	let todayRow = $derived(upNext ?? (plan.length === 1 ? plan[0] : null));
+	let programSource = $derived<SessionSource | null>(todayRow?.source ?? null);
 
 	let active = $derived(training.session);
 	/** The workout that ended earlier today, finished or not. */
@@ -86,10 +101,8 @@
 	});
 
 	type Hero = 'progress' | 'done' | 'program' | 'rest' | 'routine' | 'new';
-	/** Today's program workout is still to do: not run today, or ended early. */
-	let programPending = $derived(
-		!!programSource && !(endedToday?.complete && sameSource(endedToday.source, programSource))
-	);
+	/** A program session is still to do today: not run yet, or ended early. */
+	let programPending = $derived(!!upNext);
 	let hero = $derived.by((): Hero => {
 		if (active) return 'progress';
 		// Finishing something else today doesn't tick off the plan.
@@ -149,13 +162,18 @@
 	});
 
 	let heroTitle = $derived(
-		hero === 'program' && todayDay
-			? programDayName(todayDay, (id) => session.routine(id))
+		hero === 'program' && todayRow
+			? sessionName(
+					todayRow.session,
+					(id) => session.routine(id),
+					(id) => session.workout(id)
+				)
 			: (suggested?.name ?? '')
 	);
 	let heroEyebrow = $derived.by(() => {
 		if (hero === 'routine') return 'Up next';
 		if (!program) return '';
+		if (multi && upNext) return `${slotLabel(upNext.session.slot)} · Up next`;
 		const days = programDays(program).sort((a, b) => a - b);
 		return `${program.name} · day ${days.indexOf(todayDow) + 1} of ${days.length}`;
 	});
@@ -165,7 +183,7 @@
 		if (!source) return;
 		goto(
 			source.type === 'program'
-				? runProgramHref(source.programId, source.day, opts)
+				? runProgramHref(source.programId, source.day, source.sessionId, opts)
 				: runRoutineHref(source.routineId, opts)
 		);
 	}
@@ -203,7 +221,7 @@
 			const ids = recordIds(workout, sets);
 			const best = sets.filter((s) => ids.has(s.id)).at(-1);
 			return best
-				? [`${workout.name} ${best.weight ? `${best.weight} ${unit} × ` : ''}${best.reps}`]
+				? [`${workout.name} ${formatSet(best, measureOf(workout), unitsOf(session.prefs))}`]
 				: [];
 		});
 	});
@@ -215,7 +233,11 @@
 		const day = nextScheduledDay(program, todayDow);
 		return day
 			? {
-					name: programDayName(day, (id) => session.routine(id)),
+					name: programDayName(
+						day,
+						(id) => session.routine(id),
+						(id) => session.workout(id)
+					),
 					when: whenNext(day.day, todayDow)
 				}
 			: null;
@@ -225,14 +247,16 @@
 	// ── Other routines ──────────────────────────────────────────────────────────
 	let todaysRoutines = $derived(
 		new globalThis.Set(
-			(todayDay?.items ?? []).flatMap((i) => (i.type === 'routine' ? [i.routineId] : []))
+			(program ? itemsForDay(program, todayDow) : []).flatMap((i) =>
+				i.type === 'routine' ? [i.routineId] : []
+			)
 		)
 	);
 	let others = $derived(
 		runnable.filter(
 			(r) =>
 				!(hero === 'routine' && r.id === suggested?.id) &&
-				!(hero === 'program' && todaysRoutines.has(r.id))
+				!((hero === 'program' || multi) && todaysRoutines.has(r.id))
 		)
 	);
 	let othersLabel = $derived(
@@ -275,6 +299,33 @@
 	});
 
 	let logOpen = $state(false);
+
+	// ── Today's plan (a day with several sessions) ──────────────────────────────
+	function rowMeta(row: PlanRow): string {
+		if (row.status === 'live') return 'In progress';
+		if (row.status === 'done' && row.log) {
+			return `${Math.round(logDuration(row.log) / 60_000)} min · ${counted(row.log.totals.sets, 'set')}`;
+		}
+		const ended = row.status === 'partial' ? training.endedToday(row.source) : null;
+		if (ended) return `Ended early · ${ended.done} of ${ended.total} done`;
+		if (row.status === 'partial') return 'Ended early';
+		const rowPlan = buildPlan(row.source, training.lookups) ?? [];
+		const minutes = estimateMinutes(
+			rowPlan,
+			(e) => {
+				const rest = pickRest(session.routine(e.routineId), session.prefs);
+				return rest ? durationMs(rest.duration) / 1000 : 0;
+			},
+			logs,
+			row.source
+		).minutes;
+		return `${counted(rowPlan.length, 'exercise')} · about ${minutes} min`;
+	}
+
+	function startRow(row: PlanRow) {
+		const resume = row.status === 'partial' && !!training.endedToday(row.source);
+		goto(runProgramHref(row.source.programId, row.source.day, row.source.sessionId, { resume }));
+	}
 </script>
 
 {#snippet check(cls = 'h-5 w-5')}
@@ -330,6 +381,98 @@
 		</span>
 		<Chevron />
 	</button>
+{/snippet}
+
+{#snippet startHero()}
+	<div
+		class="bg-primary/10 ring-primary/15 flex flex-col gap-3.5 rounded-2xl p-4 ring-1 ring-inset"
+	>
+		<div>
+			{@render eyebrow(heroEyebrow, 'text-primary-strong')}
+			<p class="mt-1 text-2xl font-extrabold">{heroTitle}</p>
+			<p class="text-base-content/55 text-sm">
+				{counted(heroPlan.length, 'exercise')}
+				{#if estimate}· about {estimate.minutes} min{/if}
+				{#if heroEnded}
+					· {heroEnded.done} of {heroEnded.total} done today
+				{:else if lastDone}
+					· {lastDone}
+				{/if}
+			</p>
+		</div>
+		{#if preview.shown.length}{@render chips()}{/if}
+		{#if heroEnded}
+			<!-- Ended early today: pick it back up, or start a fresh one. -->
+			<div class="flex flex-col gap-1">
+				<button
+					class="btn btn-primary btn-lg h-13 rounded-2xl"
+					onclick={() => start({ resume: true })}>Resume workout</button
+				>
+				<button class="btn btn-ghost btn-sm" onclick={() => start({ fresh: true })}
+					>Start over</button
+				>
+			</div>
+		{:else}
+			<button
+				class="btn btn-primary btn-lg h-13 rounded-2xl"
+				aria-label="Start {heroTitle}"
+				onclick={() => start()}>Start workout</button
+			>
+		{/if}
+	</div>
+{/snippet}
+
+{#snippet planRow(row: PlanRow)}
+	{@const name = sessionName(
+		row.session,
+		(id) => session.routine(id),
+		(id) => session.workout(id)
+	)}
+	<div class="bg-base-200 flex items-center gap-3 rounded-2xl px-4 py-3">
+		{#if row.status === 'done'}
+			<span
+				class="bg-primary text-primary-content flex h-6 w-6 shrink-0 items-center justify-center rounded-full"
+				aria-label="Done">{@render check('h-3.5 w-3.5')}</span
+			>
+		{:else if row.status === 'live'}
+			<span
+				class="border-primary flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2"
+				aria-label="In progress"><span class="bg-primary h-2 w-2 rounded-full"></span></span
+			>
+		{:else}
+			<span
+				class="border-base-300 h-6 w-6 shrink-0 rounded-full border-2"
+				class:border-dashed={row.status === 'partial'}
+				aria-hidden="true"
+			></span>
+		{/if}
+		{#if row.status === 'done' && row.log}
+			<a href={historyItemHref(row.log.id)} class="flex min-w-0 flex-1 items-center gap-3">
+				<span class="flex min-w-0 flex-1 flex-col">
+					<span class="text-base-content/55 text-xs">{slotLabel(row.session.slot)}</span>
+					<span class="truncate font-semibold">{name}</span>
+					<span class="text-base-content/55 text-xs tabular-nums">{rowMeta(row)}</span>
+				</span>
+				<Chevron />
+			</a>
+		{:else}
+			<span class="flex min-w-0 flex-1 flex-col">
+				<span class="text-base-content/55 text-xs">{slotLabel(row.session.slot)}</span>
+				<span class="truncate font-semibold">{name}</span>
+				<span class="text-base-content/55 text-xs tabular-nums">{rowMeta(row)}</span>
+			</span>
+			{#if row.status !== 'live' && hero !== 'progress'}
+				<button
+					class="btn btn-sm bg-base-100 shrink-0 border-none shadow-none"
+					aria-label="Start {name}"
+					onclick={() => startRow(row)}
+					>{row.status === 'partial' && training.endedToday(row.source)
+						? 'Resume'
+						: 'Start'}</button
+				>
+			{/if}
+		{/if}
+	</div>
 {/snippet}
 
 {#if loading}
@@ -436,50 +579,24 @@
 							onclick={() =>
 								goto(
 									againSource!.type === 'program'
-										? runProgramHref(againSource!.programId, againSource!.day, { fresh: true })
+										? runProgramHref(
+												againSource!.programId,
+												againSource!.day,
+												againSource!.sessionId,
+												{
+													fresh: true
+												}
+											)
 										: runRoutineHref(againSource!.routineId, { fresh: true })
 								)}>Start again</button
 						>
 					{/if}
 				</div>
 			</div>
-		{:else if hero === 'program' || hero === 'routine'}
-			<div
-				class="bg-primary/10 ring-primary/15 flex flex-col gap-3.5 rounded-2xl p-4 ring-1 ring-inset"
-			>
-				<div>
-					{@render eyebrow(heroEyebrow, 'text-primary-strong')}
-					<p class="mt-1 text-2xl font-extrabold">{heroTitle}</p>
-					<p class="text-base-content/55 text-sm">
-						{counted(heroPlan.length, 'exercise')}
-						{#if estimate}· about {estimate.minutes} min{/if}
-						{#if heroEnded}
-							· {heroEnded.done} of {heroEnded.total} done today
-						{:else if lastDone}
-							· {lastDone}
-						{/if}
-					</p>
-				</div>
-				{#if preview.shown.length}{@render chips()}{/if}
-				{#if heroEnded}
-					<!-- Ended early today: pick it back up, or start a fresh one. -->
-					<div class="flex flex-col gap-1">
-						<button
-							class="btn btn-primary btn-lg h-13 rounded-2xl"
-							onclick={() => start({ resume: true })}>Resume workout</button
-						>
-						<button class="btn btn-ghost btn-sm" onclick={() => start({ fresh: true })}
-							>Start over</button
-						>
-					</div>
-				{:else}
-					<button
-						class="btn btn-primary btn-lg h-13 rounded-2xl"
-						aria-label="Start {heroTitle}"
-						onclick={() => start()}>Start workout</button
-					>
-				{/if}
-			</div>
+		{:else if hero === 'routine' || (hero === 'program' && !multi)}
+			{@render startHero()}
+		{:else if hero === 'program'}
+			<!-- Several sessions today: the hero sits in today's plan, below. -->
 		{:else if hero === 'rest' && program}
 			<!-- No green on a rest day: nothing is asked of you. -->
 			<div class="bg-base-200 flex flex-col gap-3 rounded-2xl p-4">
@@ -566,6 +683,24 @@
 					{/if}
 				</div>
 			{/if}
+		{/if}
+
+		{#if multi}
+			<section class="flex flex-col gap-2" aria-label="Today's plan">
+				<div class="flex items-baseline justify-between">
+					{@render eyebrow("Today's plan")}
+					<span class="text-base-content/55 text-xs tabular-nums"
+						>{doneCount} of {plan.length} done</span
+					>
+				</div>
+				{#each plan as row (row.session.id)}
+					{#if row.upNext && hero === 'program'}
+						{@render startHero()}
+					{:else}
+						{@render planRow(row)}
+					{/if}
+				{/each}
+			</section>
 		{/if}
 
 		{#if hero !== 'new'}

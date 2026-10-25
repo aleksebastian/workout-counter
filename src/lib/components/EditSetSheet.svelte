@@ -3,21 +3,34 @@
 	import SetEntry from '$lib/components/SetEntry.svelte';
 	import { session } from '$lib/session.svelte';
 	import DeleteIcon from '$lib/icons/delete.svg?raw';
-	import type { Set } from '$lib/types';
+	import MeasureEntry from '$lib/components/MeasureEntry.svelte';
+	import { formatSet, measureValues, unitsOf, type MeasureValues } from '$lib/logic/measure';
+	import type { Measure, Set } from '$lib/types';
 
 	interface Props {
 		open?: boolean;
 		set: Set | undefined;
-		onSave: (reps: number, weight: number, date: string, notes: string) => void;
+		/** How the set's exercise is measured. */
+		measure?: Measure;
+		onSave: (
+			reps: number,
+			weight: number,
+			date: string,
+			notes: string,
+			values: MeasureValues
+		) => void;
 		onDelete: () => void;
 	}
 
-	let { open = $bindable(false), set, onSave, onDelete }: Props = $props();
+	let { open = $bindable(false), set, measure = 'reps', onSave, onDelete }: Props = $props();
 
 	let unit = $derived(session.prefs.weightUnit);
 
 	let reps = $state(0);
 	let weight = $state(0);
+	let seconds = $state(0);
+	let meters = $state(0);
+	let holdSeconds = $state(0);
 	let notes = $state('');
 	let localDatetime = $state('');
 	let confirmingDelete = $state(false);
@@ -33,6 +46,9 @@
 		if (!open || !set) return;
 		reps = set.reps;
 		weight = set.weight ?? 0;
+		seconds = set.seconds ?? 0;
+		meters = set.meters ?? 0;
+		holdSeconds = set.holdSeconds ?? 0;
 		notes = set.notes ?? '';
 		localDatetime = toDatetimeLocal(set.date);
 		confirmingDelete = false;
@@ -45,7 +61,14 @@
 		const changed = !!set && localDatetime !== toDatetimeLocal(set.date);
 		const date =
 			changed && localDatetime ? new Date(localDatetime).toISOString() : (set?.date ?? '');
-		onSave(reps, weight, date, notes);
+		// Values of another measure stay as recorded: an exercise switched from
+		// time to reps keeps its old sets' times through an edit.
+		onSave(reps, weight, date, notes, {
+			seconds: set?.seconds,
+			meters: set?.meters,
+			holdSeconds: set?.holdSeconds,
+			...measureValues(measure, { seconds, meters, holdSeconds })
+		});
 		open = false;
 	}
 </script>
@@ -62,7 +85,13 @@
 				<div>
 					<p class="font-semibold">Delete this set?</p>
 					<p class="text-base-content/50 mt-1 text-sm">
-						{reps} reps{weight > 0 ? ` · ${weight} ${unit}` : ''} — this can't be undone.
+						{measure === 'reps'
+							? `${reps} reps${weight > 0 ? ` · ${weight} ${unit}` : ''}`
+							: formatSet(
+									{ id: '', date: '', reps, seconds, meters, holdSeconds },
+									measure,
+									unitsOf(session.prefs)
+								)} — this can't be undone.
 					</p>
 				</div>
 			</div>
@@ -80,7 +109,11 @@
 				>
 			</div>
 		{:else}
-			<SetEntry bind:reps bind:weight fadeClass="from-base-100" />
+			{#if measure === 'reps'}
+				<SetEntry bind:reps bind:weight fadeClass="from-base-100" />
+			{:else}
+				<MeasureEntry {measure} bind:reps bind:seconds bind:meters bind:holdSeconds />
+			{/if}
 
 			<div class="flex flex-col gap-1.5">
 				<label

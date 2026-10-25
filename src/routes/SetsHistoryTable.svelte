@@ -3,6 +3,15 @@
 	import { v4 as uuidv4 } from 'uuid';
 	import { format, formatRelative } from 'date-fns';
 	import EditSetSheet from '$lib/components/EditSetSheet.svelte';
+	import {
+		formatSeconds,
+		formatSet,
+		isTimed,
+		measureOf,
+		measureValues,
+		unitsOf,
+		type MeasureValues
+	} from '$lib/logic/measure';
 	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
 	import { swipeable } from '$lib/actions/swipeable';
 	import { exercises } from '$lib/data';
@@ -29,13 +38,15 @@
 	}: Props = $props();
 
 	let unit = $derived(session.prefs.weightUnit);
+	let measure = $derived(measureOf(workout));
+	let units = $derived(unitsOf(session.prefs));
 
 	let showEditSheet = $state(false);
 	let editing = $state<Set | undefined>(undefined);
 	let pendingDelete = $state<Set | undefined>(undefined);
 	let deleteDialog = $state<HTMLDialogElement>()!;
 
-	type DayGroup = { date: string; sets: Set[]; totalReps: number };
+	type DayGroup = { date: string; sets: Set[]; totalReps: number; totalSeconds: number };
 
 	let sessionDays = $derived.by((): DayGroup[] => {
 		const groups = new Map<string, Set[]>();
@@ -48,7 +59,8 @@
 			.map(([date, sets]) => ({
 				date,
 				sets,
-				totalReps: sets.reduce((sum, s) => sum + s.reps, 0)
+				totalReps: sets.reduce((sum, s) => sum + s.reps, 0),
+				totalSeconds: sets.reduce((sum, s) => sum + (s.seconds ?? 0), 0)
 			}))
 			.reverse();
 	});
@@ -68,10 +80,15 @@
 			id: uuidv4(),
 			reps: set.reps,
 			date: new Date().toISOString(),
-			...(set.weight ? { weight: set.weight } : {})
+			...(set.weight ? { weight: set.weight } : {}),
+			...measureValues(measure, {
+				seconds: set.seconds ?? 0,
+				meters: set.meters ?? 0,
+				holdSeconds: set.holdSeconds ?? 0
+			})
 		};
 		const ok = await exercises.addSet(workout.id, copy);
-		if (ok) {
+		if (ok && !isTimed(measure)) {
 			pwa.noteSetRecorded(restTimer.start({ routineId }));
 		}
 	}
@@ -86,9 +103,15 @@
 		exercises.removeSet(workout, set.id);
 	}
 
-	function saveEdit(reps: number, weight: number, date: string, notes: string) {
+	function saveEdit(
+		reps: number,
+		weight: number,
+		date: string,
+		notes: string,
+		values: MeasureValues
+	) {
 		if (!editing) return;
-		exercises.updateSet(workout, editing.id, { reps, weight, date, notes });
+		exercises.updateSet(workout, editing.id, { reps, weight, date, notes, ...values });
 	}
 </script>
 
@@ -115,13 +138,19 @@
 	</div>
 {:else}
 	{#each sessionDays as group, index (group.date)}
-		{@const hasWeight = group.sets.some((s) => s.weight)}
+		{@const hasWeight = measure === 'reps' && group.sets.some((s) => s.weight)}
 		{@const columns = hasWeight ? 'grid-cols-[1fr_1fr_1fr]' : 'grid-cols-[1fr_1fr]'}
 		<div class={index > 0 ? 'mt-6' : ''}>
 			{#if !(index === 0 && hideFirstHeader)}
 				<div class="mb-2 flex justify-between">
 					<h3>{dayHeading(group.date)}</h3>
-					<p><strong>{counted(group.totalReps, 'rep')}</strong></p>
+					<p>
+						<strong
+							>{measure === 'time' || measure === 'distance'
+								? formatSeconds(group.totalSeconds)
+								: counted(group.totalReps, 'rep')}</strong
+						>
+					</p>
 				</div>
 			{/if}
 
@@ -131,7 +160,7 @@
 					columns
 				].join(' ')}
 			>
-				<span>Reps</span>
+				<span>{measure === 'reps' ? 'Reps' : 'Set'}</span>
 				{#if hasWeight}<span>Weight</span>{/if}
 				<span>Time</span>
 			</div>
@@ -174,7 +203,9 @@
 									showEditSheet = true;
 								}}
 							>
-								<span class="text-sm">{set.reps}</span>
+								<span class="text-sm tabular-nums"
+									>{measure === 'reps' ? set.reps : formatSet(set, measure, units)}</span
+								>
 								{#if hasWeight}
 									<span class="text-sm">{set.weight ? `${set.weight} ${unit}` : '—'}</span>
 								{/if}
@@ -197,6 +228,7 @@
 <EditSetSheet
 	bind:open={showEditSheet}
 	set={editing}
+	{measure}
 	onSave={saveEdit}
 	onDelete={() => editing && remove(editing)}
 />

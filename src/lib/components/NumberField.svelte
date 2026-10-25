@@ -16,9 +16,13 @@
 		label: string;
 		mode: 'numeric' | 'decimal';
 		onchange: (n: number) => void;
+		/** Shown with at least this many digits, e.g. 2 for the seconds of "1:05". */
+		digits?: number;
 	}
 
-	let { value, label, mode, onchange }: Props = $props();
+	let { value, label, mode, onchange, digits = 1 }: Props = $props();
+
+	const shown = (n: number) => String(n).padStart(digits, '0');
 
 	let text = $state('');
 	let editing = $state(false);
@@ -31,7 +35,7 @@
 
 	// Follow the value (steppers, a new exercise) except while being typed in.
 	$effect(() => {
-		const current = String(value);
+		const current = shown(value);
 		if (!editing) text = current;
 	});
 
@@ -106,7 +110,7 @@
 	onblur={() => {
 		editing = false;
 		fresh = false;
-		text = String(value);
+		text = shown(value);
 	}}
 />
 

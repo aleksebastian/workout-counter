@@ -32,11 +32,13 @@ export function resolvePreferences(stored: Partial<Preferences> | undefined): Pr
 	const enabled =
 		stored?.timerEnabled ?? (stored?.timer ? usable : DEFAULT_PREFERENCES.timerEnabled);
 
+	const weightUnit = stored?.weightUnit ?? DEFAULT_PREFERENCES.weightUnit;
 	return {
 		...DEFAULT_PREFERENCES,
 		...stored,
 		timer: usable ? timer : DEFAULT_PREFERENCES.timer,
-		timerEnabled: enabled && usable
+		timerEnabled: enabled && usable,
+		distanceUnit: stored?.distanceUnit ?? (weightUnit === 'kg' ? 'km' : 'mi')
 	};
 }
 

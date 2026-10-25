@@ -4,11 +4,23 @@
  * browser runtime.
  */
 
+/** How an exercise is measured. Without one, it's reps and weight. */
+export type Measure = 'reps' | 'time' | 'distance' | 'hold';
+
+export const MEASURES: readonly Measure[] = ['reps', 'time', 'distance', 'hold'];
+
 export type Set = {
 	id: string;
 	date: string;
+	/** 0 for time and distance sets. */
 	reps: number;
 	weight?: number;
+	/** Time and distance sets: how long it took, in whole seconds. */
+	seconds?: number;
+	/** Distance sets, in meters whatever unit they were entered in. */
+	meters?: number;
+	/** Hold sets: how long each rep was held, in seconds. */
+	holdSeconds?: number;
 	notes?: string;
 };
 
@@ -22,6 +34,8 @@ export type Source = { catalogId: string };
 export type Workout = {
 	id: string;
 	name: string;
+	/** How its sets are measured; none means reps and weight. */
+	measure?: Measure;
 	sets: Set[];
 	notes?: string;
 	source?: Source;
@@ -31,7 +45,17 @@ export type Workout = {
 
 export type Duration = { minutes: number; seconds: number };
 
-export type RoutineExercise = {
+/** What a set should reach for an exercise measured by time, distance or a hold. */
+export type MeasureTargets = {
+	/** Time and distance: how long each set should last. */
+	targetSeconds?: number;
+	/** Distance: how far each set should go, in meters. */
+	targetMeters?: number;
+	/** Hold: how long each rep is held, in seconds. */
+	holdSeconds?: number;
+};
+
+export type RoutineExercise = MeasureTargets & {
 	workoutId: string;
 	targetSets?: number; // undefined = free-form (user advances manually)
 	minReps?: number;
@@ -51,12 +75,50 @@ export type Routine = {
 
 export type ProgramItem =
 	| { type: 'routine'; routineId: string }
-	| { type: 'exercise'; workoutId: string; targetSets: number };
+	| ({ type: 'exercise'; workoutId: string; targetSets: number } & MeasureTargets);
+
+/** When in the day a session happens. Only orders and labels sessions; there are no clock times. */
+export type Slot = 'morning' | 'midday' | 'afternoon' | 'evening' | 'night';
+
+export const SLOTS: readonly Slot[] = ['morning', 'midday', 'afternoon', 'evening', 'night'];
+
+export const SLOT_LABEL: Record<Slot, string> = {
+	morning: 'Morning',
+	midday: 'Midday',
+	afternoon: 'Afternoon',
+	evening: 'Evening',
+	night: 'Night'
+};
+
+/** What a session without a slot is called once its day has others to order it against. */
+export const ANYTIME = 'Anytime';
+
+/** The slot the clock is in: Morning before 11, Midday to 2, Afternoon to 5, Evening to 9, then Night. */
+export function currentSlot(now: Date = new Date()): Slot {
+	const h = now.getHours();
+	if (h < 11) return 'morning';
+	if (h < 14) return 'midday';
+	if (h < 17) return 'afternoon';
+	if (h < 21) return 'evening';
+	return 'night';
+}
+
+/** Sort key for a slot; one without a slot goes after all of them. */
+export function slotRank(slot: Slot | undefined): number {
+	return slot ? SLOTS.indexOf(slot) : SLOTS.length;
+}
+
+/** One guided workout within a program day, e.g. Morning cardio or the Evening lift. */
+export type ProgramSession = {
+	id: string;
+	slot?: Slot;
+	label?: string; // optional custom label e.g. "Upper Hypertrophy"
+	items: ProgramItem[];
+};
 
 export type ProgramDay = {
 	day: number; // 0=Sun … 6=Sat
-	label?: string; // optional custom label e.g. "Upper Hypertrophy"
-	items: ProgramItem[];
+	sessions: ProgramSession[];
 };
 
 export type Program = {
@@ -69,21 +131,53 @@ export type Program = {
 	createdAt: number;
 };
 
-/** Days of the week that have at least one scheduled item. */
-export function programDays(program: Program): number[] {
-	return program.schedule.filter((d) => d.items.length > 0).map((d) => d.day);
+/**
+ * A day's sessions that have something in them, in slot order: Morning
+ * first, sessions without a slot last, ties kept in the order they were added.
+ */
+export function daySessions(day: ProgramDay | null | undefined): ProgramSession[] {
+	return orderedSessions(day).filter((s) => s.items.length > 0);
 }
 
-/** Items scheduled for one day of the week. */
+/** Every session in a day, empty ones too (the editor shows them), in slot order. */
+export function orderedSessions(day: ProgramDay | null | undefined): ProgramSession[] {
+	return (day?.sessions ?? [])
+		.map((s, i) => ({ s, i }))
+		.sort((a, b) => slotRank(a.s.slot) - slotRank(b.s.slot) || a.i - b.i)
+		.map(({ s }) => s);
+}
+
+/** What a session's slot is called in a list: its slot, or Anytime. */
+export function slotLabel(slot: Slot | undefined): string {
+	return slot ? SLOT_LABEL[slot] : ANYTIME;
+}
+
+/** Sessions scheduled for one day of the week, in slot order. */
+export function sessionsForDay(program: Program, day: number): ProgramSession[] {
+	return daySessions(program.schedule.find((d) => d.day === day));
+}
+
+export function sessionOf(program: Program, day: number, sessionId: string): ProgramSession | null {
+	return (
+		program.schedule.find((d) => d.day === day)?.sessions.find((s) => s.id === sessionId) ?? null
+	);
+}
+
+/** Days of the week that have at least one scheduled item. */
+export function programDays(program: Program): number[] {
+	return program.schedule.filter((d) => daySessions(d).length > 0).map((d) => d.day);
+}
+
+/** Everything scheduled for one day of the week, across its sessions. */
 export function itemsForDay(program: Program, day: number): ProgramItem[] {
-	return program.schedule.find((d) => d.day === day)?.items ?? [];
+	return sessionsForDay(program, day).flatMap((s) => s.items);
 }
 
 /** The next day after `fromDay`, wrapping round the week, with anything scheduled; `null` if none. */
 export function nextScheduledDay(program: Program, fromDay: number): ProgramDay | null {
 	for (let i = 1; i <= 7; i++) {
 		const day = (fromDay + i) % 7;
-		const entry = program.schedule.find((d) => d.day === day && d.items.length > 0);
+		const entry = program.schedule.find((d) => d.day === day && daySessions(d).length > 0);
 		if (entry) return entry;
 	}
 	return null;
@@ -91,9 +185,25 @@ export function nextScheduledDay(program: Program, fromDay: number): ProgramDay 
 
 // ── Training sessions ────────────────────────────────────────────────────────
 
-/** What a guided session is running: one routine, or one day of a program. */
+/** What a guided session is running: one routine, or one session of a program day. */
 export type SessionSource =
-	{ type: 'routine'; routineId: string } | { type: 'program'; programId: string; day: number };
+	| { type: 'routine'; routineId: string }
+	| { type: 'program'; programId: string; day: number; sessionId: string };
+
+/**
+ * A running stopwatch for a time or distance set. Kept with the workout in
+ * progress and counted from the clock, so it keeps going while the app is
+ * closed and carries across devices.
+ */
+export type SetTimer = {
+	workoutId: string;
+	/** Epoch ms of the tap on Start. */
+	startedAt: number;
+	/** Time spent paused before now, in ms. */
+	pausedMs: number;
+	/** Epoch ms it was paused at, while paused. */
+	pausedAt?: number;
+};
 
 /**
  * The workout in progress, kept on the user document so it survives leaving
@@ -120,6 +230,8 @@ export type ActiveSession = {
 	 * duration leave it out, so a resumed workout doesn't count the break.
 	 */
 	pausedMs: number;
+	/** The stopwatch for the current time or distance set, while one is running or paused. */
+	timer?: SetTimer;
 };
 
 /**
@@ -143,9 +255,21 @@ export type SessionLog = {
 	endedAt: number;
 	/** `abandoned`: closed automatically after inactivity; `endedAt` is the last activity. */
 	endReason: 'finished' | 'abandoned';
+	/** Every planned exercise got its sets; false when it ended early. */
+	complete: boolean;
+	/** The program session's time of day when it was done, kept so a later change doesn't relabel it. */
+	slot?: Slot;
 	/** Time it spent ended before being resumed; the duration is end − start − this. */
 	pausedMs?: number;
-	exercises: { workoutId: string; name: string; sets: number; reps: number }[];
+	/** Time and distance sets add up their seconds and meters too. */
+	exercises: {
+		workoutId: string;
+		name: string;
+		sets: number;
+		reps: number;
+		seconds?: number;
+		meters?: number;
+	}[];
 	totals: { sets: number; reps: number };
 	/** Epoch ms — gives the subcollection a stable insertion order. */
 	createdAt: number;
@@ -158,6 +282,8 @@ export type Preferences = {
 	timerEnabled: boolean;
 	theme: 'light' | 'dark' | 'system';
 	weightUnit: 'lbs' | 'kg';
+	/** Follows the weight unit (kg → km, lbs → mi) until it's chosen. */
+	distanceUnit: 'km' | 'mi';
 	weekStart: 0 | 1;
 	weeklyGoal: number;
 	streaksEnabled: boolean;
@@ -226,6 +352,7 @@ export const parseWorkout: Parse<Workout> = (raw, id) => ({
 	...(raw as Workout),
 	id: str(raw.id, id),
 	name: str(raw.name),
+	measure: MEASURES.includes(raw.measure as Measure) ? (raw.measure as Measure) : undefined,
 	sets: arrayOf<Set>(raw.sets),
 	source: source(raw.source),
 	createdAt: num(raw.createdAt)
@@ -244,24 +371,44 @@ export const parseProgram: Parse<Program> = (raw, id) => ({
 	...(raw as Program),
 	id: str(raw.id, id),
 	name: str(raw.name),
-	// Each day's `items` is coerced too: `programDays` reads `d.items.length`,
-	// so a schedule containing a malformed day would still throw.
+	// Each session's `items` is coerced too: `programDays` reads `s.items.length`,
+	// so a schedule containing a malformed session would still throw.
 	schedule: arrayOf<RawDoc>(raw.schedule).map((day) => ({
-		...(day as unknown as ProgramDay),
 		day: num(day?.day),
-		items: arrayOf<ProgramItem>(day?.items)
+		sessions: arrayOf<RawDoc>(day?.sessions).map(parseProgramSession)
 	})),
 	source: source(raw.source),
 	createdAt: num(raw.createdAt)
 });
+
+/** An unknown slot is dropped, which lists the session as Anytime. */
+function parseProgramSession(raw: RawDoc | null | undefined): ProgramSession {
+	const slot = raw?.slot as Slot;
+	const label = str(raw?.label);
+	return {
+		id: str(raw?.id),
+		...(SLOTS.includes(slot) && { slot }),
+		...(label && { label }),
+		items: arrayOf<ProgramItem>(raw?.items)
+	};
+}
 
 function sessionSource(value: unknown): SessionSource | null {
 	const raw = (value ?? {}) as RawDoc;
 	if (raw.type === 'routine' && typeof raw.routineId === 'string') {
 		return { type: 'routine', routineId: raw.routineId };
 	}
-	if (raw.type === 'program' && typeof raw.programId === 'string') {
-		return { type: 'program', programId: raw.programId, day: num(raw.day) };
+	if (
+		raw.type === 'program' &&
+		typeof raw.programId === 'string' &&
+		typeof raw.sessionId === 'string'
+	) {
+		return {
+			type: 'program',
+			programId: raw.programId,
+			day: num(raw.day),
+			sessionId: raw.sessionId
+		};
 	}
 	return null;
 }
@@ -282,7 +429,20 @@ export function parseActiveSession(value: unknown): ActiveSession | null {
 		lastActiveAt: num(raw.lastActiveAt, startedAt),
 		currentWorkoutId: typeof raw.currentWorkoutId === 'string' ? raw.currentWorkoutId : null,
 		currentIndex: num(raw.currentIndex),
-		pausedMs: num(raw.pausedMs)
+		pausedMs: num(raw.pausedMs),
+		...(parseTimer(raw.timer) && { timer: parseTimer(raw.timer)! })
+	};
+}
+
+/** A timer missing its exercise or start is treated as none. */
+function parseTimer(value: unknown): SetTimer | null {
+	const raw = (value ?? {}) as RawDoc;
+	if (typeof raw.workoutId !== 'string' || typeof raw.startedAt !== 'number') return null;
+	return {
+		workoutId: raw.workoutId,
+		startedAt: raw.startedAt,
+		pausedMs: num(raw.pausedMs),
+		...(typeof raw.pausedAt === 'number' && { pausedAt: raw.pausedAt })
 	};
 }
 
@@ -318,6 +478,8 @@ export const parseSessionLog: Parse<SessionLog | null> = (raw, id) => {
 		startedAt,
 		endedAt: num(raw.endedAt, startedAt),
 		endReason: raw.endReason === 'abandoned' ? 'abandoned' : 'finished',
+		complete: raw.complete === true,
+		slot: SLOTS.includes(raw.slot as Slot) ? (raw.slot as Slot) : undefined,
 		exercises: arrayOf<SessionLog['exercises'][number]>(raw.exercises),
 		totals: { sets: num(totals.sets), reps: num(totals.reps) },
 		createdAt: num(raw.createdAt)

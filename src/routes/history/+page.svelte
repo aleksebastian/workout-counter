@@ -3,16 +3,18 @@
 	import { session } from '$lib/session.svelte';
 	import { training } from '$lib/logic/training.svelte';
 	import { buildPlan } from '$lib/logic/training';
+	import { formatSet, fromMeters, measureOf, unitsOf } from '$lib/logic/measure';
 	import {
 		historyFeed,
 		streakTarget,
 		weekStartOf,
 		weekStreak,
 		weekTotals,
+		topSet,
 		type FeedRow
 	} from '$lib/logic/history';
 	import { historyItemHref } from '$lib/routes';
-	import { programDays } from '$lib/types';
+	import { programDays, SLOT_LABEL, type SessionLog } from '$lib/types';
 	import Chevron from '$lib/components/Chevron.svelte';
 
 	/**
@@ -53,6 +55,8 @@
 		).size
 	);
 	let totals = $derived(weekTotals(logs, workouts, weekStart));
+	/** Distance gets a tile once anything is measured by it. */
+	let showDistance = $derived(workouts.some((w) => w.measure === 'distance'));
 	let minutes = $derived(Math.round(totals.durationMs / 60_000));
 	let streakRule = $derived(
 		program && programDays(program).length < goal
@@ -102,6 +106,11 @@
 		{ label: 'Earlier', rows: feed.filter((r) => r.at < thisWeekFrom) }
 	]);
 
+	/** "Evening · " for a program session done in a slot; nothing otherwise. */
+	function rowSlot(log: SessionLog): string {
+		return log.slot ? `${SLOT_LABEL[log.slot]} · ` : '';
+	}
+
 	function dayLabel(at: number): string {
 		const date = new Date(at);
 		const today = new Date();
@@ -124,12 +133,9 @@
 	}
 
 	function singleMeta(row: Extract<FeedRow, { kind: 'single' }>): string {
-		const best = row.sets.reduce((a, b) =>
-			(b.weight ?? 0) > (a.weight ?? 0) || ((b.weight ?? 0) === (a.weight ?? 0) && b.reps > a.reps)
-				? b
-				: a
-		);
-		const bestLabel = `${best.weight ? `${best.weight} ${unit} × ` : ''}${best.reps}`;
+		const measure = measureOf(row.workout);
+		const best = topSet(row.sets, measure)!;
+		const bestLabel = formatSet(best, measure, unitsOf(session.prefs));
 		return `${dayLabel(row.at)} · ${counted(row.sets.length, 'set')} · ${row.sets.length > 1 ? 'best ' : ''}${bestLabel}`;
 	}
 </script>
@@ -167,7 +173,7 @@
 		</div>
 	{:else}
 		<section class="flex flex-col gap-2">
-			<div class="grid grid-cols-3 gap-2">
+			<div class={['grid gap-2', showDistance ? 'grid-cols-2' : 'grid-cols-3']}>
 				<!-- With streaks off in Preferences, the week's training days instead. -->
 				<div class="bg-base-200 rounded-2xl px-2 py-3 text-center">
 					<b class="block text-2xl font-black tabular-nums">{streaksOn ? streak : daysThisWeek}</b>
@@ -190,6 +196,14 @@
 					<span class="text-base-content/55 text-xs">{minutes >= 60 ? 'hrs' : 'min'} this week</span
 					>
 				</div>
+				{#if showDistance}
+					<div class="bg-base-200 rounded-2xl px-2 py-3 text-center">
+						<b class="block text-2xl font-black tabular-nums"
+							>{fromMeters(totals.meters, session.prefs.distanceUnit)}</b
+						>
+						<span class="text-base-content/55 text-xs">{session.prefs.distanceUnit} this week</span>
+					</div>
+				{/if}
 			</div>
 			{#if streaksOn}
 				<p class="text-base-content/55 text-xs">{streakRule}</p>
@@ -286,7 +300,7 @@
 											{/if}
 										</span>
 										<span class="text-base-content/55 truncate text-xs"
-											>{dayLabel(row.at)} · {counted(row.sets, 'set')}{row.volume
+											>{dayLabel(row.at)} · {rowSlot(row.log)}{counted(row.sets, 'set')}{row.volume
 												? ` · ${weight(row.volume)}`
 												: ''} · {Math.max(1, Math.round(row.durationMs / 60_000))} min</span
 										>

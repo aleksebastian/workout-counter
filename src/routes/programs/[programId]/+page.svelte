@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { v4 as uuidv4 } from 'uuid';
 	import { counted } from '$lib/utils';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
@@ -7,13 +8,25 @@
 	import { setPageNav } from '$lib/nav.svelte';
 	import { DAY_FULL, DAY_NAMES } from '$lib/constants';
 	import { libraryHref, runProgramHref } from '$lib/routes';
-	import { itemsForDay, type ProgramDay, type ProgramItem } from '$lib/types';
+	import {
+		daySessions,
+		orderedSessions,
+		slotLabel,
+		SLOT_LABEL,
+		type ProgramDay,
+		type ProgramItem,
+		type ProgramSession,
+		type Slot,
+		type Workout
+	} from '$lib/types';
+	import { sessionName } from '$lib/logic/training';
 	import ActionSheet, { type SheetAction } from '$lib/components/ActionSheet.svelte';
 	import AddToPlanSheet, { type PlanChange } from '$lib/components/AddToPlanSheet.svelte';
 	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
 	import EditProgramSheet from '$lib/components/EditProgramSheet.svelte';
 	import NameSheet from '$lib/components/NameSheet.svelte';
 	import SortableList from '$lib/components/SortableList.svelte';
+	import SlotSheet, { slotIcon } from '$lib/components/SlotSheet.svelte';
 	import RowMenuButton from '../../library/RowMenuButton.svelte';
 	import AddIcon from '$lib/icons/add.svg?raw';
 	import EditIcon from '$lib/icons/edit.svg?raw';
@@ -21,6 +34,8 @@
 	import DragIndicatorIcon from '$lib/icons/drag_indicator.svg?raw';
 	import CheckIcon from '$lib/icons/check.svg?raw';
 	import NotesIcon from '$lib/icons/notes.svg?raw';
+	import ClockIcon from '$lib/icons/clock.svg?raw';
+	import DownIcon from '$lib/icons/down.svg?raw';
 
 	let program = $derived(session.program(page.params.programId));
 	let isActive = $derived(session.activeProgramId === program?.id);
@@ -37,19 +52,26 @@
 	let selectedDay = $state(todayDow);
 	let schedule = $derived<ProgramDay[]>(program?.schedule ?? []);
 	let dayEntry = $derived(schedule.find((d) => d.day === selectedDay) ?? null);
-	let dayItems = $derived(program ? itemsForDay(program, selectedDay) : []);
+	/** The day's sessions in slot order, empty ones too, so a new one can be filled in. */
+	let sessions = $derived(orderedSessions(dayEntry));
+	let multi = $derived(sessions.length > 1);
+
+	/** The session the add sheet, session menu and item menu act on. */
+	let targetId = $state<string | null>(null);
+	let target = $derived(sessions.find((s) => s.id === targetId) ?? null);
+	let targetItems = $derived(target?.items ?? []);
 
 	/**
-	 * What the add sheet shows as already on this day: exercises scheduled
+	 * What the add sheet shows as already in the session: exercises scheduled
 	 * directly (removable there), then those that come with a scheduled routine
 	 * (shown for context — removing one means removing the routine).
 	 */
 	let presentExercises = $derived.by(() => {
-		const direct = dayItems.flatMap((item) =>
+		const direct = targetItems.flatMap((item) =>
 			item.type === 'exercise' ? [{ workoutId: item.workoutId, removable: true }] : []
 		);
 		const seen = new Set(direct.map((p) => p.workoutId));
-		const viaRoutines = dayItems.flatMap((item) => {
+		const viaRoutines = targetItems.flatMap((item) => {
 			if (item.type !== 'routine') return [];
 			const routine = session.routine(item.routineId);
 			return (routine?.exercises ?? []).flatMap((ex) => {
@@ -61,7 +83,7 @@
 		return [...direct, ...viaRoutines];
 	});
 	let presentRoutineIds = $derived(
-		dayItems.filter((i) => i.type === 'routine').map((i) => i.routineId)
+		targetItems.filter((i) => i.type === 'routine').map((i) => i.routineId)
 	);
 
 	function setsToday(workoutId: string): number {
@@ -71,18 +93,17 @@
 		);
 	}
 
-	/** Flat exercise count for a day, expanding routines. */
-	function exerciseCount(day: number): number {
-		if (!program) return 0;
-		return itemsForDay(program, day).reduce((sum, item) => {
+	/** Flat exercise count, expanding routines. */
+	function countExercises(items: ProgramItem[]): number {
+		return items.reduce((sum, item) => {
 			if (item.type === 'exercise') return sum + 1;
 			return sum + (session.routine(item.routineId)?.exercises.length ?? 0);
 		}, 0);
 	}
 
-	let totalToday = $derived(exerciseCount(selectedDay));
-	let doneToday = $derived.by(() =>
-		dayItems.reduce((sum, item) => {
+	/** Exercises that have had their sets today. */
+	function countDone(items: ProgramItem[]): number {
+		return items.reduce((sum, item) => {
 			if (item.type === 'exercise') {
 				return sum + (setsToday(item.workoutId) >= item.targetSets ? 1 : 0);
 			}
@@ -94,24 +115,45 @@
 					ex.targetSets ? setsToday(ex.workoutId) >= ex.targetSets : setsToday(ex.workoutId) > 0
 				).length
 			);
-		}, 0)
+		}, 0);
+	}
+
+	/** A day with one session keeps the page-wide Start button it has always had. */
+	let only = $derived(sessions.length === 1 ? sessions[0] : null);
+	let totalToday = $derived(only ? countExercises(only.items) : 0);
+	let doneToday = $derived(only ? countDone(only.items) : 0);
+
+	/** A lone session without a slot doesn't need one; its chip invites setting it. */
+	function chipLabel(s: ProgramSession): string {
+		return !s.slot && !multi ? 'Set a time' : slotLabel(s.slot);
+	}
+	function addLabel(s: ProgramSession): string {
+		return s.slot ? `Add to ${SLOT_LABEL[s.slot].toLowerCase()}` : 'Add to session';
+	}
+	let targetTitle = $derived(
+		multi && target ? `${DAY_FULL[selectedDay]} · ${slotLabel(target.slot)}` : DAY_FULL[selectedDay]
 	);
 
 	// ── Sheets ──────────────────────────────────────────────────────────────────
-	let reordering = $state(false);
+	let reorderingId = $state<string | null>(null);
 	let showProgramMenu = $state(false);
+	let showSessionMenu = $state(false);
 	let showItemMenu = $state(false);
 	let showAdd = $state(false);
+	let showSlots = $state(false);
+	/** `add`: the slot sheet makes a new session; `change`: it moves the target. */
+	let slotMode = $state<'add' | 'change'>('add');
 	let showEditProgram = $state(false);
 	let showLabelSheet = $state(false);
 	let labelDraft = $state('');
 	let deleteProgramDialog = $state<HTMLDialogElement>()!;
 	let clearDayDialog = $state<HTMLDialogElement>()!;
 	let removeItemDialog = $state<HTMLDialogElement>()!;
+	let deleteSessionDialog = $state<HTMLDialogElement>()!;
 	let selectedItemIndex = $state<number | null>(null);
 
 	let selectedItem = $derived(
-		selectedItemIndex === null ? null : (dayItems[selectedItemIndex] ?? null)
+		selectedItemIndex === null ? null : (targetItems[selectedItemIndex] ?? null)
 	);
 	let selectedItemName = $derived(
 		selectedItem === null
@@ -121,7 +163,23 @@
 				: (session.workout(selectedItem.workoutId)?.name ?? 'Exercise')
 	);
 
-	// No "Start workout" here: the page's own Start button shows under the same
+	/** What each slot already holds, so picking one says what it joins. */
+	let taken = $derived.by(() => {
+		const notes: Partial<Record<Slot | 'anytime', string>> = {};
+		for (const s of sessions) {
+			if (slotMode === 'change' && s.id === targetId) continue;
+			if (!s.items.length) continue;
+			const key = s.slot ?? 'anytime';
+			notes[key] ??= `Has ${sessionName(
+				s,
+				(id) => session.routine(id),
+				(id) => session.workout(id)
+			)}`;
+		}
+		return notes;
+	});
+
+	// No "Start workout" here: the page's own Start buttons show under the same
 	// condition. Destructive actions come last, set apart by the sheet.
 	let programActions = $derived<SheetAction[]>(
 		[
@@ -130,28 +188,9 @@
 				icon: CheckIcon,
 				onSelect: () => user.setActiveProgram(isActive ? null : program!.id)
 			},
-			{
-				label: `Add to ${DAY_NAMES[selectedDay]}`,
-				icon: AddIcon,
-				onSelect: () => (showAdd = true)
-			},
-			dayItems.length > 1
-				? {
-						label: reordering ? 'Done reordering' : 'Reorder this day',
-						icon: DragIndicatorIcon,
-						onSelect: () => (reordering = !reordering)
-					}
-				: null,
-			{
-				label: dayEntry?.label ? 'Rename this day' : 'Label this day',
-				icon: NotesIcon,
-				onSelect: () => {
-					labelDraft = dayEntry?.label ?? '';
-					showLabelSheet = true;
-				}
-			},
+			{ label: `Add session to ${DAY_NAMES[selectedDay]}`, icon: AddIcon, onSelect: addSession },
 			{ label: 'Edit program', icon: EditIcon, onSelect: () => (showEditProgram = true) },
-			dayItems.length
+			sessions.length
 				? {
 						label: `Clear ${DAY_NAMES[selectedDay]}`,
 						icon: DeleteIcon,
@@ -166,6 +205,44 @@
 				onSelect: () => deleteProgramDialog?.showModal()
 			}
 		].filter((a) => a !== null)
+	);
+
+	let sessionActions = $derived<SheetAction[]>(
+		target
+			? [
+					{ label: addLabel(target), icon: AddIcon, onSelect: () => (showAdd = true) },
+					target.items.length > 1
+						? {
+								label: 'Reorder',
+								icon: DragIndicatorIcon,
+								onSelect: () => (reorderingId = target!.id)
+							}
+						: null,
+					{
+						label: 'Change time',
+						icon: ClockIcon,
+						onSelect: () => {
+							slotMode = 'change';
+							showSlots = true;
+						}
+					},
+					{
+						label: target.label ? 'Rename' : 'Add a label',
+						icon: NotesIcon,
+						onSelect: () => {
+							labelDraft = target!.label ?? '';
+							showLabelSheet = true;
+						}
+					},
+					{
+						label: 'Delete session',
+						icon: DeleteIcon,
+						destructive: true,
+						onSelect: () =>
+							target!.items.length ? deleteSessionDialog?.showModal() : removeSession(target!.id)
+					}
+				].filter((a) => a !== null)
+			: []
 	);
 
 	let itemActions = $derived<SheetAction[]>(
@@ -192,7 +269,7 @@
 					}
 				: null,
 			{
-				label: 'Remove from day',
+				label: multi ? 'Remove from session' : 'Remove from day',
 				icon: DeleteIcon,
 				destructive: true,
 				onSelect: () => removeItemDialog?.showModal()
@@ -202,33 +279,36 @@
 
 	// ── Mutations ───────────────────────────────────────────────────────────────
 
-	/** Upserts one day's items, dropping the day entry when it empties out. */
-	function withDay(day: number, items: ProgramItem[], label?: string): ProgramDay[] {
-		const existing = schedule.find((d) => d.day === day);
-		const resolvedLabel = label !== undefined ? label : existing?.label;
-		if (items.length === 0 && !resolvedLabel) return schedule.filter((d) => d.day !== day);
-		const next: ProgramDay = {
-			day,
-			items,
-			...(resolvedLabel ? { label: resolvedLabel } : {})
-		};
-		return existing
-			? schedule.map((d) => (d.day === day ? next : d))
-			: [...schedule, next].sort((a, b) => a.day - b.day);
+	/** The schedule with one day's sessions replaced, dropping the day when none are left. */
+	function withSessions(day: number, next: ProgramSession[]): ProgramDay[] {
+		if (next.length === 0) return schedule.filter((d) => d.day !== day);
+		const entry: ProgramDay = { day, sessions: next };
+		return schedule.some((d) => d.day === day)
+			? schedule.map((d) => (d.day === day ? entry : d))
+			: [...schedule, entry].sort((a, b) => a.day - b.day);
 	}
 
-	function saveDay(items: ProgramItem[], label?: string) {
+	function saveSessions(next: ProgramSession[], create: Workout[] = []) {
 		if (!program) return;
-		return programs.setSchedule(program.id, withDay(selectedDay, items, label));
+		return programs.saveSchedule(program.id, withSessions(selectedDay, next), create);
+	}
+
+	function patchSession(id: string, patch: (s: ProgramSession) => ProgramSession) {
+		saveSessions(sessions.map((s) => (s.id === id ? patch(s) : s)));
+	}
+
+	function setItems(items: ProgramItem[]) {
+		if (target) patchSession(target.id, (s) => ({ ...s, items }));
 	}
 
 	/**
-	 * One batch: new exercise documents and the day that points at them land
-	 * together, so the day can never reference a missing exercise.
+	 * One batch: new exercise documents and the session that points at them
+	 * land together, so a session can never reference a missing exercise. With
+	 * nothing scheduled yet, the first add makes the day's session.
 	 */
 	function applyChange(change: PlanChange) {
 		if (!program) return;
-		const kept = dayItems.filter((i) =>
+		const kept = targetItems.filter((i) =>
 			i.type === 'routine'
 				? !change.remove.routines.includes(i.routineId)
 				: !change.remove.exercises.includes(i.workoutId)
@@ -238,18 +318,51 @@
 				? { type: 'routine', routineId: a.routineId }
 				: { type: 'exercise', workoutId: a.workoutId, targetSets: 3 }
 		);
-		programs.saveSchedule(program.id, withDay(selectedDay, [...kept, ...added]), change.create);
+		const items = [...kept, ...added];
+		const next = target
+			? sessions.map((s) => (s.id === target!.id ? { ...s, items } : s))
+			: [...sessions, { id: uuidv4(), items }];
+		saveSessions(next, change.create);
+	}
+
+	function pickSlot(slot: Slot | undefined) {
+		if (slotMode === 'change') {
+			if (!target) return;
+			patchSession(target.id, ({ slot: _old, ...rest }) => ({ ...rest, ...(slot && { slot }) }));
+			return;
+		}
+		const created: ProgramSession = { id: uuidv4(), ...(slot && { slot }), items: [] };
+		saveSessions([...sessions, created]);
+		targetId = created.id;
+		showAdd = true;
+	}
+
+	function addSession() {
+		slotMode = 'add';
+		showSlots = true;
+	}
+
+	function removeSession(id: string) {
+		saveSessions(sessions.filter((s) => s.id !== id));
+	}
+
+	function saveLabel(label: string) {
+		if (!target) return;
+		patchSession(target.id, ({ label: _old, ...rest }) => ({
+			...rest,
+			...(label.trim() && { label: label.trim() })
+		}));
 	}
 
 	function removeItem(index: number) {
-		saveDay(dayItems.filter((_, i) => i !== index));
+		setItems(targetItems.filter((_, i) => i !== index));
 	}
 
 	function stepTargetSets(index: number, delta: number) {
-		const item = dayItems[index];
+		const item = targetItems[index];
 		if (item?.type !== 'exercise') return;
-		saveDay(
-			dayItems.map((it, i) =>
+		setItems(
+			targetItems.map((it, i) =>
 				i === index && it.type === 'exercise'
 					? { ...it, targetSets: Math.max(1, Math.min(99, it.targetSets + delta)) }
 					: it
@@ -257,9 +370,30 @@
 		);
 	}
 
-	function openItemMenu(index: number) {
+	function openSessionMenu(s: ProgramSession) {
+		targetId = s.id;
+		showSessionMenu = true;
+	}
+
+	function openAdd(s: ProgramSession | null) {
+		targetId = s?.id ?? null;
+		showAdd = true;
+	}
+
+	function changeSlot(s: ProgramSession) {
+		targetId = s.id;
+		slotMode = 'change';
+		showSlots = true;
+	}
+
+	function openItemMenu(s: ProgramSession, index: number) {
+		targetId = s.id;
 		selectedItemIndex = index;
 		showItemMenu = true;
+	}
+
+	function startSession(s: ProgramSession) {
+		if (program) goto(runProgramHref(program.id, selectedDay, s.id));
 	}
 </script>
 
@@ -323,6 +457,35 @@
 	{/if}
 {/snippet}
 
+{#snippet sessionItems(s: ProgramSession)}
+	{#if reorderingId === s.id}
+		<p class="text-primary-strong py-2 text-sm font-medium">Drag the handles to reorder.</p>
+		<SortableList
+			items={s.items}
+			key={(item) => (item.type === 'routine' ? item.routineId : item.workoutId)}
+			onReorder={(next) => patchSession(s.id, (old) => ({ ...old, items: next }))}
+		>
+			{#snippet children(item)}
+				<div class="bg-base-100 rounded-box flex items-start gap-3 px-4 py-3">
+					{@render itemBody(item)}
+				</div>
+			{/snippet}
+		</SortableList>
+		<button class="btn btn-primary btn-sm my-2 w-full" onclick={() => (reorderingId = null)}
+			>Done</button
+		>
+	{:else}
+		<ul class="flex flex-col">
+			{#each s.items as item, i (i)}
+				<li class="border-base-300 flex items-start gap-2 border-t py-3">
+					{@render itemBody(item)}
+					<RowMenuButton label="Options for this item" onclick={() => openItemMenu(s, i)} />
+				</li>
+			{/each}
+		</ul>
+	{/if}
+{/snippet}
+
 {#if session.programs === null}
 	<div class="mx-auto flex w-full max-w-lg flex-col gap-4">
 		<div class="skeleton h-12 w-full rounded-2xl"></div>
@@ -342,10 +505,10 @@
 		</div>
 
 		<!-- Day picker. Today's ring is inset: the row scrolls sideways, which
-		     clips anything drawn outside a button's edge. -->
+		     clips anything drawn outside a button's edge. One dot per session. -->
 		<div class="-mr-2 flex items-center gap-1.5 overflow-x-auto pr-2 pb-0.5">
 			{#each [0, 1, 2, 3, 4, 5, 6] as dayNum (dayNum)}
-				{@const count = exerciseCount(dayNum)}
+				{@const dots = daySessions(schedule.find((d) => d.day === dayNum)).length}
 				<div class="flex shrink-0 flex-col items-center">
 					<button
 						class="btn btn-sm"
@@ -354,29 +517,25 @@
 						class:ring-2={dayNum === todayDow && selectedDay !== dayNum}
 						class:ring-inset={dayNum === todayDow && selectedDay !== dayNum}
 						class:ring-primary={dayNum === todayDow && selectedDay !== dayNum}
-						aria-label="{DAY_FULL[dayNum]} — {counted(count, 'exercise')}"
+						aria-label="{DAY_FULL[dayNum]} — {counted(dots, 'session')}"
 						onclick={() => {
 							selectedDay = dayNum;
-							reordering = false;
+							reorderingId = null;
 						}}
 					>
 						{DAY_NAMES[dayNum]}
 					</button>
-					<span
-						class="mt-0.5 h-1.5 w-1.5 rounded-full transition-colors"
-						class:bg-primary={count > 0}
-						class:bg-transparent={count === 0}
-					></span>
+					<span class="mt-0.5 flex h-1.5 gap-0.5">
+						{#each { length: Math.min(dots, 4) } as _, i (i)}
+							<span class="bg-primary h-1.5 w-1.5 rounded-full"></span>
+						{/each}
+					</span>
 				</div>
 			{/each}
 		</div>
 
-		{#if dayEntry?.label}
-			<p class="text-base-content/60 text-sm font-medium">{dayEntry.label}</p>
-		{/if}
-
-		<!-- Start CTA -->
-		{#if totalToday > 0}
+		<!-- Start CTA, for a day with one session -->
+		{#if only && totalToday > 0}
 			<div class="flex gap-2">
 				{#if selectedDay === todayDow}
 					<div class="bg-base-200 flex-1 rounded-xl px-4 py-2.5 text-center">
@@ -388,7 +547,7 @@
 					class="btn btn-primary"
 					class:flex-3={selectedDay === todayDow}
 					class:w-full={selectedDay !== todayDow}
-					onclick={() => goto(runProgramHref(program.id, selectedDay))}
+					onclick={() => startSession(only!)}
 				>
 					{#if selectedDay !== todayDow}
 						Start {DAY_NAMES[selectedDay]} workout
@@ -403,36 +562,60 @@
 			</div>
 		{/if}
 
-		<!-- Items -->
-		{#if reordering}
-			<div class="bg-primary/10 text-primary rounded-xl px-4 py-2.5 text-sm font-medium">
-				Drag the handles to reorder, then tap Done.
-			</div>
-			<SortableList
-				items={dayItems}
-				key={(item) => (item.type === 'routine' ? item.routineId : item.workoutId)}
-				onReorder={(next) => saveDay(next)}
-			>
-				{#snippet children(item)}
-					<div class="bg-base-200 rounded-box flex items-start gap-3 px-4 py-3">
-						{@render itemBody(item)}
-					</div>
-				{/snippet}
-			</SortableList>
-			<button class="btn btn-primary w-full" onclick={() => (reordering = false)}>Done</button>
-		{:else if dayItems.length}
-			<ul class="flex flex-col gap-2 pb-2">
-				{#each dayItems as item, i (i)}
-					<li class="bg-base-200 rounded-box flex items-start gap-2 px-4 py-3">
-						{@render itemBody(item)}
-						<RowMenuButton label="Options for this item" onclick={() => openItemMenu(i)} />
-					</li>
+		{#if sessions.length}
+			<div class="flex flex-col gap-3 pb-2">
+				{#each sessions as s (s.id)}
+					{@const count = countExercises(s.items)}
+					<section
+						class="bg-base-200 rounded-box flex flex-col px-4 pt-2"
+						aria-label="{slotLabel(s.slot)} session"
+					>
+						<div class="flex min-h-11 items-center gap-2">
+							<button
+								class="btn btn-sm bg-base-300 gap-1.5 border-0 pr-2.5 pl-3 [&_svg]:h-4 [&_svg]:w-4"
+								aria-label="When: {slotLabel(s.slot)}. Change"
+								onclick={() => changeSlot(s)}
+							>
+								{@html slotIcon(s.slot)}
+								{chipLabel(s)}
+								<span class="[&>svg]:h-3.5 [&>svg]:w-3.5">{@html DownIcon}</span>
+							</button>
+							{#if count}
+								<span class="text-base-content/50 text-xs">{counted(count, 'exercise')}</span>
+							{/if}
+							<span class="flex-1"></span>
+							{#if multi && s.items.length}
+								<button class="btn btn-ghost btn-sm" onclick={() => startSession(s)}>Start</button>
+							{/if}
+							<RowMenuButton
+								label="Options for the {slotLabel(s.slot).toLowerCase()} session"
+								onclick={() => openSessionMenu(s)}
+							/>
+						</div>
+						{#if s.label}
+							<p class="text-base-content/60 pb-2 text-sm font-medium">{s.label}</p>
+						{/if}
+						{@render sessionItems(s)}
+						<button
+							class="border-base-300 text-primary-strong flex h-11 items-center gap-2 border-t text-sm font-semibold [&>svg]:h-4.5 [&>svg]:w-4.5"
+							onclick={() => openAdd(s)}
+						>
+							{@html AddIcon}
+							{addLabel(s)}
+						</button>
+					</section>
 				{/each}
-			</ul>
+				<button
+					class="btn border-base-300 w-full border-dashed bg-transparent"
+					onclick={addSession}
+				>
+					{@html AddIcon} Add session
+				</button>
+			</div>
 		{:else}
 			<div class="flex flex-col items-center gap-3 py-12 text-center">
 				<p class="text-base-content/50 text-sm">Nothing scheduled for {DAY_FULL[selectedDay]}.</p>
-				<button class="btn btn-primary btn-sm" onclick={() => (showAdd = true)}>
+				<button class="btn btn-primary btn-sm" onclick={() => openAdd(null)}>
 					{@html AddIcon} Add to {DAY_NAMES[selectedDay]}
 				</button>
 			</div>
@@ -447,12 +630,26 @@
 {/if}
 
 <ActionSheet bind:open={showProgramMenu} title={program?.name} actions={programActions} />
+<ActionSheet
+	bind:open={showSessionMenu}
+	title={target ? `${slotLabel(target.slot)} session` : ''}
+	actions={sessionActions}
+/>
 <ActionSheet bind:open={showItemMenu} title={selectedItemName} actions={itemActions} />
+
+<SlotSheet
+	bind:open={showSlots}
+	title={slotMode === 'add' ? 'Add session' : 'Change time'}
+	subtitle="{DAY_FULL[selectedDay]} · pick when you'll do it"
+	{taken}
+	current={slotMode === 'change' && target ? (target.slot ?? 'anytime') : null}
+	onPick={pickSlot}
+/>
 
 <AddToPlanSheet
 	bind:open={showAdd}
-	title="Add to {DAY_FULL[selectedDay]}"
-	presentLabel="On {DAY_FULL[selectedDay]}"
+	title="Add to {targetTitle}"
+	presentLabel="In this session"
 	{presentExercises}
 	routines={{ all: session.routines ?? [], present: presentRoutineIds }}
 	onSave={applyChange}
@@ -466,7 +663,7 @@
 
 <ConfirmationDialog
 	bind:dialog={removeItemDialog}
-	header="Remove from {DAY_FULL[selectedDay]}?"
+	header="Remove from {targetTitle}?"
 	content="This only changes the schedule. Nothing else is deleted."
 	actionLabel="Remove"
 	destructive
@@ -479,13 +676,26 @@
 />
 
 <ConfirmationDialog
+	bind:dialog={deleteSessionDialog}
+	header="Delete the {target ? slotLabel(target.slot).toLowerCase() : ''} session?"
+	content="This only changes the schedule. Nothing else is deleted."
+	actionLabel="Delete session"
+	destructive
+	onclose={(e) => {
+		if ((e.target as HTMLDialogElement).returnValue === 'default' && target) {
+			removeSession(target.id);
+		}
+	}}
+/>
+
+<ConfirmationDialog
 	bind:dialog={clearDayDialog}
 	header="Clear {DAY_FULL[selectedDay]}?"
-	content="Removes everything scheduled for this day."
+	content="Removes every session scheduled for this day."
 	actionLabel="Clear day"
 	destructive
 	onclose={(e) => {
-		if ((e.target as HTMLDialogElement).returnValue === 'default') saveDay([]);
+		if ((e.target as HTMLDialogElement).returnValue === 'default') saveSessions([]);
 	}}
 />
 
@@ -505,9 +715,9 @@
 
 <NameSheet
 	bind:open={showLabelSheet}
-	title="Label {DAY_FULL[selectedDay]}"
+	title="Label this session"
 	placeholder="e.g. Upper Hypertrophy"
 	submitLabel="Save"
 	initialValue={labelDraft}
-	onSave={(label) => saveDay(dayItems, label)}
+	onSave={saveLabel}
 />

@@ -102,7 +102,14 @@ export async function writeDoc(path: string, data: Record<string, unknown>) {
 /** The sets stored for an exercise, straight from the emulator. */
 export async function storedSets(workoutId: string) {
 	const doc = await readDoc(`users/${UID}/workouts/${workoutId}`);
-	return (doc?.sets ?? []) as { id: string; reps: number; weight?: number }[];
+	return (doc?.sets ?? []) as {
+		id: string;
+		reps: number;
+		weight?: number;
+		seconds?: number;
+		meters?: number;
+		holdSeconds?: number;
+	}[];
 }
 
 /**
