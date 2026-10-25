@@ -1,4 +1,4 @@
-import type { Duration, Measure } from '$lib/types';
+import type { Duration, Measure, MeasureTargets } from '$lib/types';
 
 /**
  * The Explore catalog: curated exercises, routines and programs a user can add
@@ -45,7 +45,7 @@ export type CatalogExercise = {
 };
 
 /** Mirrors `RoutineExercise`, with a catalog exercise id in place of a workout id. */
-export type CatalogRoutineExercise = {
+export type CatalogRoutineExercise = MeasureTargets & {
 	exerciseId: string;
 	targetSets?: number;
 	minReps?: number;

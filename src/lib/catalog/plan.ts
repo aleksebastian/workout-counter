@@ -55,9 +55,25 @@ export type ImportPlan = {
 export type PlanOptions = {
 	/** Keyed by catalog exercise id. Unlisted alias matches default to `mine`. */
 	aliasChoices?: Record<string, AliasChoice>;
+	/**
+	 * Bundle ids that aren't catalog ids — a photo import's own exercises and
+	 * routine. Nothing is stamped with them, so a later add can't match by a
+	 * made-up id.
+	 */
+	unstamped?: ReadonlySet<string>;
 	newId?: () => string;
 	now?: number;
 };
+
+/** The targets a catalog routine exercise carries over to the library. */
+const TARGET_KEYS = [
+	'targetSets',
+	'minReps',
+	'maxReps',
+	'targetSeconds',
+	'targetMeters',
+	'holdSeconds'
+] as const;
 
 /** The same comparison the name validators use, so a planned name never fails them later. */
 const nameKey = (name: string) => name.trim().toLowerCase();
@@ -108,6 +124,7 @@ export function planImport(
 	// Consecutive timestamps keep created items in catalog order, since every
 	// collection is listed by `createdAt`.
 	let clock = options.now ?? Date.now();
+	const stampOf = (id: string) => (options.unstamped?.has(id) ? {} : { source: { catalogId: id } });
 
 	const create: ImportPlan['create'] = { workouts: [], routines: [], programs: [] };
 	const stamps: ImportPlan['stamps'] = [];
@@ -133,7 +150,7 @@ export function planImport(
 		if (reuse) {
 			claimed.add(match.workout.id);
 			workoutIdFor.set(exercise.id, match.workout.id);
-			if (!match.workout.source) {
+			if (!match.workout.source && !options.unstamped?.has(exercise.id)) {
 				stamps.push({ workoutId: match.workout.id, catalogId: exercise.id });
 			}
 		} else {
@@ -142,7 +159,7 @@ export function planImport(
 				name: freeName(exercise.name, workoutNames),
 				...(exercise.measure && { measure: exercise.measure }),
 				sets: [],
-				source: { catalogId: exercise.id },
+				...stampOf(exercise.id),
 				createdAt: clock++
 			};
 			create.workouts.push(workout);
@@ -157,20 +174,13 @@ export function planImport(
 	const routineNames = new Set(library.routines.map((r) => nameKey(r.name)));
 
 	for (const catalogRoutine of bundle.routines) {
-		const list: RoutineExercise[] = catalogRoutine.exercises.flatMap(
-			({ exerciseId, targetSets, minReps, maxReps }) => {
-				const workoutId = workoutIdFor.get(exerciseId);
-				if (!workoutId) return [];
-				return [
-					{
-						workoutId,
-						...(targetSets !== undefined && { targetSets }),
-						...(minReps !== undefined && { minReps }),
-						...(maxReps !== undefined && { maxReps })
-					}
-				];
-			}
-		);
+		const list: RoutineExercise[] = catalogRoutine.exercises.flatMap((ex) => {
+			const workoutId = workoutIdFor.get(ex.exerciseId);
+			if (!workoutId) return [];
+			const entry: RoutineExercise = { workoutId };
+			for (const key of TARGET_KEYS) if (ex[key] !== undefined) entry[key] = ex[key];
+			return [entry];
+		});
 
 		const existing = library.routines.find(
 			(r) => isCopyOf(r.name, catalogRoutine.name) && sameExercises(r.exercises, list)
@@ -185,7 +195,7 @@ export function planImport(
 			name: freeName(catalogRoutine.name, routineNames),
 			exercises: list,
 			...(catalogRoutine.timer && { timer: catalogRoutine.timer }),
-			source: { catalogId: catalogRoutine.id },
+			...stampOf(catalogRoutine.id),
 			createdAt: clock++
 		};
 		create.routines.push(routine);
@@ -231,7 +241,7 @@ export function planImport(
 			id: newId(),
 			name: freeName(catalogProgram.name, programNames),
 			schedule,
-			source: { catalogId: catalogProgram.id },
+			...stampOf(catalogProgram.id),
 			createdAt: clock++
 		};
 		create.programs.push(program);

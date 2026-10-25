@@ -20,6 +20,9 @@
 	import EditIcon from '$lib/icons/edit.svg?raw';
 	import DeleteIcon from '$lib/icons/delete.svg?raw';
 	import AddIcon from '$lib/icons/add.svg?raw';
+	import CameraIcon from '$lib/icons/camera.svg?raw';
+	import CompassIcon from '$lib/icons/compass.svg?raw';
+	import ImportPhotoSheet from '$lib/components/ImportPhotoSheet.svelte';
 	import type { Routine } from '$lib/types';
 
 	let showNew = $state(false);
@@ -75,6 +78,30 @@
 		].filter((a) => a !== null)
 	);
 
+	let showCreate = $state(false);
+	let showImport = $state(false);
+
+	const createActions: SheetAction[] = [
+		{
+			label: 'Start from scratch',
+			description: 'Name it, then add exercises',
+			icon: EditIcon,
+			onSelect: () => (showNew = true)
+		},
+		{
+			label: 'Import from photo',
+			description: 'A screenshot, notebook page or whiteboard',
+			icon: CameraIcon,
+			onSelect: () => (showImport = true)
+		},
+		{
+			label: 'Browse ready-made',
+			description: 'Routines from Discover',
+			icon: CompassIcon,
+			onSelect: () => goto(discoverHref('routines'))
+		}
+	];
+
 	function openMenu(routine: Routine) {
 		selected = routine;
 		showActions = true;
@@ -110,6 +137,9 @@
 				<button class="btn btn-primary" onclick={() => (showNew = true)}>
 					{@html AddIcon} Create your first routine
 				</button>
+				<button class="btn btn-ghost btn-sm" onclick={() => (showImport = true)}
+					>{@html CameraIcon} Import from photo</button
+				>
 				<a class="btn btn-ghost btn-sm" href={discoverHref('routines')}
 					>Browse ready-made routines</a
 				>
@@ -190,4 +220,8 @@
 	}}
 />
 
-<FAB onclick={() => (showNew = true)} label="New routine" />
+<ActionSheet bind:open={showCreate} title="New routine" actions={createActions} />
+
+<ImportPhotoSheet bind:open={showImport} />
+
+<FAB onclick={() => (showCreate = true)} label="New routine" />

@@ -15,6 +15,13 @@ async function librarySegment(page: Page, name: 'Exercises' | 'Routines' | 'Prog
 /** Fills and submits the NameSheet the + button opens. */
 async function createNamed(page: Page, fab: string, title: string, name: string, submit: string) {
 	await page.getByRole('button', { name: fab, exact: true }).click();
+	// New routine first asks how: from scratch, from a photo, or ready-made.
+	if (fab === 'New routine') {
+		await page
+			.getByRole('dialog')
+			.getByRole('button', { name: /^Start from scratch/ })
+			.click();
+	}
 	const input = page.getByRole('textbox', { name: title });
 	await input.fill(name);
 	await page.getByRole('button', { name: submit, exact: true }).click();

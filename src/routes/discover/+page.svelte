@@ -15,7 +15,11 @@
 	} from '$lib/catalog/labels';
 	import SegmentedTabs from '$lib/components/SegmentedTabs.svelte';
 	import Chevron from '$lib/components/Chevron.svelte';
+	import ImportPhotoSheet from '$lib/components/ImportPhotoSheet.svelte';
+	import CameraIcon from '$lib/icons/camera.svg?raw';
 	import WeekStrip from './WeekStrip.svelte';
+
+	let showImport = $state(false);
 
 	let { data } = $props();
 	let catalog = $derived(data.catalog);
@@ -96,6 +100,26 @@
 			</button>
 		{/if}
 	</div>
+
+	{#if tab.current === 'routines' && !search}
+		<section class="bg-base-200 rounded-box flex flex-col gap-3 p-4" aria-label="Upload your own">
+			<div class="flex items-start gap-3">
+				<span class="bg-primary/15 text-primary-strong rounded-full p-2.5 [&>svg]:h-5 [&>svg]:w-5"
+					>{@html CameraIcon}</span
+				>
+				<div class="flex flex-col gap-0.5">
+					<p class="font-semibold">Have your own workout?</p>
+					<p class="text-base-content/60 text-sm">
+						Snap a photo or screenshot and turn it into a routine.
+					</p>
+				</div>
+			</div>
+			<button
+				class="btn btn-sm bg-primary/15 text-primary-strong self-start rounded-full border-none"
+				onclick={() => (showImport = true)}>Upload your own</button
+			>
+		</section>
+	{/if}
 
 	{#if tab.current === 'exercises'}
 		<div
@@ -200,3 +224,5 @@
 		{@render noMatches()}
 	{/if}
 </div>
+
+<ImportPhotoSheet bind:open={showImport} />

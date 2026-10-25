@@ -11,6 +11,7 @@
 	import { setPageNav } from '$lib/nav.svelte';
 	import { libraryHref, runRoutineHref } from '$lib/routes';
 	import { formatDuration } from '$lib/logic/rest';
+	import { repRange } from '$lib/logic/targets';
 	import ActionSheet, { type SheetAction } from '$lib/components/ActionSheet.svelte';
 	import AddToPlanSheet, { type PlanChange } from '$lib/components/AddToPlanSheet.svelte';
 	import Chevron from '$lib/components/Chevron.svelte';
@@ -171,7 +172,7 @@
 					{/if}
 					{#if row.ex.minReps || row.ex.maxReps}
 						<span class="badge badge-sm badge-outline font-medium">
-							{row.ex.minReps ?? '?'}–{row.ex.maxReps ?? '?'} reps
+							{repRange(row.ex)} reps
 						</span>
 					{/if}
 				</div>
