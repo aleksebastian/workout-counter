@@ -8,7 +8,13 @@
 	import { toaster } from '$lib/toast.svelte';
 	import { getNameValidationMsg } from '$lib/utils';
 	import { libraryItemHref } from '$lib/routes';
-	import { loadCatalog, planImport, type AliasChoice, type Catalog } from '$lib/catalog';
+	import {
+		loadCatalog,
+		planImport,
+		type AliasChoice,
+		type Catalog,
+		type ImportPlan
+	} from '$lib/catalog';
 	import { normalizeName } from '$lib/catalog/match';
 	import {
 		addSession,
@@ -76,6 +82,7 @@
 		preview = null;
 		note = '';
 		draft = null;
+		saved = null;
 		aliasChoices = {};
 		nameError = undefined;
 		programError = undefined;
@@ -142,7 +149,15 @@
 
 	// ── Review ────────────────────────────────────────────────────────────────
 
+	/**
+	 * The plan being written. Held while saving: the write lands in the library
+	 * before the sheet closes, and re-planning against it would flash
+	 * "already in your library" over the draft.
+	 */
+	let saved = $state<ImportPlan | null>(null);
+
 	let plan = $derived.by(() => {
+		if (saved) return saved;
 		const lib = session.library;
 		if (!draft || !catalog || !lib) return null;
 		const { bundle, unstamped } = draftBundle(draft, catalog.exercises);
@@ -350,9 +365,13 @@
 		}
 
 		saving = true;
+		saved = plan;
 		const ok = await library.add(plan, change);
 		saving = false;
-		if (!ok) return;
+		if (!ok) {
+			saved = null;
+			return;
+		}
 		toaster.success(d.type === 'program' ? 'Added to your program' : 'Routine saved');
 		open = false;
 		goto(target);
@@ -398,7 +417,8 @@
 {#snippet photo(scanning: boolean)}
 	<div class="bg-base-200 relative h-56 overflow-hidden rounded-2xl">
 		{#if preview}
-			<img src={preview} alt="Your workout to import" class="h-full w-full object-cover" />
+			<!-- Contained, not cropped: a tall notebook page keeps its title in view. -->
+			<img src={preview} alt="Your workout to import" class="h-full w-full object-contain" />
 		{/if}
 		{#if scanning}
 			<div class="bg-base-100/40 absolute inset-0"></div>

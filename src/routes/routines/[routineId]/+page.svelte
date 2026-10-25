@@ -171,7 +171,11 @@
 					{/if}
 					{#if row.ex.minReps || row.ex.maxReps}
 						<span class="badge badge-sm badge-outline font-medium">
-							{row.ex.minReps ?? '?'}–{row.ex.maxReps ?? '?'} reps
+							{#if row.ex.minReps === row.ex.maxReps}
+								{row.ex.minReps} reps
+							{:else}
+								{row.ex.minReps ?? '?'}–{row.ex.maxReps ?? '?'} reps
+							{/if}
 						</span>
 					{/if}
 				</div>
