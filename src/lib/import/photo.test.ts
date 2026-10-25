@@ -252,6 +252,20 @@ describe('addSessions', () => {
 		expect(schedule[0].sessions).toHaveLength(1);
 	});
 
+	it('skips a day that already runs the routine in that slot', () => {
+		const existing: ProgramDay[] = [
+			{
+				day: 1,
+				sessions: [{ id: 's1', slot: 'morning', items: [{ type: 'routine', routineId: 'r1' }] }]
+			}
+		];
+		const next = addSessions(existing, [1, 3], 'morning', 'r1', () => 'new');
+		expect(next[0].sessions.map((s) => s.id)).toEqual(['s1']);
+		expect(next[1]).toMatchObject({ day: 3, sessions: [{ id: 'new' }] });
+		// Another slot is a different session, so it's still added.
+		expect(addSessions(existing, [1], 'evening', 'r1', () => 'pm')[0].sessions).toHaveLength(2);
+	});
+
 	it('leaves the slot off when none is given', () => {
 		const [day] = addSessions([], [2], undefined, 'r1', () => 'x');
 		expect(day.sessions).toEqual([{ id: 'x', items: [{ type: 'routine', routineId: 'r1' }] }]);

@@ -154,8 +154,16 @@ export function toDraft(extraction: Extraction, programs: Program[] | null, toda
 
 // ── Showing the days ─────────────────────────────────────────────────────────
 
-const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const DAY_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+export const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+export const DAY_LONG = [
+	'Sunday',
+	'Monday',
+	'Tuesday',
+	'Wednesday',
+	'Thursday',
+	'Friday',
+	'Saturday'
+];
 
 /** Days in the order the user's week runs, starting on `weekStart`. */
 export function weekOrder(days: number[], weekStart: 0 | 1): number[] {
@@ -260,7 +268,8 @@ export function bundleIdFor(ex: Named, catalog: CatalogExercise[]): string {
 /**
  * The schedule with the routine added as a new session on each of `days`,
  * all in the same slot. A day that already has a session in that slot keeps
- * it; the new one sorts after it.
+ * it; the new one sorts after it. A day that already runs this routine in
+ * that slot is left alone, so importing the same photo twice doesn't double it.
  */
 export function addSessions(
 	schedule: ProgramDay[],
@@ -270,6 +279,13 @@ export function addSessions(
 	newId: () => string = uuidv4
 ): ProgramDay[] {
 	return days.reduce((next, day) => {
+		const already = next
+			.find((d) => d.day === day)
+			?.sessions.some(
+				(s) =>
+					s.slot === slot && s.items.some((i) => i.type === 'routine' && i.routineId === routineId)
+			);
+		if (already) return next;
 		const session = {
 			id: newId(),
 			...(slot && { slot }),

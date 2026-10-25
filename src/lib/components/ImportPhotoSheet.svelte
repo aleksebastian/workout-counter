@@ -20,6 +20,8 @@
 		addSessions,
 		andList,
 		bundleIdFor,
+		DAY_LONG,
+		DAY_SHORT,
 		daysLabel,
 		daysSentence,
 		weekOrder,
@@ -48,9 +50,6 @@
 
 	type Step = 'pick' | 'reading' | 'review' | 'error';
 	type Failure = 'unreadable' | 'limit' | 'offline' | 'failed';
-
-	const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-	const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 	let step = $state<Step>('pick');
 	let failure = $state<Failure>('failed');
@@ -517,7 +516,7 @@
 						class="btn btn-xs rounded-full"
 						onclick={() =>
 							suggest(
-								`Add to ${session.activeProgram ? `my ${session.activeProgram.name} program` : 'a new program'} on ${DAY_NAMES[new Date().getDay()]}`
+								`Add to ${session.activeProgram ? `my ${session.activeProgram.name} program` : 'a new program'} on ${DAY_LONG[new Date().getDay()]}`
 							)}>Add to a program day</button
 					>
 				</div>
@@ -766,8 +765,8 @@
 							<button
 								class={['btn btn-sm px-0', on && 'btn-primary']}
 								aria-pressed={on}
-								aria-label={DAY_NAMES[day]}
-								onclick={() => toggleDay(day)}>{DAYS[day]}</button
+								aria-label={DAY_LONG[day]}
+								onclick={() => toggleDay(day)}>{DAY_SHORT[day]}</button
 							>
 						{/each}
 					</div>
