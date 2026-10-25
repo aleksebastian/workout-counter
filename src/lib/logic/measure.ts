@@ -85,6 +85,20 @@ export function formatPace(meters: number, seconds: number, unit: DistanceUnit):
 
 export type Units = { weight: string; distance: DistanceUnit };
 
+/** A set's numbers beyond reps and weight. */
+export type MeasureValues = Pick<Set, 'seconds' | 'meters' | 'holdSeconds'>;
+
+/** Only the values a set of this measure keeps: a hold set has no seconds, a time set no meters. */
+export function measureValues(
+	measure: Measure,
+	values: { seconds: number; meters: number; holdSeconds: number }
+): MeasureValues {
+	if (measure === 'time') return { seconds: values.seconds };
+	if (measure === 'distance') return { seconds: values.seconds, meters: values.meters };
+	if (measure === 'hold') return { holdSeconds: values.holdSeconds };
+	return {};
+}
+
 /** One set as it reads anywhere: "135 lb × 8", "10 reps", "30:00", "5.2 km · 28:30", "10 × 5s". */
 export function formatSet(set: Set, measure: Measure, units: Units): string {
 	switch (measure) {

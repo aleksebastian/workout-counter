@@ -14,7 +14,9 @@
 		typingMin,
 		type TargetsDraft
 	} from '$lib/logic/targets';
-	import type { RoutineExercise } from '$lib/types';
+	import { session } from '$lib/session.svelte';
+	import { fromMeters, toMeters } from '$lib/logic/measure';
+	import type { Measure, MeasureTargets, RoutineExercise } from '$lib/types';
 
 	/**
 	 * Target sets and rep range for one exercise inside a routine. This used to
@@ -26,17 +28,53 @@
 		open?: boolean;
 		exerciseName?: string;
 		exercise: RoutineExercise | undefined;
-		onSave: (targets: Pick<RoutineExercise, 'targetSets' | 'minReps' | 'maxReps'>) => void;
+		/** How the exercise is measured: time and distance swap the rep range for their own targets. */
+		measure?: Measure;
+		onSave: (
+			targets: Pick<RoutineExercise, 'targetSets' | 'minReps' | 'maxReps'> & MeasureTargets
+		) => void;
 	}
 
-	let { open = $bindable(false), exerciseName = '', exercise, onSave }: Props = $props();
+	let {
+		open = $bindable(false),
+		exerciseName = '',
+		exercise,
+		measure = 'reps',
+		onSave
+	}: Props = $props();
 
 	let draft = $state<TargetsDraft>(initialDraft(undefined));
+	// Time and hold in seconds, distance in the user's unit; null means no target.
+	let minutes = $state<number | null>(null);
+	let secs = $state<number | null>(null);
+	let distance = $state<number | null>(null);
+	let hold = $state<number | null>(null);
+	let unit = $derived(session.prefs.distanceUnit);
+	let timed = $derived(measure === 'time' || measure === 'distance');
 
 	$effect(() => {
 		if (!open || !exercise) return;
 		draft = initialDraft(exercise);
+		const t = exercise.targetSeconds;
+		minutes = t ? Math.floor(t / 60) : null;
+		secs = t ? t % 60 : null;
+		distance = exercise.targetMeters ? fromMeters(exercise.targetMeters, unit) : null;
+		hold = exercise.holdSeconds ?? null;
 	});
+
+	const num = (text: string) => {
+		const n = Number(text);
+		return text.trim() && Number.isFinite(n) && n >= 0 ? n : null;
+	};
+
+	function measureTargets(): MeasureTargets {
+		const total = (minutes ?? 0) * 60 + (secs ?? 0);
+		return {
+			...(timed && total > 0 && { targetSeconds: Math.round(total) }),
+			...(measure === 'distance' && distance && { targetMeters: toMeters(distance, unit) }),
+			...(measure === 'hold' && hold && { holdSeconds: Math.round(hold) })
+		};
+	}
 
 	/**
 	 * Values are checked when the field is left, not per keystroke. A rejected or
@@ -59,7 +97,12 @@
 	}
 
 	function save() {
-		onSave(toSaved(draft));
+		const saved = toSaved(draft);
+		onSave(
+			timed
+				? { targetSets: saved.targetSets, ...measureTargets() }
+				: { ...saved, ...measureTargets() }
+		);
 		open = false;
 	}
 </script>
@@ -138,7 +181,65 @@
 				: `The session advances after ${draft.targetSets} set${draft.targetSets === 1 ? '' : 's'}.`}
 		</p>
 
-		<div class="flex items-center justify-between px-1 pt-1">
+		{#if timed}
+			<div class="bg-base-200 flex items-center justify-between gap-3 rounded-xl px-4 py-3">
+				<span class="text-sm font-medium">Time per set</span>
+				<div class="flex items-baseline gap-1 text-lg font-bold tabular-nums">
+					<input
+						type="text"
+						inputmode="numeric"
+						placeholder="—"
+						aria-label="Time per set, minutes"
+						class="w-10 bg-transparent text-right outline-none placeholder:text-current"
+						value={minutes ?? ''}
+						onchange={(e) => (minutes = num(e.currentTarget.value))}
+					/><span class="text-base-content/55 text-sm">min</span>
+					<input
+						type="text"
+						inputmode="numeric"
+						placeholder="—"
+						aria-label="Time per set, seconds"
+						class="w-8 bg-transparent text-right outline-none placeholder:text-current"
+						value={secs ?? ''}
+						onchange={(e) => (secs = num(e.currentTarget.value))}
+					/><span class="text-base-content/55 text-sm">s</span>
+				</div>
+			</div>
+		{/if}
+		{#if measure === 'distance'}
+			<div class="bg-base-200 flex items-center justify-between gap-3 rounded-xl px-4 py-3">
+				<span class="text-sm font-medium">Distance</span>
+				<div class="flex items-baseline gap-1 text-lg font-bold tabular-nums">
+					<input
+						type="text"
+						inputmode="decimal"
+						placeholder="—"
+						aria-label="Distance, {unit}"
+						class="w-14 bg-transparent text-right outline-none placeholder:text-current"
+						value={distance ?? ''}
+						onchange={(e) => (distance = num(e.currentTarget.value))}
+					/><span class="text-base-content/55 text-sm">{unit}</span>
+				</div>
+			</div>
+		{/if}
+		{#if measure === 'hold'}
+			<div class="bg-base-200 flex items-center justify-between gap-3 rounded-xl px-4 py-3">
+				<span class="text-sm font-medium">Hold each rep</span>
+				<div class="flex items-baseline gap-1 text-lg font-bold tabular-nums">
+					<input
+						type="text"
+						inputmode="numeric"
+						placeholder="—"
+						aria-label="Hold each rep, seconds"
+						class="w-10 bg-transparent text-right outline-none placeholder:text-current"
+						value={hold ?? ''}
+						onchange={(e) => (hold = num(e.currentTarget.value))}
+					/><span class="text-base-content/55 text-sm">s</span>
+				</div>
+			</div>
+		{/if}
+
+		<div class="flex items-center justify-between px-1 pt-1" class:hidden={timed}>
 			<div>
 				<p class="text-sm font-medium">Rep range</p>
 				<p class="text-base-content/40 text-xs">
@@ -153,7 +254,7 @@
 			/>
 		</div>
 
-		{#if draft.rangeOn}
+		{#if draft.rangeOn && !timed}
 			{@render field(
 				'Min reps',
 				draft.range.min,

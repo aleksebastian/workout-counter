@@ -4,19 +4,37 @@
 	import { session } from '$lib/session.svelte';
 	import NotesIcon from '$lib/icons/notes.svg?raw';
 	import DumbbellIcon from '$lib/icons/dumbbell-plus-minus.svg?raw';
+	import MeasureEntry from '$lib/components/MeasureEntry.svelte';
+	import { formatSet, measureValues, unitsOf, type MeasureValues } from '$lib/logic/measure';
+	import type { Measure } from '$lib/types';
 
 	interface Props {
 		open?: boolean;
 		reps?: number;
 		weight?: number;
+		seconds?: number;
+		meters?: number;
+		holdSeconds?: number;
+		/** How the exercise is measured. */
+		measure?: Measure;
 		exerciseName?: string;
-		onRecord: (reps: number, weight: number, notes: string, date: string) => void;
+		onRecord: (
+			reps: number,
+			weight: number,
+			notes: string,
+			date: string,
+			values: MeasureValues
+		) => void;
 	}
 
 	let {
 		open = $bindable(false),
 		reps = $bindable(10),
 		weight = $bindable(0),
+		seconds = $bindable(0),
+		meters = $bindable(0),
+		holdSeconds = $bindable(5),
+		measure = 'reps',
 		exerciseName = '',
 		onRecord
 	}: Props = $props();
@@ -47,7 +65,13 @@
 	});
 
 	function record() {
-		onRecord(reps, weight, notes, date ? new Date(date).toISOString() : new Date().toISOString());
+		onRecord(
+			reps,
+			weight,
+			notes,
+			date ? new Date(date).toISOString() : new Date().toISOString(),
+			measureValues(measure, { seconds, meters, holdSeconds })
+		);
 		notes = '';
 		date = nowDatetimeLocal();
 		showDetails = false;
@@ -78,8 +102,18 @@
 	<div class="flex flex-col gap-4">
 		{#if showDetails}
 			<p class="text-base-content/50 text-sm">
-				<strong class="text-base-content">{reps}</strong> reps
-				{#if weight > 0}· <strong class="text-base-content">{weight}</strong> {unit}{/if}
+				{#if measure === 'reps'}
+					<strong class="text-base-content">{reps}</strong> reps
+					{#if weight > 0}· <strong class="text-base-content">{weight}</strong> {unit}{/if}
+				{:else}
+					<strong class="text-base-content"
+						>{formatSet(
+							{ id: '', date: '', reps, seconds, meters, holdSeconds },
+							measure,
+							unitsOf(session.prefs)
+						)}</strong
+					>
+				{/if}
 			</p>
 
 			<div class="flex flex-col gap-1.5">
@@ -110,7 +144,11 @@
 				/>
 			</div>
 		{:else}
-			<SetEntry bind:reps bind:weight fadeClass="from-base-100" />
+			{#if measure === 'reps'}
+				<SetEntry bind:reps bind:weight fadeClass="from-base-100" />
+			{:else}
+				<MeasureEntry {measure} bind:reps bind:seconds bind:meters bind:holdSeconds />
+			{/if}
 		{/if}
 
 		<button class="btn btn-primary btn-lg w-full" onclick={record}>Record Set</button>

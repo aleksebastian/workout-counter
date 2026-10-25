@@ -176,7 +176,8 @@
 <EditWorkoutSheet
 	bind:open={showEdit}
 	workout={selected}
-	onSave={(name, notes) => selected && exercises.update(selected.id, { name, notes })}
+	onSave={(name, notes, measure) =>
+		selected && exercises.update(selected.id, { name, notes, measure })}
 />
 
 <NameSheet

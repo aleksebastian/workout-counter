@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { measureOf } from '$lib/logic/measure';
 	import { counted } from '$lib/utils';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
@@ -354,6 +355,7 @@
 	bind:open={showTargets}
 	exerciseName={selectedRow?.workout.name}
 	exercise={selectedRow?.ex}
+	measure={measureOf(selectedRow?.workout)}
 	onSave={saveTargets}
 />
 

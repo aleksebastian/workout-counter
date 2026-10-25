@@ -10,9 +10,12 @@
 	import { counted, getNameValidationMsg } from '$lib/utils';
 	import BottomSheet from '$lib/components/BottomSheet.svelte';
 	import SetAdjuster from '$lib/components/SetAdjuster.svelte';
+	import MeasureEntry from '$lib/components/MeasureEntry.svelte';
+	import { formatSet, isTimed, measureOf, unitsOf } from '$lib/logic/measure';
+	import { isRecord } from '$lib/logic/history';
 	import Chevron from '$lib/components/Chevron.svelte';
 	import { v4 as uuidv4 } from 'uuid';
-	import type { Workout } from '$lib/types';
+	import type { Measure, Workout } from '$lib/types';
 
 	/**
 	 * One set of any exercise, from Today, without leaving it. Step one picks
@@ -32,6 +35,9 @@
 	let choice = $state<Choice | null>(null);
 	let reps = $state(10);
 	let weight = $state(0);
+	let seconds = $state(0);
+	let meters = $state(0);
+	let holdSeconds = $state(5);
 
 	let catalog = $state<Catalog | null>(null);
 	$effect(() => {
@@ -63,7 +69,7 @@
 			addSuffix: true,
 			roundingMethod: 'floor'
 		});
-		return `${when} · last ${last.weight ? `${last.weight} ${unit} × ${last.reps}` : counted(last.reps, 'rep')}`;
+		return `${when} · last ${formatSet(last, measureOf(w), unitsOf(session.prefs))}`;
 	}
 
 	let recent = $derived(
@@ -109,6 +115,25 @@
 			: undefined;
 	});
 	let hasHistory = $derived((chosenWorkout?.sets.length ?? 0) > 0);
+	/** How the chosen exercise is measured; one from Discover brings its own. */
+	let measure = $derived<Measure>(
+		chosenWorkout
+			? measureOf(chosenWorkout)
+			: choice?.kind === 'catalog'
+				? (catalog?.exercise(choice.catalogId)?.measure ?? 'reps')
+				: 'reps'
+	);
+	/** The set as entered would be a record: shown as "PR pace" for a run. */
+	let record = $derived(
+		!!chosenWorkout &&
+			measure === 'distance' &&
+			isRecord(
+				{ id: '', date: '', reps: 0, seconds, meters },
+				chosenWorkout.sets,
+				measure,
+				session.prefs.distanceUnit
+			)
+	);
 	// As on the run screen: a first set of a loaded exercise hasn't chosen a weight yet.
 	let weightUnset = $derived(
 		weight === 0 && !hasHistory && equipment !== undefined && equipment !== 'bodyweight'
@@ -119,6 +144,9 @@
 		const last = next.kind === 'library' ? session.workout(next.workoutId)?.sets.at(-1) : null;
 		reps = last?.reps ?? 10;
 		weight = last?.weight ?? 0;
+		seconds = last?.seconds ?? 0;
+		meters = last?.meters ?? 0;
+		holdSeconds = last?.holdSeconds ?? 5;
 	}
 
 	// Writes below aren't awaited: offline they wait for the server and would
@@ -144,14 +172,31 @@
 			workoutId = plan.root.id;
 		}
 		if (!workoutId) return;
-		recordSet(workoutId, { reps, weight }, { message: `${chosenName} · set logged` });
+		const draft =
+			measure === 'reps'
+				? { reps, weight }
+				: measure === 'hold'
+					? { reps, weight: 0, holdSeconds }
+					: { reps: 0, weight: 0, seconds, ...(measure === 'distance' && { meters }) };
+		recordSet(workoutId, draft, { message: `${chosenName} · set logged`, measure });
 		open = false;
 	}
 
+	/** A timed set needs a time, and a distance set a distance too. */
+	let loggable = $derived(
+		!isTimed(measure) || (seconds > 0 && (measure !== 'distance' || meters > 0))
+	);
+
 	let draftLabel = $derived(
-		weight > 0
-			? `${weight} ${unit} × ${reps}`
-			: `${counted(reps, 'rep')}${weightUnset ? ' · no weight' : ''}`
+		measure !== 'reps'
+			? formatSet(
+					{ id: '', date: '', reps, seconds, meters, holdSeconds },
+					measure,
+					unitsOf(session.prefs)
+				)
+			: weight > 0
+				? `${weight} ${unit} × ${reps}`
+				: `${counted(reps, 'rep')}${weightUnset ? ' · no weight' : ''}`
 	);
 </script>
 
@@ -248,10 +293,18 @@
 	{/snippet}
 
 	{#if choice}
-		<SetAdjuster bind:reps bind:weight {weightUnset} />
-		<p class="text-base-content/50 mt-3 text-center text-xs">
-			Starts your rest timer{choice.kind === 'catalog' ? ' · adds it to your library' : ''}
-		</p>
+		{#if measure === 'reps'}
+			<SetAdjuster bind:reps bind:weight {weightUnset} />
+		{:else}
+			<MeasureEntry {measure} bind:reps bind:seconds bind:meters bind:holdSeconds {record} />
+		{/if}
+		{#if !isTimed(measure) || choice.kind === 'catalog'}
+			<p class="text-base-content/50 mt-3 text-center text-xs">
+				{isTimed(measure)
+					? 'Adds it to your library'
+					: `Starts your rest timer${choice.kind === 'catalog' ? ' · adds it to your library' : ''}`}
+			</p>
+		{/if}
 	{:else}
 		<div class="flex flex-col gap-5 pb-4">
 			{#if recent.length}
@@ -315,6 +368,7 @@
 			<button
 				type="button"
 				class="btn btn-primary btn-lg h-14 w-full gap-2 rounded-2xl"
+				disabled={!loggable}
 				onclick={log}
 			>
 				<span class="font-bold">Log set</span>

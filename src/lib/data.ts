@@ -14,7 +14,9 @@ import { db } from '$lib/firebase';
 import { session } from '$lib/session.svelte';
 import { toaster } from '$lib/toast.svelte';
 import { planSize, type ImportPlan } from '$lib/catalog/plan';
+import type { MeasureValues } from '$lib/logic/measure';
 import type {
+	Measure,
 	ActiveSession,
 	EndedSession,
 	SessionLog,
@@ -112,11 +114,14 @@ export const exercises = {
 		return mutate('create exercise', () => setDoc(ref('workouts', workout.id), workout));
 	},
 
-	update(id: string, fields: { name: string; notes?: string }) {
+	update(id: string, fields: { name: string; notes?: string; measure?: Measure }) {
 		return mutate('save exercise', () =>
 			updateDoc(ref('workouts', id), {
 				name: fields.name.trim(),
-				notes: fields.notes?.trim() ? fields.notes.trim() : deleteField()
+				notes: fields.notes?.trim() ? fields.notes.trim() : deleteField(),
+				...(fields.measure && {
+					measure: fields.measure === 'reps' ? deleteField() : fields.measure
+				})
 			})
 		);
 	},
@@ -155,7 +160,7 @@ export const exercises = {
 	updateSet(
 		workout: Workout,
 		id: string,
-		fields: { reps: number; weight: number; date: string; notes: string }
+		fields: { reps: number; weight: number; date: string; notes: string } & MeasureValues
 	) {
 		const sets = workout.sets.map((set) =>
 			set.id === id
@@ -164,6 +169,9 @@ export const exercises = {
 						reps: fields.reps,
 						date: fields.date,
 						...(fields.weight > 0 ? { weight: fields.weight } : {}),
+						...(fields.seconds ? { seconds: fields.seconds } : {}),
+						...(fields.meters ? { meters: fields.meters } : {}),
+						...(fields.holdSeconds ? { holdSeconds: fields.holdSeconds } : {}),
 						...(fields.notes.trim() ? { notes: fields.notes.trim() } : {})
 					}
 				: set

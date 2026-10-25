@@ -1,4 +1,4 @@
-import type { Duration } from '$lib/types';
+import type { Duration, Measure } from '$lib/types';
 
 /**
  * The Explore catalog: curated exercises, routines and programs a user can add
@@ -39,6 +39,8 @@ export type CatalogExercise = {
 	/** Primary movers first. */
 	muscles: Muscle[];
 	equipment: Equipment;
+	/** How its sets are measured, when it isn't reps and weight: a plank is time, a run distance. */
+	measure?: Exclude<Measure, 'reps'>;
 	instructions: string;
 };
 

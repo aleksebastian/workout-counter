@@ -213,9 +213,10 @@
 <EditSetSheet
 	bind:open={editOpen}
 	set={editing?.set}
-	onSave={(reps, weight, date, notes) => {
+	measure={editing ? measureOf(editing.workout) : 'reps'}
+	onSave={(reps, weight, date, notes, values) => {
 		if (!editing) return;
-		exercises.updateSet(editing.workout, editing.set.id, { reps, weight, date, notes });
+		exercises.updateSet(editing.workout, editing.set.id, { reps, weight, date, notes, ...values });
 	}}
 	onDelete={() => {
 		if (!editing) return;

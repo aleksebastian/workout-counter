@@ -140,6 +140,7 @@ export function planImport(
 			const workout: Workout = {
 				id: newId(),
 				name: freeName(exercise.name, workoutNames),
+				...(exercise.measure && { measure: exercise.measure }),
 				sets: [],
 				source: { catalogId: exercise.id },
 				createdAt: clock++

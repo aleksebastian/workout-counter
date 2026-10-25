@@ -28,6 +28,15 @@
 	import SessionProgress from '$lib/components/SessionProgress.svelte';
 	import SetTable from './SetTable.svelte';
 	import SetAdjuster from '$lib/components/SetAdjuster.svelte';
+	import MeasureEntry from '$lib/components/MeasureEntry.svelte';
+	import {
+		formatSeconds,
+		formatSet,
+		isTimed,
+		measureOf,
+		measureValues,
+		unitsOf
+	} from '$lib/logic/measure';
 	import { recordSet as recordSet_ } from '$lib/logic/logSet';
 	import RunFooter from './RunFooter.svelte';
 	import HowToSheet from './HowToSheet.svelte';
@@ -162,6 +171,8 @@
 	let currentIndex = $derived(training.index);
 	let currentEntry = $derived(entries[currentIndex] ?? null);
 	let currentWorkout = $derived(session.workout(currentEntry?.workoutId));
+	let measure = $derived(measureOf(currentWorkout));
+	let units = $derived(unitsOf(session.prefs));
 	let isFreeForm = $derived(currentEntry?.targetSets === undefined);
 	let targetSets = $derived(currentEntry?.targetSets ?? 0);
 	let logged = $derived(setsSince(currentWorkout, startedAt));
@@ -217,7 +228,7 @@
 	);
 	let targetLine = $derived.by(() => {
 		if (!currentEntry) return '';
-		const target = targetLabel(currentEntry);
+		const target = targetLabel(currentEntry, measure, units.distance);
 		return [
 			target ? `Target ${target}` : 'Free-form',
 			rest && `Rest ${formatDuration(rest.duration)}`
@@ -232,7 +243,10 @@
 		const lastWeight = workout?.sets.at(-1)?.weight;
 		return {
 			name: workout?.name ?? '—',
-			detail: [targetLabel(nextEntry) ?? 'Free-form', lastWeight && `${lastWeight} ${unitLabel}`]
+			detail: [
+				targetLabel(nextEntry, measureOf(workout), units.distance) ?? 'Free-form',
+				lastWeight && `${lastWeight} ${unitLabel}`
+			]
 				.filter(Boolean)
 				.join(' · ')
 		};
@@ -241,6 +255,9 @@
 	// ── Set entry ───────────────────────────────────────────────────────────────
 	let reps = $state(10);
 	let weight = $state(0);
+	let seconds = $state(0);
+	let meters = $state(0);
+	let holdSeconds = $state(5);
 	let notes = $state('');
 	/** The note field in the footer is open. */
 	let noteOpen = $state(false);
@@ -256,6 +273,10 @@
 		const last = currentWorkout!.sets.at(-1);
 		reps = last?.reps ?? currentEntry?.minReps ?? 10;
 		weight = last?.weight ?? 0;
+		// Time, distance and hold start from last time, else the target.
+		seconds = last?.seconds ?? currentEntry?.targetSeconds ?? 0;
+		meters = last?.meters ?? currentEntry?.targetMeters ?? 0;
+		holdSeconds = last?.holdSeconds ?? currentEntry?.holdSeconds ?? 5;
 		notes = '';
 		noteOpen = false;
 	});
@@ -353,11 +374,13 @@
 	);
 
 	let draftLabel = $derived(
-		weight > 0
-			? `${weight} ${unitLabel} × ${reps}`
-			: weightUnset
-				? `${counted(reps, 'rep')} · no weight`
-				: `${counted(reps, 'rep')}`
+		measure !== 'reps'
+			? formatSet({ id: '', date: '', reps, seconds, meters, holdSeconds }, measure, units)
+			: weight > 0
+				? `${weight} ${unitLabel} × ${reps}`
+				: weightUnset
+					? `${counted(reps, 'rep')} · no weight`
+					: `${counted(reps, 'rep')}`
 	);
 
 	/** One exercise on the done screen: "3 × 10 · top 25 lb". */
@@ -378,12 +401,21 @@
 	// ── Actions ─────────────────────────────────────────────────────────────────
 	async function recordSet() {
 		if (!currentWorkout || !currentEntry) return;
+		const draft =
+			measure === 'reps'
+				? { reps, weight, notes }
+				: {
+						reps: measure === 'hold' ? reps : 0,
+						weight: 0,
+						notes,
+						...measureValues(measure, { seconds, meters, holdSeconds })
+					};
 		const { saved } = recordSet_(
 			currentWorkout.id,
-			{ reps, weight, notes },
+			draft,
 			// Routine timer beats the global default. A program-day exercise
-			// outside any routine gets the global timer.
-			{ routineId: currentEntry.routineId, message: `Set ${setsDone + 1} logged` }
+			// outside any routine gets the global timer. Timed sets start none.
+			{ routineId: currentEntry.routineId, message: `Set ${setsDone + 1} logged`, measure }
 		);
 		// An extra set past the target is one set, not a way out of "done": back
 		// to the complete card, which offers another. Not after the await, which
@@ -741,8 +773,12 @@
 					{logged}
 					{previous}
 					{rows}
-					draft={exerciseComplete ? null : { reps, weight, weightUnset, note: notes }}
+					draft={exerciseComplete
+						? null
+						: { reps, weight, seconds, meters, holdSeconds, weightUnset, note: notes }}
 					unit={unitLabel}
+					{measure}
+					{units}
 					onLog={recordSet}
 					onEdit={editSet}
 				/>
@@ -777,10 +813,12 @@
 						<div class="min-w-0 flex-1">
 							<p class="font-semibold">Exercise complete</p>
 							<p class="text-base-content/50 text-sm">
-								{counted(setsDone, 'set')} · {counted(
-									logged.reduce((sum, s) => sum + s.reps, 0),
-									'rep'
-								)}
+								{counted(setsDone, 'set')} · {isTimed(measure)
+									? formatSeconds(logged.reduce((sum, s) => sum + (s.seconds ?? 0), 0))
+									: counted(
+											logged.reduce((sum, s) => sum + s.reps, 0),
+											'rep'
+										)}
 							</p>
 						</div>
 						<!-- Escape hatch: extra sets beyond target are still allowed. -->
@@ -789,7 +827,11 @@
 						>
 					</div>
 				{:else}
-					<SetAdjuster bind:reps bind:weight {weightUnset} />
+					{#if measure === 'reps'}
+						<SetAdjuster bind:reps bind:weight {weightUnset} />
+					{:else}
+						<MeasureEntry {measure} bind:reps bind:seconds bind:meters bind:holdSeconds />
+					{/if}
 				{/if}
 			{/snippet}
 
@@ -834,13 +876,15 @@
 <EditSetSheet
 	bind:open={editOpen}
 	set={editing}
-	onSave={(newReps, newWeight, date, newNotes) => {
+	{measure}
+	onSave={(newReps, newWeight, date, newNotes, values) => {
 		if (!currentWorkout || !editing) return;
 		exercises.updateSet(currentWorkout, editing.id, {
 			reps: newReps,
 			weight: newWeight,
 			date,
-			notes: newNotes
+			notes: newNotes,
+			...values
 		});
 	}}
 	onDelete={() => {
