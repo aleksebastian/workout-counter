@@ -47,8 +47,8 @@ export type Extraction = {
 		/** One of the user's programs, or null for a new one. */
 		programId: string | null;
 		newProgramName: string | null;
-		/** 0 = Sunday … 6 = Saturday. */
-		day: number | null;
+		/** Every weekday the note names, 0 = Sunday … 6 = Saturday; empty when it names none. */
+		days: number[];
 		slot: Slot | null;
 	};
 };
@@ -81,7 +81,8 @@ export type Destination =
 			type: 'program';
 			programId: string | null;
 			newProgramName: string;
-			day: number;
+			/** At least one; each gets its own session, all in the same slot. */
+			days: number[];
 			slot?: Slot;
 	  };
 
@@ -107,7 +108,7 @@ const count = (n: number | null, max: number) =>
 /**
  * Turns the model's answer into a draft, dropping anything out of range so the
  * review screen never shows nonsense: a program the user doesn't have becomes
- * a new one, a missing day becomes today. With `programs` still loading
+ * a new one, no days becomes today. With `programs` still loading
  * (`null`), the program the server already checked is kept.
  */
 export function toDraft(extraction: Extraction, programs: Program[] | null, today: number): Draft {
@@ -131,7 +132,8 @@ export function toDraft(extraction: Extraction, programs: Program[] | null, toda
 		.slice(0, EXERCISES_MAX);
 
 	const d = extraction.destination;
-	const day = d.day !== null && Number.isInteger(d.day) && d.day >= 0 && d.day <= 6 ? d.day : today;
+	const named = [...new Set(d.days.filter((n) => Number.isInteger(n) && n >= 0 && n <= 6))];
+	const days = named.length ? named.sort((a, b) => a - b) : [today];
 	const slot = d.slot && SLOTS.includes(d.slot) ? d.slot : undefined;
 	const programId = programs
 		? (programs.find((p) => p.id === d.programId)?.id ?? null)
@@ -142,12 +144,43 @@ export function toDraft(extraction: Extraction, programs: Program[] | null, toda
 					type: 'program',
 					programId,
 					newProgramName: programId ? '' : plain(d.newProgramName ?? ''),
-					day,
+					days,
 					...(slot && { slot })
 				}
 			: { type: 'routines' };
 
 	return { name: plain(extraction.routine.name) || 'Imported workout', exercises, destination };
+}
+
+// ── Showing the days ─────────────────────────────────────────────────────────
+
+const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DAY_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+/** Days in the order the user's week runs, starting on `weekStart`. */
+export function weekOrder(days: number[], weekStart: 0 | 1): number[] {
+	return [...days].sort((a, b) => ((a - weekStart + 7) % 7) - ((b - weekStart + 7) % 7));
+}
+
+/** "A", "A and B", "A, B and C". */
+export function andList(items: string[]): string {
+	return items.length < 2
+		? (items[0] ?? '')
+		: `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`;
+}
+
+/** The days for the Save to line: "Monday", "Mon, Wed, Fri" or "Every day". */
+export function daysLabel(days: number[], weekStart: 0 | 1): string {
+	if (days.length === 7) return 'Every day';
+	if (days.length === 1) return DAY_LONG[days[0]];
+	return weekOrder(days, weekStart)
+		.map((d) => DAY_SHORT[d])
+		.join(', ');
+}
+
+/** "Monday", "Monday and Friday": days spelled out in a sentence. */
+export function daysSentence(days: number[], weekStart: 0 | 1): string {
+	return andList(weekOrder(days, weekStart).map((d) => DAY_LONG[d]));
 }
 
 // ── Saving ───────────────────────────────────────────────────────────────────
@@ -225,23 +258,26 @@ export function bundleIdFor(ex: Named, catalog: CatalogExercise[]): string {
 }
 
 /**
- * The schedule with the routine added as a new session on `day`. A day that
- * already has a session in that slot keeps it; the new one sorts after it.
+ * The schedule with the routine added as a new session on each of `days`,
+ * all in the same slot. A day that already has a session in that slot keeps
+ * it; the new one sorts after it.
  */
-export function addSession(
+export function addSessions(
 	schedule: ProgramDay[],
-	day: number,
+	days: number[],
 	slot: Slot | undefined,
 	routineId: string,
 	newId: () => string = uuidv4
 ): ProgramDay[] {
-	const session = {
-		id: newId(),
-		...(slot && { slot }),
-		items: [{ type: 'routine' as const, routineId }]
-	};
-	if (!schedule.some((d) => d.day === day)) {
-		return [...schedule, { day, sessions: [session] }].sort((a, b) => a.day - b.day);
-	}
-	return schedule.map((d) => (d.day === day ? { ...d, sessions: [...d.sessions, session] } : d));
+	return days.reduce((next, day) => {
+		const session = {
+			id: newId(),
+			...(slot && { slot }),
+			items: [{ type: 'routine' as const, routineId }]
+		};
+		if (!next.some((d) => d.day === day)) {
+			return [...next, { day, sessions: [session] }].sort((a, b) => a.day - b.day);
+		}
+		return next.map((d) => (d.day === day ? { ...d, sessions: [...d.sessions, session] } : d));
+	}, schedule);
 }

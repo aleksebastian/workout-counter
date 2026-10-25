@@ -3,7 +3,9 @@ import { planImport, type Library } from '$lib/catalog/plan';
 import type { CatalogExercise } from '$lib/catalog/types';
 import type { Program, ProgramDay, Workout } from '$lib/types';
 import {
-	addSession,
+	addSessions,
+	daysLabel,
+	daysSentence,
 	draftBundle,
 	toDraft,
 	type Draft,
@@ -55,7 +57,7 @@ function extraction(
 			type: 'routines',
 			programId: null,
 			newProgramName: null,
-			day: null,
+			days: [],
 			slot: null,
 			...destination
 		}
@@ -106,7 +108,7 @@ describe('toDraft', () => {
 
 	it('points at a program the user has, with its day and slot', () => {
 		const draft = toDraft(
-			extraction([], { type: 'program', programId: 'ppl', day: 1, slot: 'morning' }),
+			extraction([], { type: 'program', programId: 'ppl', days: [5, 1, 1, 9], slot: 'morning' }),
 			[program],
 			3
 		);
@@ -114,7 +116,7 @@ describe('toDraft', () => {
 			type: 'program',
 			programId: 'ppl',
 			newProgramName: '',
-			day: 1,
+			days: [1, 5],
 			slot: 'morning'
 		});
 	});
@@ -129,14 +131,18 @@ describe('toDraft', () => {
 			type: 'program',
 			programId: null,
 			newProgramName: 'Summer',
-			day: 3
+			days: [3]
 		});
 	});
 });
 
 describe('toDraft while programs load', () => {
 	it("keeps the server-checked program until the user's programs arrive", () => {
-		const draft = toDraft(extraction([], { type: 'program', programId: 'ppl', day: 1 }), null, 3);
+		const draft = toDraft(
+			extraction([], { type: 'program', programId: 'ppl', days: [1] }),
+			null,
+			3
+		);
 		expect(draft.destination).toMatchObject({ programId: 'ppl', newProgramName: '' });
 	});
 });
@@ -228,26 +234,36 @@ describe('draftBundle + planImport', () => {
 	});
 });
 
-describe('addSession', () => {
+describe('addSessions', () => {
 	const schedule: ProgramDay[] = [
 		{ day: 1, sessions: [{ id: 's1', slot: 'morning', items: [] }] },
 		{ day: 3, sessions: [] }
 	];
+	let n = 0;
+	const newId = () => `new-${++n}`;
 
-	it('adds a session after the ones already in the day', () => {
-		const next = addSession(schedule, 1, 'morning', 'r1', () => 'new');
-		expect(next[0].sessions).toEqual([
-			{ id: 's1', slot: 'morning', items: [] },
-			{ id: 'new', slot: 'morning', items: [{ type: 'routine', routineId: 'r1' }] }
+	it('adds one session per day, after any already there, adding missing days in order', () => {
+		const next = addSessions(schedule, [1, 5, 0], 'morning', 'r1', newId);
+		expect(next.map((d) => d.day)).toEqual([0, 1, 3, 5]);
+		expect(next[1].sessions.map((s) => s.id)).toEqual(['s1', 'new-1']);
+		expect(next[3].sessions).toEqual([
+			{ id: 'new-2', slot: 'morning', items: [{ type: 'routine', routineId: 'r1' }] }
 		]);
 		expect(schedule[0].sessions).toHaveLength(1);
 	});
 
-	it('adds a missing day in week order, with no slot when none is given', () => {
-		const next = addSession(schedule, 2, undefined, 'r1', () => 'new');
-		expect(next.map((d) => d.day)).toEqual([1, 2, 3]);
-		expect(next[1].sessions).toEqual([
-			{ id: 'new', items: [{ type: 'routine', routineId: 'r1' }] }
-		]);
+	it('leaves the slot off when none is given', () => {
+		const [day] = addSessions([], [2], undefined, 'r1', () => 'x');
+		expect(day.sessions).toEqual([{ id: 'x', items: [{ type: 'routine', routineId: 'r1' }] }]);
+	});
+});
+
+describe('day labels', () => {
+	it('names one day, lists several in week order, or says every day', () => {
+		expect(daysLabel([1], 1)).toBe('Monday');
+		expect(daysLabel([0, 1, 3, 5], 1)).toBe('Mon, Wed, Fri, Sun');
+		expect(daysLabel([0, 1, 3, 5], 0)).toBe('Sun, Mon, Wed, Fri');
+		expect(daysLabel([0, 1, 2, 3, 4, 5, 6], 0)).toBe('Every day');
+		expect(daysSentence([5, 1], 1)).toBe('Monday and Friday');
 	});
 });

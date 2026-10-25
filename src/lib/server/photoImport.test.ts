@@ -75,7 +75,7 @@ describe('sampleExtraction', () => {
 		expect(sampleExtraction('Monday morning', context).destination).toMatchObject({
 			type: 'program',
 			programId: 'ppl',
-			day: 1,
+			days: [1, 3, 5],
 			slot: 'morning'
 		});
 		expect(sampleExtraction('unreadable', context).status).toBe('unreadable');

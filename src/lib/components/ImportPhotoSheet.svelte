@@ -17,8 +17,12 @@
 	} from '$lib/catalog';
 	import { normalizeName } from '$lib/catalog/match';
 	import {
-		addSession,
+		addSessions,
+		andList,
 		bundleIdFor,
+		daysLabel,
+		daysSentence,
+		weekOrder,
 		draftBundle,
 		NOTE_MAX,
 		toDraft,
@@ -243,29 +247,38 @@
 		const d = destination;
 		if (!d || d.type === 'routines') return 'Routines';
 		const name = destProgram?.name ?? (d.newProgramName.trim() || 'New program');
-		return `${name} · ${DAY_NAMES[d.day]} · ${d.slot ? SLOT_LABEL[d.slot] : ANYTIME}`;
+		const days = daysLabel(d.days, session.prefs.weekStart);
+		return `${name} · ${days} · ${d.slot ? SLOT_LABEL[d.slot] : ANYTIME}`;
 	});
 
-	/** What's already in the chosen slot, so the user knows the routine goes after it. */
+	/** What's already in the chosen slot on the chosen days, so the user knows the routine goes after it. */
 	let slotNote = $derived.by(() => {
 		const d = destination;
 		if (!d || d.type !== 'program' || !destProgram) return null;
-		const there = (destProgram.schedule.find((x) => x.day === d.day)?.sessions ?? []).filter(
-			(s) => s.items.length && s.slot === d.slot
-		);
-		if (!there.length) return null;
-		const names = there.map((s) => {
-			const item = s.items[0];
-			return (
-				s.label ??
-				(item.type === 'routine'
-					? session.routine(item.routineId)?.name
-					: session.workout(item.workoutId)?.name) ??
-				'a session'
+		const busy: number[] = [];
+		const names = new Set<string>();
+		for (const day of d.days) {
+			const there = (destProgram.schedule.find((x) => x.day === day)?.sessions ?? []).filter(
+				(s) => s.items.length && s.slot === d.slot
 			);
-		});
-		const when = `${DAY_NAMES[d.day]} ${d.slot ? SLOT_LABEL[d.slot].toLowerCase() : ''}`.trim();
-		return `${when} already has ${names.join(' and ')}. This goes after it.`;
+			if (!there.length) continue;
+			busy.push(day);
+			for (const s of there) {
+				const item = s.items[0];
+				names.add(
+					s.label ??
+						(item.type === 'routine'
+							? session.routine(item.routineId)?.name
+							: session.workout(item.workoutId)?.name) ??
+						'a session'
+				);
+			}
+		}
+		if (!busy.length) return null;
+		const slot = d.slot ? ` ${SLOT_LABEL[d.slot].toLowerCase()}${busy.length > 1 ? 's' : ''}` : '';
+		const when = daysSentence(busy, session.prefs.weekStart) + slot;
+		const have = busy.length > 1 ? 'have' : 'has';
+		return `${when} already ${have} ${andList([...names])}. This goes after it.`;
 	});
 
 	function setDestination(next: Draft['destination']) {
@@ -275,14 +288,18 @@
 
 	function toProgram(programId: string | null) {
 		const d = draft?.destination;
-		const day = d?.type === 'program' ? d.day : new Date().getDay();
+		const days = d?.type === 'program' ? d.days : [new Date().getDay()];
 		const slot = d?.type === 'program' ? d.slot : undefined;
 		const newProgramName = d?.type === 'program' ? d.newProgramName : '';
-		setDestination({ type: 'program', programId, newProgramName, day, ...(slot && { slot }) });
+		setDestination({ type: 'program', programId, newProgramName, days, ...(slot && { slot }) });
 	}
 
-	function setDay(day: number) {
-		if (draft?.destination.type === 'program') draft.destination.day = day;
+	/** Turns a day on or off; the last day left stays on, since the routine has to go somewhere. */
+	function toggleDay(day: number) {
+		const d = draft?.destination;
+		if (d?.type !== 'program') return;
+		if (!d.days.includes(day)) d.days = [...d.days, day].sort((a, b) => a - b);
+		else if (d.days.length > 1) d.days = d.days.filter((x) => x !== day);
 	}
 
 	function setSlot(slot: Slot | undefined) {
@@ -351,7 +368,7 @@
 				change = {
 					type: 'schedule',
 					programId: existing.id,
-					schedule: addSession(existing.schedule, d.day, d.slot, routineId)
+					schedule: addSessions(existing.schedule, d.days, d.slot, routineId)
 				};
 				target = libraryItemHref('program', existing.id);
 			} else {
@@ -363,7 +380,7 @@
 				const program: Program = {
 					id: uuidv4(),
 					name: d.newProgramName.trim(),
-					schedule: addSession([], d.day, d.slot, routineId),
+					schedule: addSessions([], d.days, d.slot, routineId),
 					createdAt: Date.now()
 				};
 				change = { type: 'create', program };
@@ -379,7 +396,13 @@
 			saved = null;
 			return;
 		}
-		toaster.success(d.type === 'program' ? 'Added to your program' : 'Routine saved');
+		toaster.success(
+			d.type === 'routines'
+				? 'Routine saved'
+				: d.days.length > 1
+					? `Added to ${d.days.length} days of your program`
+					: 'Added to your program'
+		);
 		open = false;
 		goto(target);
 	}
@@ -725,14 +748,18 @@
 			{#if destination.type === 'program'}
 				{@const d = destination}
 				<div class="flex flex-col gap-2">
-					<p class="text-base-content/60 text-xs font-semibold tracking-widest uppercase">Day</p>
-					<div class="grid grid-cols-7 gap-1">
-						{#each DAYS as label, day (day)}
+					<div class="flex items-baseline justify-between">
+						<p class="text-base-content/60 text-xs font-semibold tracking-widest uppercase">Days</p>
+						<p class="text-base-content/50 text-xs">Pick every day it's on</p>
+					</div>
+					<div class="grid grid-cols-7 gap-1" role="group" aria-label="Days">
+						{#each weekOrder([0, 1, 2, 3, 4, 5, 6], session.prefs.weekStart) as day (day)}
+							{@const on = d.days.includes(day)}
 							<button
-								class={['btn btn-sm px-0', d.day === day && 'btn-primary']}
-								aria-pressed={d.day === day}
+								class={['btn btn-sm px-0', on && 'btn-primary']}
+								aria-pressed={on}
 								aria-label={DAY_NAMES[day]}
-								onclick={() => setDay(day)}>{label}</button
+								onclick={() => toggleDay(day)}>{DAYS[day]}</button
 							>
 						{/each}
 					</div>

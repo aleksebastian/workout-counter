@@ -37,7 +37,7 @@ const ExtractionSchema = z.object({
 		type: z.enum(['routines', 'program']),
 		programId: z.string().nullable(),
 		newProgramName: z.string().nullable(),
-		day: z.number().int().nullable(),
+		days: z.array(z.number().int()),
 		slot: z.enum(SLOTS).nullable()
 	})
 }) satisfies z.ZodType<Extraction>;
@@ -68,7 +68,7 @@ Measures: leave measure null for reps-and-weight lifts. Use "time" for timed wor
 
 Routine name: the title in the photo if it has one, else a short name for the workout ("Push Day", "Leg Day").
 
-Destination comes from the user's note. "routines" when they want it saved as a routine or the note doesn't say. "program" when they name a program or a day: set programId to the id of the program from their list that they mean ("my program" without a name means the one marked active), or null with newProgramName when they ask for a new program. Set day from the weekday they name (Sunday = 0 … Saturday = 6; "today" and "tomorrow" are relative to today), and slot from the time of day they name (morning, midday, afternoon, evening, night), else null.
+Destination comes from the user's note. "routines" when they want it saved as a routine or the note doesn't say. "program" when they name a program or a day: set programId to the id of the program from their list that they mean ("my program" without a name means the one marked active), or null with newProgramName when they ask for a new program. Set days to every weekday they name (Sunday = 0 … Saturday = 6): "Mon, Wed, Fri" is [1, 3, 5], "weekdays" is [1, 2, 3, 4, 5], "every day" is all seven, and "today" and "tomorrow" are relative to today. Use an empty list when they name no day. Set slot from the time of day they name (morning, midday, afternoon, evening, night), else null; it applies to every day in the list.
 
 Set status to "unreadable" when the photo shows no workout you can read; then return an empty exercise list.`;
 
@@ -180,7 +180,8 @@ export async function extractWorkout(
 /**
  * What dev and the end-to-end tests get without an API key: a fixed read of a
  * push day. A note naming a program puts it on the user's first program,
- * Monday morning; "unreadable" in the note reads as no workout.
+ * Monday, Wednesday and Friday mornings; "unreadable" in the note reads as
+ * no workout.
  */
 export function sampleExtraction(note: string, context: ImportContext): Extraction {
 	const toProgram = /program|monday|morning/i.test(note);
@@ -208,7 +209,7 @@ export function sampleExtraction(note: string, context: ImportContext): Extracti
 			type: toProgram ? 'program' : 'routines',
 			programId: toProgram ? (context.programs[0]?.id ?? null) : null,
 			newProgramName: toProgram && !context.programs.length ? 'Imported program' : null,
-			day: toProgram ? 1 : null,
+			days: toProgram ? [1, 3, 5] : [],
 			slot: toProgram ? 'morning' : null
 		}
 	};
