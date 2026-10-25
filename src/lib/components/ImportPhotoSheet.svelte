@@ -257,6 +257,7 @@
 		if (!d || d.type !== 'program' || !destProgram) return null;
 		const busy: number[] = [];
 		const names = new Set<string>();
+		let unnamed = 0;
 		for (const day of d.days) {
 			const there = (destProgram.schedule.find((x) => x.day === day)?.sessions ?? []).filter(
 				(s) => s.items.length && s.slot === d.slot
@@ -265,20 +266,26 @@
 			busy.push(day);
 			for (const s of there) {
 				const item = s.items[0];
-				names.add(
+				const name =
 					s.label ??
-						(item.type === 'routine'
-							? session.routine(item.routineId)?.name
-							: session.workout(item.workoutId)?.name) ??
-						'a session'
-				);
+					(item.type === 'routine'
+						? session.routine(item.routineId)?.name
+						: session.workout(item.workoutId)?.name);
+				if (name) names.add(name);
+				else unnamed++;
 			}
 		}
 		if (!busy.length) return null;
 		const slot = d.slot ? ` ${SLOT_LABEL[d.slot].toLowerCase()}${busy.length > 1 ? 's' : ''}` : '';
 		const when = daysSentence(busy, session.prefs.weekStart) + slot;
 		const have = busy.length > 1 ? 'have' : 'has';
-		return `${when} already ${have} ${andList([...names])}. This goes after it.`;
+		// A session that can't be named (its routine was deleted) is counted, not called "a session".
+		const what = names.size
+			? andList([...names, ...(unnamed ? [`${unnamed} more`] : [])])
+			: unnamed > 1
+				? 'other sessions'
+				: 'another session';
+		return `${when} already ${have} ${what}. This goes after it.`;
 	});
 
 	function setDestination(next: Draft['destination']) {
@@ -561,7 +568,8 @@
 					<span class="text-base-content/60 text-xs font-semibold tracking-widest uppercase"
 						>Save to</span
 					>
-					<span class="truncate font-medium">{whereLabel}</span>
+					<!-- Wraps rather than truncates: with several days, the time of day is at the end. -->
+					<span class="font-medium">{whereLabel}</span>
 				</span>
 				<Chevron />
 			</button>
