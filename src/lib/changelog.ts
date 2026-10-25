@@ -21,6 +21,15 @@ export interface ChangelogEntry {
 /** Newest first. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.19.0',
+		date: '2026-10-25',
+		new: [
+			'Import a workout from a photo: snap a screenshot, notebook page or whiteboard, say what to do with it (“add this to my program on Monday morning”), and check the routine before it’s saved',
+			'Exercises from your photo use the ones already in your library, so their history carries on',
+			'Find it under New routine in your Library, or Upload your own in Discover'
+		]
+	},
+	{
 		version: '0.18.0',
 		date: '2026-10-24',
 		new: [

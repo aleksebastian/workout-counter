@@ -163,7 +163,7 @@ export function draftBundle(
 	for (const { name, measure, ...targets } of draft.exercises) {
 		const known = catalogExerciseNamed(name, catalog);
 		const exercise: CatalogExercise = known ?? {
-			id: PHOTO_ID + normalizeName(name),
+			id: bundleIdFor(name, catalog),
 			name: name.trim(),
 			muscles: [],
 			equipment: 'bodyweight',
@@ -185,6 +185,11 @@ export function draftBundle(
 		},
 		unstamped
 	};
+}
+
+/** The bundle id a draft exercise ends up under, to find its row in the import plan. */
+export function bundleIdFor(name: string, catalog: CatalogExercise[]): string {
+	return catalogExerciseNamed(name, catalog)?.id ?? PHOTO_ID + normalizeName(name);
 }
 
 /**
