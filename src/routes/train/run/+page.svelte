@@ -282,6 +282,14 @@
 		return () => clearInterval(id);
 	});
 	let timerSecs = $derived(timer ? timerSeconds(timer, timer.pausedAt ?? clock) : null);
+	/** Another exercise's timer still running, which starting this one would throw away. */
+	let otherTimer = $derived.by(() => {
+		const t = training.timer;
+		if (!t || t.workoutId === currentWorkout?.id) return null;
+		const index = (planEntries ?? []).findIndex((e) => e.workoutId === t.workoutId);
+		return index === -1 ? null : { index, name: session.workout(t.workoutId)?.name ?? 'it' };
+	});
+
 	/** The reps a hold set aims for: the routine's, else last time's, else 10. */
 	let holdTarget = $derived(
 		currentEntry?.maxReps ?? currentEntry?.minReps ?? currentWorkout?.sets.at(-1)?.reps ?? 10
@@ -483,6 +491,8 @@
 		// to the complete card, which offers another. Not after the await, which
 		// waits for the server and offline would never come back.
 		recordingExtra = false;
+		// The next set starts on the timer again, however this one was entered.
+		manualEntry = false;
 		if (await saved) {
 			notes = '';
 			noteOpen = false;
@@ -905,12 +915,14 @@
 							}}
 						/>
 					{:else if measure === 'hold' && !manualEntry}
-						<HoldTimer
-							{holdSeconds}
-							targetReps={holdTarget}
-							bind:reps
-							onManual={() => (manualEntry = true)}
-						/>
+						{#key currentWorkout?.id}
+							<HoldTimer
+								{holdSeconds}
+								targetReps={holdTarget}
+								bind:reps
+								onManual={() => (manualEntry = true)}
+							/>
+						{/key}
 					{:else}
 						<MeasureEntry {measure} bind:reps bind:seconds bind:meters bind:holdSeconds />
 					{/if}
@@ -928,8 +940,16 @@
 				</button>
 			{:else}
 				{#if isTimed(measure) && !manualEntry}
-					<!-- Timing a set: start it, then stop it to log the time. -->
-					{#if timerSecs === null}
+					<!-- Timing a set: start it, then stop it to log the time. One timer
+					     at a time: another exercise's still running is gone back to, not lost. -->
+					{#if otherTimer}
+						<button
+							class="btn btn-lg bg-base-200 h-14 flex-1 gap-2 rounded-2xl border-none shadow-none"
+							onclick={() => training.moveTo(otherTimer!.index)}
+						>
+							<span class="min-w-0 truncate font-bold">Timer running on {otherTimer.name}</span>
+						</button>
+					{:else if timerSecs === null}
 						<button
 							class="btn btn-primary btn-lg h-14 flex-1 gap-2 rounded-2xl"
 							onclick={startTiming}

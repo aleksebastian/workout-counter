@@ -2,7 +2,7 @@
 	import { counted, plural } from '$lib/utils';
 	import { session } from '$lib/session.svelte';
 	import { training } from '$lib/logic/training.svelte';
-	import { buildPlan, sourceSlot } from '$lib/logic/training';
+	import { buildPlan } from '$lib/logic/training';
 	import { formatSet, fromMeters, measureOf, unitsOf } from '$lib/logic/measure';
 	import {
 		historyFeed,
@@ -106,10 +106,9 @@
 		{ label: 'Earlier', rows: feed.filter((r) => r.at < thisWeekFrom) }
 	]);
 
-	/** "Evening · " for a program session planned for a slot; nothing otherwise. */
+	/** "Evening · " for a program session done in a slot; nothing otherwise. */
 	function rowSlot(log: SessionLog): string {
-		const slot = sourceSlot(log.source, training.lookups);
-		return slot ? `${SLOT_LABEL[slot]} · ` : '';
+		return log.slot ? `${SLOT_LABEL[log.slot]} · ` : '';
 	}
 
 	function dayLabel(at: number): string {

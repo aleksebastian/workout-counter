@@ -201,6 +201,22 @@ describe('lastActivity and isStale', () => {
 		expect(lastActivity(session({ lastActiveAt: T0 + 7 }), plan, lookups())).toBe(T0 + 7);
 	});
 
+	it('counts a running timer as activity for the abandon window after it started', () => {
+		const timed = session({ timer: { workoutId: 'bench', startedAt: T0 + 60_000, pausedMs: 0 } });
+		const last = lastActivity(timed, plan, lookups());
+		expect(last).toBe(T0 + 60_000 + STALE_AFTER_MS);
+		// So a ride of a couple of hours stays open, and an overnight one closes.
+		expect(isStale(last, T0 + 3 * 3_600_000)).toBe(false);
+		expect(isStale(last, T0 + 10 * 3_600_000)).toBe(true);
+	});
+
+	it('counts a paused timer as activity when it was paused', () => {
+		const paused = session({
+			timer: { workoutId: 'bench', startedAt: T0, pausedMs: 0, pausedAt: T0 + 9_000 }
+		});
+		expect(lastActivity(paused, plan, lookups())).toBe(T0 + 9_000);
+	});
+
 	it('goes stale only after two hours without activity', () => {
 		expect(isStale(T0, T0 + STALE_AFTER_MS)).toBe(false);
 		expect(isStale(T0, T0 + STALE_AFTER_MS + 1)).toBe(true);

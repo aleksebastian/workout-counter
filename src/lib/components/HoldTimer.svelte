@@ -122,7 +122,7 @@
 			{phase === 'relax' ? 'Relax' : phase === 'done' ? 'Done' : 'Hold'}
 		</p>
 		<p class="text-xl font-black tabular-nums">
-			Rep {Math.min(reps + (phase === 'done' ? 0 : 1), targetReps)}
+			Rep {phase === 'idle' ? 1 : Math.min(reps + (phase === 'done' ? 0 : 1), targetReps)}
 			<span class="text-base-content/55 text-sm font-semibold">of {targetReps}</span>
 		</p>
 		<div class="flex items-center gap-3">

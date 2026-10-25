@@ -5,7 +5,13 @@
 	import NotesIcon from '$lib/icons/notes.svg?raw';
 	import DumbbellIcon from '$lib/icons/dumbbell-plus-minus.svg?raw';
 	import MeasureEntry from '$lib/components/MeasureEntry.svelte';
-	import { formatSet, measureValues, unitsOf, type MeasureValues } from '$lib/logic/measure';
+	import {
+		formatSet,
+		isTimed,
+		measureValues,
+		unitsOf,
+		type MeasureValues
+	} from '$lib/logic/measure';
 	import type { Measure } from '$lib/types';
 
 	interface Props {
@@ -40,6 +46,10 @@
 	}: Props = $props();
 
 	let unit = $derived(session.prefs.weightUnit);
+	/** A time set needs a time, and a distance set a distance too. */
+	let loggable = $derived(
+		!isTimed(measure) || (seconds > 0 && (measure !== 'distance' || meters > 0))
+	);
 
 	function nowDatetimeLocal(): string {
 		const now = new Date();
@@ -151,6 +161,8 @@
 			{/if}
 		{/if}
 
-		<button class="btn btn-primary btn-lg w-full" onclick={record}>Record Set</button>
+		<button class="btn btn-primary btn-lg w-full" disabled={!loggable} onclick={record}
+			>Record Set</button
+		>
 	</div>
 </BottomSheet>

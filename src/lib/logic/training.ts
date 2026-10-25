@@ -1,5 +1,5 @@
 import { counted } from '$lib/utils';
-import { measureTarget, type DistanceUnit } from '$lib/logic/measure';
+import { formatSeconds, measureTarget, type DistanceUnit } from '$lib/logic/measure';
 import { DAY_FULL } from '$lib/constants';
 import {
 	daySessions,
@@ -195,18 +195,19 @@ export function targetLabel(
 
 /** A running clock: "1:05", or "1:02:05" past the hour. */
 export function formatClock(ms: number): string {
-	const s = Math.max(0, Math.floor(ms / 1000));
-	const h = Math.floor(s / 3600);
-	const m = Math.floor((s % 3600) / 60);
-	const sec = (s % 60).toString().padStart(2, '0');
-	return h > 0 ? `${h}:${m.toString().padStart(2, '0')}:${sec}` : `${m}:${sec}`;
+	return formatSeconds(ms / 1000);
 }
 
 /** The latest sign of life: a move between exercises, a set logged on a planned exercise, or a running set timer. */
 export function lastActivity(session: ActiveSession, plan: PlanEntry[], lookups: Lookups): number {
-	// A stopwatch still running counts as being at it: a long ride isn't abandoned.
-	if (session.timer && session.timer.pausedAt === undefined) return Infinity;
-	let latest = session.timer?.pausedAt ?? session.lastActiveAt;
+	// A running stopwatch counts as being at it for as long as the abandon
+	// window after it started, so a long ride isn't closed under you but a
+	// timer forgotten overnight doesn't keep the workout open for good.
+	const { timer } = session;
+	let latest = Math.max(
+		session.lastActiveAt,
+		timer ? (timer.pausedAt ?? timer.startedAt + STALE_AFTER_MS) : 0
+	);
 	for (const id of new globalThis.Set(plan.map((e) => e.workoutId))) {
 		for (const set of setsSince(lookups.workout(id), session.startedAt)) {
 			latest = Math.max(latest, new Date(set.date).getTime());

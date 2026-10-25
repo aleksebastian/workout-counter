@@ -257,6 +257,8 @@ export type SessionLog = {
 	endReason: 'finished' | 'abandoned';
 	/** Every planned exercise got its sets; false when it ended early. */
 	complete: boolean;
+	/** The program session's time of day when it was done, kept so a later change doesn't relabel it. */
+	slot?: Slot;
 	/** Time it spent ended before being resumed; the duration is end − start − this. */
 	pausedMs?: number;
 	/** Time and distance sets add up their seconds and meters too. */
@@ -477,6 +479,7 @@ export const parseSessionLog: Parse<SessionLog | null> = (raw, id) => {
 		endedAt: num(raw.endedAt, startedAt),
 		endReason: raw.endReason === 'abandoned' ? 'abandoned' : 'finished',
 		complete: raw.complete === true,
+		slot: SLOTS.includes(raw.slot as Slot) ? (raw.slot as Slot) : undefined,
 		exercises: arrayOf<SessionLog['exercises'][number]>(raw.exercises),
 		totals: { sets: num(totals.sets), reps: num(totals.reps) },
 		createdAt: num(raw.createdAt)

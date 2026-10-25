@@ -18,6 +18,7 @@ import {
 	sameSource,
 	setsSince,
 	sourceName,
+	sourceSlot,
 	summarize,
 	type Lookups,
 	type PlanEntry,
@@ -80,6 +81,7 @@ function toLog(
 		endedAt,
 		endReason,
 		complete: isPlanComplete(plan, lookups, s.startedAt),
+		...(sourceSlot(s.source, lookups) && { slot: sourceSlot(s.source, lookups) }),
 		...(s.pausedMs > 0 && { pausedMs: s.pausedMs }),
 		exercises,
 		totals,
@@ -281,7 +283,7 @@ export const training = {
 		if (!s) return null;
 		const now = Date.now();
 		const log = toLog(s, now, 'finished');
-		const complete = isPlanComplete(buildPlan(s.source, lookups) ?? [], lookups, s.startedAt);
+		const complete = log?.complete ?? false;
 		repo.close(log, toEnded(s, now, log, complete));
 		restTimer.stop();
 		return {
@@ -327,8 +329,7 @@ export const training = {
 		if (!isStale(last, now)) return;
 		sweptId = s.id;
 		const log = toLog(s, last, 'abandoned');
-		const complete = isPlanComplete(this.plan ?? [], lookups, s.startedAt);
-		repo.close(log, toEnded(s, last, log, complete));
+		repo.close(log, toEnded(s, last, log, log?.complete ?? false));
 		toaster.show({
 			id: `session-abandoned-${s.id}`,
 			type: 'info',

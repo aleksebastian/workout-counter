@@ -74,8 +74,9 @@ test.describe('timed sets on the run screen', () => {
 		await seedExercises(ROUTINE);
 		await page.clock.install();
 		await signIn(page);
-		await openTab(page, 'Today');
-		await page.getByRole('button', { name: `Start ${ROUTINE.name}`, exact: true }).click();
+		// Straight to the run screen: Today's Start is covered elsewhere, and a
+		// tap there can race the app's startup under Playwright's clock.
+		await page.goto(`/train/run?routine=${ROUTINE.id}`);
 		await expect(page.getByText('Target 2 × 1 min')).toBeVisible();
 
 		// Timed for a minute and a half, then stopped: that's the set.
@@ -109,8 +110,9 @@ test.describe('hold sets on the run screen', () => {
 		await seedExercises(ROUTINE);
 		await page.clock.install();
 		await signIn(page);
-		await openTab(page, 'Today');
-		await page.getByRole('button', { name: `Start ${ROUTINE.name}`, exact: true }).click();
+		// Straight to the run screen: Today's Start is covered elsewhere, and a
+		// tap there can race the app's startup under Playwright's clock.
+		await page.goto(`/train/run?routine=${ROUTINE.id}`);
 		await expect(page.getByText('Target 3 × 2s hold')).toBeVisible();
 
 		await page.getByRole('button', { name: 'Start', exact: true }).click();

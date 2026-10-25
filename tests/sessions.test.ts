@@ -59,6 +59,7 @@ test('a day of two sessions moves on to the next once the first is done', async 
 			expect.objectContaining({
 				name: press.name,
 				complete: true,
+				slot: 'morning',
 				source: { type: 'program', programId: PROGRAM.id, day: WED, sessionId: 'am' }
 			})
 		]);

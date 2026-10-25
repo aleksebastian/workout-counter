@@ -63,8 +63,13 @@
 
 	const todayDow = new Date().getDay();
 	let program = $derived(session.activeProgram);
-	/** Today's sessions and where each stands; a day with several shows them as a list. */
-	let plan = $derived(program ? todayPlan(program, todayDow, logs, training.session, now) : []);
+	/**
+	 * Today's sessions and where each stands; a day with several shows them as
+	 * a list. Up next only moves with the time-of-day slot, so the plan follows
+	 * the clock by the minute, not the second the clock ticks at.
+	 */
+	let minute = $derived(Math.floor(now / 60_000) * 60_000);
+	let plan = $derived(program ? todayPlan(program, todayDow, logs, training.session, minute) : []);
 	let multi = $derived(plan.length > 1);
 	let upNext = $derived(plan.find((r) => r.upNext) ?? null);
 	let doneCount = $derived(plan.filter((r) => r.status === 'done').length);

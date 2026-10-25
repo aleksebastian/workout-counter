@@ -5,9 +5,8 @@
 	import { session } from '$lib/session.svelte';
 	import { exercises, sessions } from '$lib/data';
 	import { setPageNav } from '$lib/nav.svelte';
-	import { formatClock, sourceSlot } from '$lib/logic/training';
+	import { formatClock } from '$lib/logic/training';
 	import { formatSet, measureOf, unitsOf } from '$lib/logic/measure';
-	import { training } from '$lib/logic/training.svelte';
 	import { logDuration, recordIds, sessionSets, volume, vsLast } from '$lib/logic/history';
 	import { runProgramHref, runRoutineHref } from '$lib/routes';
 	import { HAPTIC } from '$lib/haptic';
@@ -67,8 +66,7 @@
 		const time = date.toLocaleTimeString('en', { hour: 'numeric', minute: '2-digit' });
 		const program =
 			log.source.type === 'program' ? session.program(log.source.programId)?.name : null;
-		const slot = sourceSlot(log.source, training.lookups);
-		return [day, time, slot && SLOT_LABEL[slot], program].filter(Boolean).join(' · ');
+		return [day, time, log.slot && SLOT_LABEL[log.slot], program].filter(Boolean).join(' · ');
 	});
 
 	// ── Editing a set ───────────────────────────────────────────────────────────

@@ -61,7 +61,14 @@
 		const changed = !!set && localDatetime !== toDatetimeLocal(set.date);
 		const date =
 			changed && localDatetime ? new Date(localDatetime).toISOString() : (set?.date ?? '');
-		onSave(reps, weight, date, notes, measureValues(measure, { seconds, meters, holdSeconds }));
+		// Values of another measure stay as recorded: an exercise switched from
+		// time to reps keeps its old sets' times through an edit.
+		onSave(reps, weight, date, notes, {
+			seconds: set?.seconds,
+			meters: set?.meters,
+			holdSeconds: set?.holdSeconds,
+			...measureValues(measure, { seconds, meters, holdSeconds })
+		});
 		open = false;
 	}
 </script>
