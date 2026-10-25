@@ -1,11 +1,13 @@
 import { counted } from '$lib/utils';
 import { DAY_FULL } from '$lib/constants';
 import {
-	itemsForDay,
+	daySessions,
+	sessionOf,
 	type ActiveSession,
 	type EndedSession,
 	type Program,
 	type ProgramDay,
+	type ProgramSession,
 	type Routine,
 	type SessionLog,
 	type SessionSource,
@@ -68,8 +70,9 @@ export function buildPlan(source: SessionSource, lookups: Lookups): PlanEntry[] 
 		return routine ? expandRoutine(routine, false) : null;
 	}
 	const program = lookups.program(source.programId);
-	if (!program) return null;
-	return itemsForDay(program, source.day).flatMap((item) => {
+	const programSession = program && sessionOf(program, source.day, source.sessionId);
+	if (!programSession) return null;
+	return programSession.items.flatMap((item) => {
 		if (item.type === 'exercise')
 			return [{ workoutId: item.workoutId, targetSets: item.targetSets }];
 		const routine = lookups.routine(item.routineId);
@@ -86,19 +89,20 @@ export function sourceName(source: SessionSource, lookups: Lookups): string | nu
 export function sameSource(a: SessionSource, b: SessionSource): boolean {
 	if (a.type === 'routine' && b.type === 'routine') return a.routineId === b.routineId;
 	if (a.type === 'program' && b.type === 'program') {
-		return a.programId === b.programId && a.day === b.day;
+		return a.programId === b.programId && a.day === b.day && a.sessionId === b.sessionId;
 	}
 	return false;
 }
 
-/** `/train/run?routine=…` or `?program=…&day=…` (day defaults to today). */
+/** `/train/run?routine=…` or `?program=…&day=…&session=…` (day defaults to today). */
 export function sourceFromParams(params: URLSearchParams, today: number): SessionSource | null {
 	const routineId = params.get('routine');
 	if (routineId) return { type: 'routine', routineId };
 	const programId = params.get('program');
-	if (!programId) return null;
+	const sessionId = params.get('session');
+	if (!programId || !sessionId) return null;
 	const day = parseInt(params.get('day') ?? '', 10);
-	return { type: 'program', programId, day: Number.isInteger(day) ? day : today };
+	return { type: 'program', programId, day: Number.isInteger(day) ? day : today, sessionId };
 }
 
 /**
@@ -311,11 +315,10 @@ export type SessionWindow = { source: SessionSource; start: number; end: number 
 export function runsRoutine(source: SessionSource, routineId: string, lookups: Lookups): boolean {
 	if (source.type === 'routine') return source.routineId === routineId;
 	const program = lookups.program(source.programId);
+	const programSession = program && sessionOf(program, source.day, source.sessionId);
 	return (
-		!!program &&
-		itemsForDay(program, source.day).some(
-			(item) => item.type === 'routine' && item.routineId === routineId
-		)
+		!!programSession &&
+		programSession.items.some((item) => item.type === 'routine' && item.routineId === routineId)
 	);
 }
 
@@ -361,12 +364,22 @@ export function whenNext(day: number, today: number): string {
 	return day === (today + 1) % 7 ? 'tomorrow' : DAY_FULL[day];
 }
 
-/** What a program day is called: its label, else its routines' names, else its size. */
-export function programDayName(day: ProgramDay, routine: (id: string) => Routine | null): string {
-	if (day.label) return day.label;
-	const names = day.items.flatMap((item) => {
+/** What a program session is called: its label, else its routines' names, else its size. */
+export function sessionName(
+	programSession: ProgramSession,
+	routine: (id: string) => Routine | null
+): string {
+	if (programSession.label) return programSession.label;
+	const names = programSession.items.flatMap((item) => {
 		const name = item.type === 'routine' ? routine(item.routineId)?.name : undefined;
 		return name ? [name] : [];
 	});
-	return names.length ? names.join(' + ') : counted(day.items.length, 'exercise');
+	return names.length ? names.join(' + ') : counted(programSession.items.length, 'exercise');
+}
+
+/** What a program day is called: its sessions' names, in slot order. */
+export function programDayName(day: ProgramDay, routine: (id: string) => Routine | null): string {
+	return daySessions(day)
+		.map((s) => sessionName(s, routine))
+		.join(' · ');
 }

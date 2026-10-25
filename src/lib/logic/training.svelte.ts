@@ -61,7 +61,8 @@ function toLog(
 	endedAt: number,
 	endReason: SessionLog['endReason']
 ): SessionLog | null {
-	const { exercises, totals } = summarize(buildPlan(s.source, lookups) ?? [], lookups, s.startedAt);
+	const plan = buildPlan(s.source, lookups) ?? [];
+	const { exercises, totals } = summarize(plan, lookups, s.startedAt);
 	if (totals.sets === 0) return null;
 	return {
 		id: s.id,
@@ -70,6 +71,7 @@ function toLog(
 		startedAt: s.startedAt,
 		endedAt,
 		endReason,
+		complete: isPlanComplete(plan, lookups, s.startedAt),
 		...(s.pausedMs > 0 && { pausedMs: s.pausedMs }),
 		exercises,
 		totals,

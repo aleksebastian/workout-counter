@@ -1,11 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import {
+	currentSlot,
 	itemsForDay,
 	nextScheduledDay,
 	parseProgram,
 	parseRoutine,
+	parseSessionLog,
 	parseWorkout,
 	programDays,
+	sessionsForDay,
 	type Program
 } from './types';
 
@@ -36,15 +39,16 @@ describe('parseProgram', () => {
 		expect(itemsForDay(program, 1)).toEqual([]);
 	});
 
-	it('coerces a day entry that is missing its items array', () => {
-		// programDays() reads d.items.length, so coercing only the outer array
+	it('coerces a day missing its sessions, and a session missing its items', () => {
+		// programDays() reads s.items.length, so coercing only the outer arrays
 		// would still throw here.
 		const program = parseProgram(
-			{ id: 'p1', name: 'Split', schedule: [{ day: 2 }], createdAt: 1 },
+			{ id: 'p1', name: 'Split', schedule: [{ day: 2 }, { day: 3, sessions: [{ id: 's' }] }] },
 			'p1'
 		);
 
-		expect(program.schedule[0].items).toEqual([]);
+		expect(program.schedule[0].sessions).toEqual([]);
+		expect(program.schedule[1].sessions[0].items).toEqual([]);
 		expect(() => programDays(program)).not.toThrow();
 		expect(programDays(program)).toEqual([]);
 	});
@@ -54,7 +58,17 @@ describe('parseProgram', () => {
 			id: 'p1',
 			name: 'Split',
 			schedule: [
-				{ day: 2, label: 'Push', items: [{ type: 'exercise', workoutId: 'w1', targetSets: 3 }] }
+				{
+					day: 2,
+					sessions: [
+						{
+							id: 's1',
+							slot: 'evening',
+							label: 'Push',
+							items: [{ type: 'exercise', workoutId: 'w1', targetSets: 3 }]
+						}
+					]
+				}
 			],
 			createdAt: 5
 		};
@@ -63,7 +77,15 @@ describe('parseProgram', () => {
 
 		expect(programDays(program)).toEqual([2]);
 		expect(itemsForDay(program, 2)).toHaveLength(1);
-		expect(program.schedule[0].label).toBe('Push');
+		expect(program.schedule[0].sessions[0]).toMatchObject({ slot: 'evening', label: 'Push' });
+	});
+
+	it('drops an unknown slot, listing the session as Anytime', () => {
+		const program = parseProgram(
+			{ schedule: [{ day: 1, sessions: [{ id: 's', slot: 'brunch', items: [] }] }] },
+			'p1'
+		);
+		expect(program.schedule[0].sessions[0]).toEqual({ id: 's', items: [] });
 	});
 
 	it('falls back to the document id when the stored id is missing', () => {
@@ -121,9 +143,9 @@ describe('nextScheduledDay', () => {
 		id: 'p1',
 		name: 'Full Body',
 		schedule: [
-			{ day: 1, items: [{ type: 'routine', routineId: 'a' }] },
-			{ day: 3, items: [] },
-			{ day: 5, items: [{ type: 'routine', routineId: 'b' }] }
+			{ day: 1, sessions: [{ id: 's1', items: [{ type: 'routine', routineId: 'a' }] }] },
+			{ day: 3, sessions: [{ id: 's3', items: [] }] },
+			{ day: 5, sessions: [{ id: 's5', items: [{ type: 'routine', routineId: 'b' }] }] }
 		],
 		createdAt: 1
 	};
@@ -139,5 +161,77 @@ describe('nextScheduledDay', () => {
 
 	it('is null for an empty schedule', () => {
 		expect(nextScheduledDay({ ...program, schedule: [] }, 0)).toBeNull();
+	});
+});
+
+describe('sessionsForDay', () => {
+	const item = { type: 'routine', routineId: 'r' } as const;
+	const program: Program = {
+		id: 'p1',
+		name: 'Week',
+		schedule: [
+			{
+				day: 6,
+				sessions: [
+					{ id: 'any', items: [item] },
+					{ id: 'night', slot: 'night', items: [item] },
+					{ id: 'empty', slot: 'midday', items: [] },
+					{ id: 'am', slot: 'morning', items: [item] },
+					{ id: 'pm', slot: 'evening', items: [item] },
+					{ id: 'am2', slot: 'morning', items: [item] }
+				]
+			}
+		],
+		createdAt: 1
+	};
+
+	it('orders by slot, keeps ties in the order added, puts Anytime last and skips empty ones', () => {
+		expect(sessionsForDay(program, 6).map((s) => s.id)).toEqual([
+			'am',
+			'am2',
+			'pm',
+			'night',
+			'any'
+		]);
+	});
+
+	it('is empty for a day with nothing scheduled', () => {
+		expect(sessionsForDay(program, 0)).toEqual([]);
+	});
+});
+
+describe('currentSlot', () => {
+	const at = (h: number) => new Date(2026, 9, 24, h, 30);
+
+	it('maps the clock onto the five slots', () => {
+		expect([6, 11, 14, 17, 21, 23].map((h) => currentSlot(at(h)))).toEqual([
+			'morning',
+			'midday',
+			'afternoon',
+			'evening',
+			'night',
+			'night'
+		]);
+	});
+});
+
+describe('parseSessionLog', () => {
+	it('reads a program session source and whether it was complete', () => {
+		const log = parseSessionLog(
+			{
+				source: { type: 'program', programId: 'p', day: 2, sessionId: 's' },
+				complete: true,
+				startedAt: 1
+			},
+			'l1'
+		);
+		expect(log?.source).toEqual({ type: 'program', programId: 'p', day: 2, sessionId: 's' });
+		expect(log?.complete).toBe(true);
+	});
+
+	it('drops a program source without a session', () => {
+		expect(
+			parseSessionLog({ source: { type: 'program', programId: 'p', day: 2 } }, 'l1')
+		).toBeNull();
 	});
 });

@@ -53,10 +53,48 @@ export type ProgramItem =
 	| { type: 'routine'; routineId: string }
 	| { type: 'exercise'; workoutId: string; targetSets: number };
 
-export type ProgramDay = {
-	day: number; // 0=Sun … 6=Sat
+/** When in the day a session happens. Only orders and labels sessions; there are no clock times. */
+export type Slot = 'morning' | 'midday' | 'afternoon' | 'evening' | 'night';
+
+export const SLOTS: readonly Slot[] = ['morning', 'midday', 'afternoon', 'evening', 'night'];
+
+export const SLOT_LABEL: Record<Slot, string> = {
+	morning: 'Morning',
+	midday: 'Midday',
+	afternoon: 'Afternoon',
+	evening: 'Evening',
+	night: 'Night'
+};
+
+/** What a session without a slot is called once its day has others to order it against. */
+export const ANYTIME = 'Anytime';
+
+/** The slot the clock is in: Morning before 11, Midday to 2, Afternoon to 5, Evening to 9, then Night. */
+export function currentSlot(now: Date = new Date()): Slot {
+	const h = now.getHours();
+	if (h < 11) return 'morning';
+	if (h < 14) return 'midday';
+	if (h < 17) return 'afternoon';
+	if (h < 21) return 'evening';
+	return 'night';
+}
+
+/** Sort key for a slot; one without a slot goes after all of them. */
+export function slotRank(slot: Slot | undefined): number {
+	return slot ? SLOTS.indexOf(slot) : SLOTS.length;
+}
+
+/** One guided workout within a program day, e.g. Morning cardio or the Evening lift. */
+export type ProgramSession = {
+	id: string;
+	slot?: Slot;
 	label?: string; // optional custom label e.g. "Upper Hypertrophy"
 	items: ProgramItem[];
+};
+
+export type ProgramDay = {
+	day: number; // 0=Sun … 6=Sat
+	sessions: ProgramSession[];
 };
 
 export type Program = {
@@ -69,21 +107,44 @@ export type Program = {
 	createdAt: number;
 };
 
-/** Days of the week that have at least one scheduled item. */
-export function programDays(program: Program): number[] {
-	return program.schedule.filter((d) => d.items.length > 0).map((d) => d.day);
+/**
+ * A day's sessions that have something in them, in slot order: Morning
+ * first, sessions without a slot last, ties kept in the order they were added.
+ */
+export function daySessions(day: ProgramDay | null | undefined): ProgramSession[] {
+	return (day?.sessions ?? [])
+		.filter((s) => s.items.length > 0)
+		.map((s, i) => ({ s, i }))
+		.sort((a, b) => slotRank(a.s.slot) - slotRank(b.s.slot) || a.i - b.i)
+		.map(({ s }) => s);
 }
 
-/** Items scheduled for one day of the week. */
+/** Sessions scheduled for one day of the week, in slot order. */
+export function sessionsForDay(program: Program, day: number): ProgramSession[] {
+	return daySessions(program.schedule.find((d) => d.day === day));
+}
+
+export function sessionOf(program: Program, day: number, sessionId: string): ProgramSession | null {
+	return (
+		program.schedule.find((d) => d.day === day)?.sessions.find((s) => s.id === sessionId) ?? null
+	);
+}
+
+/** Days of the week that have at least one scheduled item. */
+export function programDays(program: Program): number[] {
+	return program.schedule.filter((d) => daySessions(d).length > 0).map((d) => d.day);
+}
+
+/** Everything scheduled for one day of the week, across its sessions. */
 export function itemsForDay(program: Program, day: number): ProgramItem[] {
-	return program.schedule.find((d) => d.day === day)?.items ?? [];
+	return sessionsForDay(program, day).flatMap((s) => s.items);
 }
 
 /** The next day after `fromDay`, wrapping round the week, with anything scheduled; `null` if none. */
 export function nextScheduledDay(program: Program, fromDay: number): ProgramDay | null {
 	for (let i = 1; i <= 7; i++) {
 		const day = (fromDay + i) % 7;
-		const entry = program.schedule.find((d) => d.day === day && d.items.length > 0);
+		const entry = program.schedule.find((d) => d.day === day && daySessions(d).length > 0);
 		if (entry) return entry;
 	}
 	return null;
@@ -91,9 +152,10 @@ export function nextScheduledDay(program: Program, fromDay: number): ProgramDay 
 
 // ── Training sessions ────────────────────────────────────────────────────────
 
-/** What a guided session is running: one routine, or one day of a program. */
+/** What a guided session is running: one routine, or one session of a program day. */
 export type SessionSource =
-	{ type: 'routine'; routineId: string } | { type: 'program'; programId: string; day: number };
+	| { type: 'routine'; routineId: string }
+	| { type: 'program'; programId: string; day: number; sessionId: string };
 
 /**
  * The workout in progress, kept on the user document so it survives leaving
@@ -143,6 +205,8 @@ export type SessionLog = {
 	endedAt: number;
 	/** `abandoned`: closed automatically after inactivity; `endedAt` is the last activity. */
 	endReason: 'finished' | 'abandoned';
+	/** Every planned exercise got its sets; false when it ended early. */
+	complete: boolean;
 	/** Time it spent ended before being resumed; the duration is end − start − this. */
 	pausedMs?: number;
 	exercises: { workoutId: string; name: string; sets: number; reps: number }[];
@@ -244,24 +308,44 @@ export const parseProgram: Parse<Program> = (raw, id) => ({
 	...(raw as Program),
 	id: str(raw.id, id),
 	name: str(raw.name),
-	// Each day's `items` is coerced too: `programDays` reads `d.items.length`,
-	// so a schedule containing a malformed day would still throw.
+	// Each session's `items` is coerced too: `programDays` reads `s.items.length`,
+	// so a schedule containing a malformed session would still throw.
 	schedule: arrayOf<RawDoc>(raw.schedule).map((day) => ({
-		...(day as unknown as ProgramDay),
 		day: num(day?.day),
-		items: arrayOf<ProgramItem>(day?.items)
+		sessions: arrayOf<RawDoc>(day?.sessions).map(parseProgramSession)
 	})),
 	source: source(raw.source),
 	createdAt: num(raw.createdAt)
 });
+
+/** An unknown slot is dropped, which lists the session as Anytime. */
+function parseProgramSession(raw: RawDoc | null | undefined): ProgramSession {
+	const slot = raw?.slot as Slot;
+	const label = str(raw?.label);
+	return {
+		id: str(raw?.id),
+		...(SLOTS.includes(slot) && { slot }),
+		...(label && { label }),
+		items: arrayOf<ProgramItem>(raw?.items)
+	};
+}
 
 function sessionSource(value: unknown): SessionSource | null {
 	const raw = (value ?? {}) as RawDoc;
 	if (raw.type === 'routine' && typeof raw.routineId === 'string') {
 		return { type: 'routine', routineId: raw.routineId };
 	}
-	if (raw.type === 'program' && typeof raw.programId === 'string') {
-		return { type: 'program', programId: raw.programId, day: num(raw.day) };
+	if (
+		raw.type === 'program' &&
+		typeof raw.programId === 'string' &&
+		typeof raw.sessionId === 'string'
+	) {
+		return {
+			type: 'program',
+			programId: raw.programId,
+			day: num(raw.day),
+			sessionId: raw.sessionId
+		};
 	}
 	return null;
 }
@@ -318,6 +402,7 @@ export const parseSessionLog: Parse<SessionLog | null> = (raw, id) => {
 		startedAt,
 		endedAt: num(raw.endedAt, startedAt),
 		endReason: raw.endReason === 'abandoned' ? 'abandoned' : 'finished',
+		complete: raw.complete === true,
 		exercises: arrayOf<SessionLog['exercises'][number]>(raw.exercises),
 		totals: { sets: num(totals.sets), reps: num(totals.reps) },
 		createdAt: num(raw.createdAt)

@@ -11,6 +11,7 @@
 		buildPlan,
 		formatClock,
 		programDayName,
+		sessionName,
 		routineLastTrained,
 		sameSource,
 		setsSince,
@@ -27,7 +28,7 @@
 		runProgramHref,
 		runRoutineHref
 	} from '$lib/routes';
-	import { nextScheduledDay, programDays, type SessionSource } from '$lib/types';
+	import { nextScheduledDay, programDays, sessionsForDay, type SessionSource } from '$lib/types';
 	import Chevron from '$lib/components/Chevron.svelte';
 	import SessionProgress from '$lib/components/SessionProgress.svelte';
 	import LogSetSheet from '$lib/components/LogSetSheet.svelte';
@@ -55,11 +56,11 @@
 
 	const todayDow = new Date().getDay();
 	let program = $derived(session.activeProgram);
-	let todayDay = $derived(
-		program?.schedule.find((d) => d.day === todayDow && d.items.length > 0) ?? null
-	);
+	let todaySession = $derived(program ? (sessionsForDay(program, todayDow)[0] ?? null) : null);
 	let programSource = $derived<SessionSource | null>(
-		program && todayDay ? { type: 'program', programId: program.id, day: todayDow } : null
+		program && todaySession
+			? { type: 'program', programId: program.id, day: todayDow, sessionId: todaySession.id }
+			: null
 	);
 
 	let active = $derived(training.session);
@@ -149,8 +150,8 @@
 	});
 
 	let heroTitle = $derived(
-		hero === 'program' && todayDay
-			? programDayName(todayDay, (id) => session.routine(id))
+		hero === 'program' && todaySession
+			? sessionName(todaySession, (id) => session.routine(id))
 			: (suggested?.name ?? '')
 	);
 	let heroEyebrow = $derived.by(() => {
@@ -165,7 +166,7 @@
 		if (!source) return;
 		goto(
 			source.type === 'program'
-				? runProgramHref(source.programId, source.day, opts)
+				? runProgramHref(source.programId, source.day, source.sessionId, opts)
 				: runRoutineHref(source.routineId, opts)
 		);
 	}
@@ -225,7 +226,7 @@
 	// ── Other routines ──────────────────────────────────────────────────────────
 	let todaysRoutines = $derived(
 		new globalThis.Set(
-			(todayDay?.items ?? []).flatMap((i) => (i.type === 'routine' ? [i.routineId] : []))
+			(todaySession?.items ?? []).flatMap((i) => (i.type === 'routine' ? [i.routineId] : []))
 		)
 	);
 	let others = $derived(
@@ -436,7 +437,14 @@
 							onclick={() =>
 								goto(
 									againSource!.type === 'program'
-										? runProgramHref(againSource!.programId, againSource!.day, { fresh: true })
+										? runProgramHref(
+												againSource!.programId,
+												againSource!.day,
+												againSource!.sessionId,
+												{
+													fresh: true
+												}
+											)
 										: runRoutineHref(againSource!.routineId, { fresh: true })
 								)}>Start again</button
 						>

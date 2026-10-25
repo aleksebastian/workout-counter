@@ -280,13 +280,30 @@ describe('planImport — programs', () => {
 				id: plan.root.id,
 				name: 'Split',
 				schedule: [
-					{ day: 1, label: 'Push', items: [{ type: 'routine', routineId: push }] },
-					{ day: 3, items: [{ type: 'routine', routineId: pull }] },
+					{
+						day: 1,
+						sessions: [
+							{
+								id: expect.any(String),
+								label: 'Push',
+								items: [{ type: 'routine', routineId: push }]
+							}
+						]
+					},
+					{
+						day: 3,
+						sessions: [{ id: expect.any(String), items: [{ type: 'routine', routineId: pull }] }]
+					},
 					{
 						day: 5,
-						items: [
-							{ type: 'routine', routineId: push },
-							{ type: 'exercise', workoutId: squat, targetSets: 5 }
+						sessions: [
+							{
+								id: expect.any(String),
+								items: [
+									{ type: 'routine', routineId: push },
+									{ type: 'exercise', workoutId: squat, targetSets: 5 }
+								]
+							}
 						]
 					}
 				],
@@ -301,7 +318,7 @@ describe('planImport — programs', () => {
 		const existingPush = lib.routines[0].id;
 		const plan = planImport(bundle('program', 'split'), lib, opts());
 		expect(plan.create.routines.map((r) => r.name)).toEqual(['Pull Day']);
-		expect(plan.create.programs[0].schedule[0].items).toEqual([
+		expect(plan.create.programs[0].schedule[0].sessions[0].items).toEqual([
 			{ type: 'routine', routineId: existingPush }
 		]);
 	});
@@ -311,7 +328,10 @@ describe('planImport — programs', () => {
 		const lib = apply(library(), first);
 		lib.programs = lib.programs.map((p): Program => ({
 			...p,
-			schedule: p.schedule.map((d) => ({ ...d, label: 'Renamed' }))
+			schedule: p.schedule.map((d) => ({
+				...d,
+				sessions: d.sessions.map((s) => ({ ...s, label: 'Renamed', slot: 'morning' as const }))
+			}))
 		}));
 		const again = planImport(bundle('program', 'split'), lib, opts());
 		expect(again.alreadyInLibrary).toBe(true);

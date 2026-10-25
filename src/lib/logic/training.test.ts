@@ -13,6 +13,7 @@ import {
 	lastActivity,
 	previousSets,
 	programDayName,
+	sessionName,
 	resolveIndex,
 	resumedSession,
 	routineLastTrained,
@@ -23,7 +24,14 @@ import {
 	type Lookups,
 	type PlanEntry
 } from './training';
-import type { ActiveSession, EndedSession, Program, Routine, Workout } from '$lib/types';
+import type {
+	ActiveSession,
+	EndedSession,
+	Program,
+	ProgramDay,
+	Routine,
+	Workout
+} from '$lib/types';
 
 const T0 = Date.parse('2026-10-04T18:00:00Z');
 const at = (minutes: number) => new Date(T0 + minutes * 60_000).toISOString();
@@ -50,9 +58,19 @@ const split: Program = {
 	schedule: [
 		{
 			day: 1,
-			items: [
-				{ type: 'routine', routineId: 'push' },
-				{ type: 'exercise', workoutId: 'curl', targetSets: 2 }
+			sessions: [
+				{
+					id: 'main',
+					items: [
+						{ type: 'routine', routineId: 'push' },
+						{ type: 'exercise', workoutId: 'curl', targetSets: 2 }
+					]
+				},
+				{
+					id: 'am',
+					slot: 'morning',
+					items: [{ type: 'exercise', workoutId: 'curl', targetSets: 1 }]
+				}
 			]
 		}
 	],
@@ -91,7 +109,10 @@ describe('buildPlan', () => {
 	});
 
 	it('expands a program day, labelling routine groups', () => {
-		const plan = buildPlan({ type: 'program', programId: 'split', day: 1 }, lookups());
+		const plan = buildPlan(
+			{ type: 'program', programId: 'split', day: 1, sessionId: 'main' },
+			lookups()
+		);
 		expect(plan?.map((e) => [e.workoutId, e.groupLabel, e.targetSets])).toEqual([
 			['bench', 'Push', 3],
 			['ohp', 'Push', undefined],
@@ -99,9 +120,22 @@ describe('buildPlan', () => {
 		]);
 	});
 
+	it('expands only the session asked for', () => {
+		const plan = buildPlan(
+			{ type: 'program', programId: 'split', day: 1, sessionId: 'am' },
+			lookups()
+		);
+		expect(plan?.map((e) => [e.workoutId, e.targetSets])).toEqual([['curl', 1]]);
+		expect(
+			buildPlan({ type: 'program', programId: 'split', day: 1, sessionId: 'gone' }, lookups())
+		).toBeNull();
+	});
+
 	it('is null when the source no longer exists', () => {
 		expect(buildPlan({ type: 'routine', routineId: 'gone' }, lookups())).toBeNull();
-		expect(buildPlan({ type: 'program', programId: 'gone', day: 1 }, lookups())).toBeNull();
+		expect(
+			buildPlan({ type: 'program', programId: 'gone', day: 1, sessionId: 'main' }, lookups())
+		).toBeNull();
 	});
 });
 
@@ -111,23 +145,28 @@ describe('sourceFromParams', () => {
 			type: 'routine',
 			routineId: 'push'
 		});
-		expect(sourceFromParams(new URLSearchParams('program=split&day=1'), 3)).toEqual({
+		expect(sourceFromParams(new URLSearchParams('program=split&day=1&session=am'), 3)).toEqual({
 			type: 'program',
 			programId: 'split',
-			day: 1
+			day: 1,
+			sessionId: 'am'
 		});
-		expect(sourceFromParams(new URLSearchParams('program=split'), 3)).toMatchObject({ day: 3 });
+		expect(sourceFromParams(new URLSearchParams('program=split&session=am'), 3)).toMatchObject({
+			day: 3
+		});
+		expect(sourceFromParams(new URLSearchParams('program=split&day=1'), 3)).toBeNull();
 		expect(sourceFromParams(new URLSearchParams(''), 3)).toBeNull();
 	});
 });
 
 describe('sameSource', () => {
-	it('compares the routine, or the program and its day', () => {
+	it('compares the routine, or the program, its day and its session', () => {
 		const r = { type: 'routine', routineId: 'push' } as const;
-		const p = { type: 'program', programId: 'split', day: 1 } as const;
+		const p = { type: 'program', programId: 'split', day: 1, sessionId: 'main' } as const;
 		expect(sameSource(r, { ...r })).toBe(true);
 		expect(sameSource(p, { ...p })).toBe(true);
 		expect(sameSource(p, { ...p, day: 2 })).toBe(false);
+		expect(sameSource(p, { ...p, sessionId: 'am' })).toBe(false);
 		expect(sameSource(r, p)).toBe(false);
 	});
 });
@@ -169,7 +208,10 @@ describe('lastActivity and isStale', () => {
 
 describe('summarize', () => {
 	it("counts only the session's sets, once per exercise", () => {
-		const plan = buildPlan({ type: 'program', programId: 'split', day: 1 }, lookups())!;
+		const plan = buildPlan(
+			{ type: 'program', programId: 'split', day: 1, sessionId: 'main' },
+			lookups()
+		)!;
 		// An earlier workout the same day must not count — the old "today" bug.
 		const lib = lookups([
 			workout('bench', [-120, 1, 4]),
@@ -279,10 +321,13 @@ describe('formatClock', () => {
 });
 
 describe('ending and resuming', () => {
-	const plan = buildPlan({ type: 'program', programId: 'split', day: 1 }, lookups())!;
+	const plan = buildPlan(
+		{ type: 'program', programId: 'split', day: 1, sessionId: 'main' },
+		lookups()
+	)!;
 	const ended: EndedSession = {
 		id: 's1',
-		source: { type: 'program', programId: 'split', day: 1 },
+		source: { type: 'program', programId: 'split', day: 1, sessionId: 'main' },
 		name: 'Split',
 		startedAt: T0,
 		currentWorkoutId: 'curl',
@@ -327,7 +372,9 @@ describe('ending and resuming', () => {
 	it('only offers a workout ended today, for the same routine or day', () => {
 		const sameDay = ended.endedAt + 60 * 60_000;
 		expect(endedToday(ended, ended.source, sameDay)).toBe(ended);
-		expect(endedToday(ended, { type: 'program', programId: 'split', day: 2 }, sameDay)).toBeNull();
+		expect(
+			endedToday(ended, { type: 'program', programId: 'split', day: 2, sessionId: 'main' }, sameDay)
+		).toBeNull();
 		expect(endedToday(ended, ended.source, ended.endedAt + 24 * 60 * 60_000)).toBeNull();
 		expect(endedToday(null, ended.source, sameDay)).toBeNull();
 	});
@@ -356,7 +403,9 @@ describe('routineLastTrained', () => {
 	const week: Program = {
 		id: 'week',
 		name: 'Week',
-		schedule: [{ day: 1, items: [{ type: 'routine', routineId: 'push' }] }],
+		schedule: [
+			{ day: 1, sessions: [{ id: 'main', items: [{ type: 'routine', routineId: 'push' }] }] }
+		],
 		createdAt: 0
 	};
 	const lookups: Lookups = {
@@ -381,7 +430,7 @@ describe('routineLastTrained', () => {
 	});
 
 	it('counts a program day that runs the routine', () => {
-		const day = window({ type: 'program', programId: 'week', day: 1 });
+		const day = window({ type: 'program', programId: 'week', day: 1, sessionId: 'main' });
 		expect(routineLastTrained(push, lookups, [day])).toBe(Date.parse(at(3)));
 		expect(routineLastTrained(copy, lookups, [day])).toBe(Date.parse(at(-60 * 24 * 11)));
 	});
@@ -406,24 +455,34 @@ describe('routineLastTrained', () => {
 	});
 });
 
-describe('programDayName', () => {
+describe('sessionName', () => {
 	const routineA = { ...push, id: 'a', name: 'Full Body A' };
-	const lookup = (id: string) => (id === 'a' ? routineA : null);
+	const pt = { ...push, id: 'pt', name: 'PT homework' };
+	const lookup = (id: string) => (id === 'a' ? routineA : id === 'pt' ? pt : null);
+	const a = { type: 'routine', routineId: 'a' } as const;
 
-	it('prefers the day’s label', () => {
-		expect(programDayName({ day: 1, label: 'Upper', items: [] }, lookup)).toBe('Upper');
+	it('prefers the session’s label', () => {
+		expect(sessionName({ id: 's', label: 'Upper', items: [a] }, lookup)).toBe('Upper');
 	});
 
 	it('names the routines it runs', () => {
-		const day = { day: 1, items: [{ type: 'routine', routineId: 'a' } as const] };
-		expect(programDayName(day, lookup)).toBe('Full Body A');
+		const items = [{ type: 'routine', routineId: 'pt' } as const, a];
+		expect(sessionName({ id: 's', items }, lookup)).toBe('PT homework + Full Body A');
 	});
 
 	it('falls back to how many items it has', () => {
-		const day = {
+		const items = [{ type: 'exercise', workoutId: 'bench', targetSets: 3 } as const];
+		expect(sessionName({ id: 's', items }, lookup)).toBe('1 exercise');
+	});
+
+	it('names a whole day by its sessions in slot order', () => {
+		const day: ProgramDay = {
 			day: 1,
-			items: [{ type: 'exercise', workoutId: 'bench', targetSets: 3 } as const]
+			sessions: [
+				{ id: 'pm', slot: 'evening', items: [a] },
+				{ id: 'am', slot: 'morning', label: 'Cardio', items: [a] }
+			]
 		};
-		expect(programDayName(day, lookup)).toBe('1 exercise');
+		expect(programDayName(day, lookup)).toBe('Cardio · Full Body A');
 	});
 });

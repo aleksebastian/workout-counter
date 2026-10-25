@@ -74,8 +74,13 @@ const freshParam = (opts?: RunOptions) =>
 	opts?.resume ? '&resume=1' : opts?.fresh ? '&fresh=1' : '';
 
 /** Guided session for one day of a program. */
-export function runProgramHref(programId: string, day: number, opts?: RunOptions): string {
-	return `/train/run?program=${programId}&day=${day}${freshParam(opts)}`;
+export function runProgramHref(
+	programId: string,
+	day: number,
+	sessionId: string,
+	opts?: RunOptions
+): string {
+	return `/train/run?program=${programId}&day=${day}&session=${sessionId}${freshParam(opts)}`;
 }
 
 /** Guided session for a routine, start to finish. */

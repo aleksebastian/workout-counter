@@ -35,6 +35,7 @@ function log(id: string, start: number, end: number, workoutIds: string[]): Sess
 		startedAt: T0 + start * 60_000,
 		endedAt: T0 + end * 60_000,
 		endReason: 'finished',
+		complete: true,
 		exercises: workoutIds.map((w) => ({ workoutId: w, name: w, sets: 0, reps: 0 })),
 		totals: { sets: 0, reps: 0 },
 		createdAt: T0 + end * 60_000
@@ -155,7 +156,10 @@ describe('the week', () => {
 		const program = {
 			id: 'p',
 			name: 'P',
-			schedule: [1, 3, 5].map((day) => ({ day, items: [{ type: 'routine', routineId: 'r' }] })),
+			schedule: [1, 3, 5].map((day) => ({
+				day,
+				sessions: [{ id: 's', items: [{ type: 'routine', routineId: 'r' }] }]
+			})),
 			createdAt: 0
 		} as Program;
 		expect(streakTarget(4, program)).toBe(3);

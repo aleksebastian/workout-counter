@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { v4 as uuidv4 } from 'uuid';
 	import { counted } from '$lib/utils';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
@@ -36,8 +37,8 @@
 
 	let selectedDay = $state(todayDow);
 	let schedule = $derived<ProgramDay[]>(program?.schedule ?? []);
-	let dayEntry = $derived(schedule.find((d) => d.day === selectedDay) ?? null);
-	let dayItems = $derived(program ? itemsForDay(program, selectedDay) : []);
+	let daySession = $derived(schedule.find((d) => d.day === selectedDay)?.sessions[0] ?? null);
+	let dayItems = $derived(daySession?.items ?? []);
 
 	/**
 	 * What the add sheet shows as already on this day: exercises scheduled
@@ -143,10 +144,10 @@
 					}
 				: null,
 			{
-				label: dayEntry?.label ? 'Rename this day' : 'Label this day',
+				label: daySession?.label ? 'Rename this day' : 'Label this day',
 				icon: NotesIcon,
 				onSelect: () => {
-					labelDraft = dayEntry?.label ?? '';
+					labelDraft = daySession?.label ?? '';
 					showLabelSheet = true;
 				}
 			},
@@ -205,12 +206,15 @@
 	/** Upserts one day's items, dropping the day entry when it empties out. */
 	function withDay(day: number, items: ProgramItem[], label?: string): ProgramDay[] {
 		const existing = schedule.find((d) => d.day === day);
-		const resolvedLabel = label !== undefined ? label : existing?.label;
+		const first = existing?.sessions[0];
+		const resolvedLabel = label !== undefined ? label : first?.label;
 		if (items.length === 0 && !resolvedLabel) return schedule.filter((d) => d.day !== day);
 		const next: ProgramDay = {
 			day,
-			items,
-			...(resolvedLabel ? { label: resolvedLabel } : {})
+			sessions: [
+				{ id: first?.id ?? uuidv4(), items, ...(resolvedLabel ? { label: resolvedLabel } : {}) },
+				...(existing?.sessions.slice(1) ?? [])
+			]
 		};
 		return existing
 			? schedule.map((d) => (d.day === day ? next : d))
@@ -371,8 +375,8 @@
 			{/each}
 		</div>
 
-		{#if dayEntry?.label}
-			<p class="text-base-content/60 text-sm font-medium">{dayEntry.label}</p>
+		{#if daySession?.label}
+			<p class="text-base-content/60 text-sm font-medium">{daySession.label}</p>
 		{/if}
 
 		<!-- Start CTA -->
@@ -388,7 +392,7 @@
 					class="btn btn-primary"
 					class:flex-3={selectedDay === todayDow}
 					class:w-full={selectedDay !== todayDow}
-					onclick={() => goto(runProgramHref(program.id, selectedDay))}
+					onclick={() => goto(runProgramHref(program.id, selectedDay, daySession!.id))}
 				>
 					{#if selectedDay !== todayDow}
 						Start {DAY_NAMES[selectedDay]} workout

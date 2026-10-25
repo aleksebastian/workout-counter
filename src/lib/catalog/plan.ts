@@ -1,11 +1,12 @@
 import { v4 as uuidv4 } from 'uuid';
-import type {
-	Program,
-	ProgramDay,
-	ProgramItem,
-	Routine,
-	RoutineExercise,
-	Workout
+import {
+	daySessions,
+	type Program,
+	type ProgramDay,
+	type ProgramItem,
+	type Routine,
+	type RoutineExercise,
+	type Workout
 } from '$lib/types';
 import { matchExercise, type Match } from './match';
 import type { CatalogBundle, CatalogExercise, CatalogKind } from './types';
@@ -79,15 +80,21 @@ function sameExercises(a: RoutineExercise[], b: RoutineExercise[]): boolean {
 	return a.length === b.length && a.every((ex, i) => ex.workoutId === b[i].workoutId);
 }
 
-/** Which day holds which routines and exercises; labels and set targets are ignored. */
+/** Which day holds which routines and exercises, session by session; labels, slots and set targets are ignored. */
 function scheduleKey(schedule: ProgramDay[]): string {
 	return schedule
-		.filter((d) => d.items.length > 0)
+		.filter((d) => daySessions(d).length > 0)
 		.sort((a, b) => a.day - b.day)
 		.map(
 			(d) =>
 				`${d.day}:` +
-				d.items.map((i) => (i.type === 'routine' ? `r${i.routineId}` : `e${i.workoutId}`)).join(',')
+				daySessions(d)
+					.map((s) =>
+						s.items
+							.map((i) => (i.type === 'routine' ? `r${i.routineId}` : `e${i.workoutId}`))
+							.join(',')
+					)
+					.join('/')
 		)
 		.join('|');
 }
@@ -190,10 +197,10 @@ export function planImport(
 	const programNames = new Set(library.programs.map((p) => nameKey(p.name)));
 
 	for (const catalogProgram of bundle.programs) {
+		// A catalog day is one session with no slot: the program shows as it always has.
 		const schedule: ProgramDay[] = catalogProgram.schedule
 			.map(({ day, label, items }) => ({
 				day,
-				...(label && { label }),
 				items: items.flatMap((item): ProgramItem[] => {
 					if (item.type === 'routine') {
 						const routineId = routineIdFor.get(item.routineId);
@@ -201,9 +208,14 @@ export function planImport(
 					}
 					const workoutId = workoutIdFor.get(item.exerciseId);
 					return workoutId ? [{ type: 'exercise', workoutId, targetSets: item.targetSets }] : [];
-				})
+				}),
+				label
 			}))
-			.filter((d) => d.items.length > 0);
+			.filter((d) => d.items.length > 0)
+			.map(({ day, items, label }) => ({
+				day,
+				sessions: [{ id: newId(), ...(label && { label }), items }]
+			}));
 
 		const key = scheduleKey(schedule);
 		const existing = library.programs.find(

@@ -98,7 +98,7 @@
 		const s = log.source;
 		goto(
 			s.type === 'program'
-				? runProgramHref(s.programId, s.day, { fresh: true })
+				? runProgramHref(s.programId, s.day, s.sessionId, { fresh: true })
 				: runRoutineHref(s.routineId, { fresh: true })
 		);
 	}
