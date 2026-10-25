@@ -107,9 +107,10 @@ const count = (n: number | null, max: number) =>
 /**
  * Turns the model's answer into a draft, dropping anything out of range so the
  * review screen never shows nonsense: a program the user doesn't have becomes
- * a new one, a missing day becomes today.
+ * a new one, a missing day becomes today. With `programs` still loading
+ * (`null`), the program the server already checked is kept.
  */
-export function toDraft(extraction: Extraction, programs: Program[], today: number): Draft {
+export function toDraft(extraction: Extraction, programs: Program[] | null, today: number): Draft {
 	const exercises = extraction.routine.exercises
 		.map((e): DraftExercise => {
 			const measure = e.measure && MEASURES.includes(e.measure) ? e.measure : undefined;
@@ -132,13 +133,15 @@ export function toDraft(extraction: Extraction, programs: Program[], today: numb
 	const d = extraction.destination;
 	const day = d.day !== null && Number.isInteger(d.day) && d.day >= 0 && d.day <= 6 ? d.day : today;
 	const slot = d.slot && SLOTS.includes(d.slot) ? d.slot : undefined;
-	const known = programs.find((p) => p.id === d.programId);
+	const programId = programs
+		? (programs.find((p) => p.id === d.programId)?.id ?? null)
+		: d.programId;
 	const destination: Destination =
 		d.type === 'program'
 			? {
 					type: 'program',
-					programId: known?.id ?? null,
-					newProgramName: known ? '' : plain(d.newProgramName ?? ''),
+					programId,
+					newProgramName: programId ? '' : plain(d.newProgramName ?? ''),
 					day,
 					...(slot && { slot })
 				}
@@ -175,9 +178,9 @@ export function draftBundle(
 	};
 
 	for (const { name, measure, ...targets } of draft.exercises) {
-		const known = catalogExerciseNamed(name, catalog);
+		const known = catalogMatch({ name, measure }, catalog);
 		const exercise: CatalogExercise = known ?? {
-			id: bundleIdFor(name, catalog),
+			id: bundleIdFor({ name, measure }, catalog),
 			name: name.trim(),
 			muscles: [],
 			equipment: 'bodyweight',
@@ -201,9 +204,24 @@ export function draftBundle(
 	};
 }
 
+type Named = Pick<DraftExercise, 'name' | 'measure'>;
+
+/**
+ * The catalog exercise a draft one is, by name or alias, unless the photo
+ * measures it differently: a "Row" for 2000 m is a rowing machine, not the
+ * Barbell Row that has "Row" as an alias.
+ */
+function catalogMatch(ex: Named, catalog: CatalogExercise[]): CatalogExercise | null {
+	const known = catalogExerciseNamed(ex.name, catalog);
+	// No measure from the photo means "a plain lift, or it didn't say", so only
+	// a named time, distance or hold measure can disagree with the catalog.
+	const disagrees = ex.measure && ex.measure !== 'reps' && ex.measure !== known?.measure;
+	return known && !disagrees ? known : null;
+}
+
 /** The bundle id a draft exercise ends up under, to find its row in the import plan. */
-export function bundleIdFor(name: string, catalog: CatalogExercise[]): string {
-	return catalogExerciseNamed(name, catalog)?.id ?? PHOTO_ID + normalizeName(name);
+export function bundleIdFor(ex: Named, catalog: CatalogExercise[]): string {
+	return catalogMatch(ex, catalog)?.id ?? PHOTO_ID + normalizeName(ex.name);
 }
 
 /**

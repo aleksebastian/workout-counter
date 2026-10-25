@@ -27,6 +27,7 @@
 		type Extraction
 	} from '$lib/import/photo';
 	import { measureTarget } from '$lib/logic/measure';
+	import { repRange } from '$lib/logic/targets';
 	import { photoToJpegBase64 } from '$lib/logic/resizeImage';
 	import { ANYTIME, SLOTS, SLOT_LABEL, type Program, type Slot } from '$lib/types';
 	import CameraIcon from '$lib/icons/camera.svg?raw';
@@ -127,7 +128,7 @@
 			const extraction = (await res.json()) as Extraction;
 			catalog ??= await loadCatalog();
 			if (signal.aborted) return;
-			const next = toDraft(extraction, session.programs ?? [], today);
+			const next = toDraft(extraction, session.programs, today);
 			if (extraction.status === 'unreadable' || !next.exercises.length) return fail('unreadable');
 			draft = next;
 			aliasChoices = {};
@@ -174,13 +175,18 @@
 		kind: 'library' | 'new' | 'alias';
 		bundleId: string;
 		mine?: string;
+		/** Resolves to the same exercise as a row above it, so only that one is saved. */
+		duplicate: boolean;
 	};
 
 	let rows = $derived.by((): Row[] => {
 		if (!draft || !plan || !catalog) return [];
 		const exercises = catalog.exercises;
+		const seen = new Set<string>();
 		return draft.exercises.map((ex, index) => {
-			const bundleId = bundleIdFor(ex.name, exercises);
+			const bundleId = bundleIdFor(ex, exercises);
+			const duplicate = seen.has(bundleId);
+			seen.add(bundleId);
 			const m = plan!.exercises.find((e) => e.exercise.id === bundleId);
 			const name = m?.action === 'reuse' ? m.match!.workout.name : (m?.exercise.name ?? ex.name);
 			return {
@@ -191,7 +197,8 @@
 				kind:
 					m?.match?.confidence === 'alias' ? 'alias' : m?.action === 'reuse' ? 'library' : 'new',
 				bundleId,
-				...(m?.match && { mine: m.match.workout.name })
+				...(m?.match && { mine: m.match.workout.name }),
+				duplicate
 			};
 		});
 	});
@@ -203,14 +210,14 @@
 				.filter(Boolean)
 				.join(' · ');
 		}
-		const reps =
-			ex.minReps && ex.maxReps && ex.maxReps !== ex.minReps
-				? `${ex.minReps}–${ex.maxReps}`
-				: (ex.minReps ?? ex.maxReps);
+		const reps = repRange(ex);
 		if (ex.targetSets && reps) return `${ex.targetSets} × ${reps}`;
 		if (ex.targetSets) return `${ex.targetSets} sets`;
 		return reps ? `${reps} reps` : '';
 	}
+
+	/** What will actually be saved: a duplicate row isn't. */
+	let saveCount = $derived(rows.filter((r) => !r.duplicate).length);
 
 	function choose(bundleId: string, choice: AliasChoice) {
 		aliasChoices = { ...aliasChoices, [bundleId]: choice };
@@ -538,14 +545,14 @@
 
 			<div class="flex items-baseline justify-between px-1 pt-1">
 				<p class="text-base-content/60 text-xs font-semibold tracking-widest uppercase">
-					{draft.exercises.length}
-					{draft.exercises.length === 1 ? 'exercise' : 'exercises'}
+					{saveCount}
+					{saveCount === 1 ? 'exercise' : 'exercises'}
 				</p>
 				<p class="text-base-content/50 text-xs">Tap one to fix it</p>
 			</div>
 			<ul class="-mt-1 flex flex-col gap-0.5">
 				{#each rows as row (row.index)}
-					<li class={['rounded-xl', row.kind === 'alias' && 'bg-base-200 pb-2']}>
+					<li class={['rounded-xl', row.kind === 'alias' && !row.duplicate && 'bg-base-200 pb-2']}>
 						<button
 							class="hover:bg-base-200 flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left transition-colors"
 							onclick={() => editRow(row.index)}
@@ -554,7 +561,7 @@
 								<span class="truncate font-medium">{row.name}</span>
 								<span class="text-base-content/50 truncate text-xs tabular-nums">
 									{[
-										row.targets,
+										row.duplicate ? 'Listed twice · only the first is kept' : row.targets,
 										row.kind === 'alias'
 											? `you log this as “${row.mine}”`
 											: row.from && `from “${row.from}”`
@@ -563,7 +570,9 @@
 										.join(' · ')}
 								</span>
 							</span>
-							{#if row.kind === 'library'}
+							{#if row.duplicate}
+								<span class="badge badge-warning badge-xs shrink-0">Duplicate</span>
+							{:else if row.kind === 'library'}
 								<span class="badge badge-xs bg-primary/15 text-primary-strong shrink-0 border-none"
 									>In library</span
 								>
@@ -571,7 +580,7 @@
 								<span class="badge badge-ghost badge-xs shrink-0">New</span>
 							{/if}
 						</button>
-						{#if row.kind === 'alias'}
+						{#if row.kind === 'alias' && !row.duplicate}
 							{@const choice = aliasChoices[row.bundleId] ?? 'mine'}
 							<div class="bg-base-100 mx-2 grid grid-cols-2 gap-1 rounded-lg p-0.5">
 								<button

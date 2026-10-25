@@ -2,13 +2,14 @@ import Anthropic from '@anthropic-ai/sdk';
 import { adminDB } from '$lib/server/admin';
 import {
 	checkDestination,
+	claimImport,
 	extractWorkout,
+	refundable,
 	parseRequest,
 	sampleExtraction,
 	UnreadableResponse,
 	type ImportContext
 } from '$lib/server/photoImport';
-import { DAILY_LIMIT } from '$lib/import/photo';
 import { parseProgram, type Slot } from '$lib/types';
 import { env } from '$env/dynamic/private';
 import { dev } from '$app/environment';
@@ -46,31 +47,32 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 
 	// Claim one of today's imports before calling the model, in a transaction,
 	// so parallel requests can't slip past the limit. Like bug reports, never
-	// create the user document here.
+	// create the user document here. The library reads for the prompt run
+	// alongside it.
 	const userRef = adminDB.doc(`users/${uid}`);
 	const day = new Date().toISOString().slice(0, 10);
-	const claim = await adminDB.runTransaction(async (tx) => {
-		const snap = await tx.get(userRef);
-		if (!snap.exists) return 403 as const;
-		const used = snap.get('photoImports') as { day?: string; count?: number } | undefined;
-		const count = used?.day === day ? (used.count ?? 0) : 0;
-		if (count >= DAILY_LIMIT) return 429 as const;
-		tx.update(userRef, { photoImports: { day, count: count + 1 } });
-		return 'ok' as const;
-	});
-	if (claim === 403) throw error(403, 'Finish setting up your account first');
-	if (claim === 429) throw error(429, 'Daily import limit reached');
-
-	const [programs, workouts] = await Promise.all([
+	const [claim, programs, workouts] = await Promise.all([
+		adminDB.runTransaction(async (tx) => {
+			const snap = await tx.get(userRef);
+			if (!snap.exists) return { status: 403 as const };
+			const next = claimImport(snap.get('photoImports'), day);
+			if (!next) return { status: 429 as const };
+			tx.update(userRef, { photoImports: next });
+			return { status: 200 as const, activeProgramId: snap.get('activeProgramId') as unknown };
+		}),
 		adminDB.collection(`users/${uid}/programs`).get(),
 		adminDB.collection(`users/${uid}/workouts`).select('name').limit(NAMES_MAX).get()
 	]);
+	if (claim.status === 403) throw error(403, 'Finish setting up your account first');
+	if (claim.status === 429) throw error(429, 'Daily import limit reached');
+
 	const context: ImportContext = {
 		programs: programs.docs.map((d) => {
 			const program = parseProgram(d.data(), d.id);
 			return {
 				id: program.id,
 				name: program.name,
+				active: program.id === claim.activeProgramId,
 				days: program.schedule
 					.filter((s) => s.sessions.length)
 					.map((s) => ({ day: s.day, slots: s.sessions.map((x): Slot | null => x.slot ?? null) }))
@@ -86,16 +88,18 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 			: sampleExtraction(parsed.note, context);
 		return json(checkDestination(extraction, new Set(context.programs.map((p) => p.id))));
 	} catch (err) {
-		// Give the import back: nothing was read, so a retry shouldn't count twice.
-		await adminDB
-			.runTransaction(async (tx) => {
-				const used = (await tx.get(userRef)).get('photoImports') as
-					{ day?: string; count?: number } | undefined;
-				if (used?.day === day && (used.count ?? 0) > 0) {
-					tx.update(userRef, { photoImports: { day, count: used.count! - 1 } });
-				}
-			})
-			.catch(() => {});
+		// Give the import back only when nothing was billed (see `refundable`).
+		if (refundable(err)) {
+			await adminDB
+				.runTransaction(async (tx) => {
+					const used = (await tx.get(userRef)).get('photoImports') as
+						{ day?: string; count?: number } | undefined;
+					if (used?.day === day && (used.count ?? 0) > 0) {
+						tx.update(userRef, { photoImports: { day, count: used.count! - 1 } });
+					}
+				})
+				.catch(() => {});
+		}
 		if (err instanceof UnreadableResponse) {
 			console.warn('[import-photo] no usable answer:', err.message);
 			throw error(422, 'Could not read a workout from this photo');

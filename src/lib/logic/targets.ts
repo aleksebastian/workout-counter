@@ -26,6 +26,16 @@ export type TargetsDraft = {
 	maxLinked: boolean;
 };
 
+/**
+ * A rep target as shown on a card: "8–12", "10" when min and max agree, or
+ * "8–?" with one side missing. `null` without either.
+ */
+export function repRange(ex: Pick<RoutineExercise, 'minReps' | 'maxReps'>): string | null {
+	const { minReps: min, maxReps: max } = ex;
+	if (!min && !max) return null;
+	return min === max ? String(min) : `${min ?? '?'}–${max ?? '?'}`;
+}
+
 export const clampTarget = (n: number) => Math.max(TARGET_MIN, Math.min(TARGET_MAX, Math.round(n)));
 
 /** Parses a typed value; `null` for blank or non-numeric input. */

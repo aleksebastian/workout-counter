@@ -65,6 +65,16 @@ export type PlanOptions = {
 	now?: number;
 };
 
+/** The targets a catalog routine exercise carries over to the library. */
+const TARGET_KEYS = [
+	'targetSets',
+	'minReps',
+	'maxReps',
+	'targetSeconds',
+	'targetMeters',
+	'holdSeconds'
+] as const;
+
 /** The same comparison the name validators use, so a planned name never fails them later. */
 const nameKey = (name: string) => name.trim().toLowerCase();
 
@@ -164,14 +174,13 @@ export function planImport(
 	const routineNames = new Set(library.routines.map((r) => nameKey(r.name)));
 
 	for (const catalogRoutine of bundle.routines) {
-		const list: RoutineExercise[] = catalogRoutine.exercises.flatMap(
-			({ exerciseId, ...targets }) => {
-				const workoutId = workoutIdFor.get(exerciseId);
-				if (!workoutId) return [];
-				const set = Object.entries(targets).filter(([, v]) => v !== undefined);
-				return [{ workoutId, ...Object.fromEntries(set) }];
-			}
-		);
+		const list: RoutineExercise[] = catalogRoutine.exercises.flatMap((ex) => {
+			const workoutId = workoutIdFor.get(ex.exerciseId);
+			if (!workoutId) return [];
+			const entry: RoutineExercise = { workoutId };
+			for (const key of TARGET_KEYS) if (ex[key] !== undefined) entry[key] = ex[key];
+			return [entry];
+		});
 
 		const existing = library.routines.find(
 			(r) => isCopyOf(r.name, catalogRoutine.name) && sameExercises(r.exercises, list)

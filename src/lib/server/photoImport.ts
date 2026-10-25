@@ -1,7 +1,13 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import { z } from 'zod';
-import { IMAGE_MAX, NOTE_MAX, type Extraction, type ImportRequest } from '$lib/import/photo';
+import {
+	DAILY_LIMIT,
+	IMAGE_MAX,
+	NOTE_MAX,
+	type Extraction,
+	type ImportRequest
+} from '$lib/import/photo';
 import { MEASURES, SLOTS, SLOT_LABEL, type Slot } from '$lib/types';
 
 /**
@@ -38,7 +44,13 @@ const ExtractionSchema = z.object({
 
 /** What the model is told about the user's library, so it can resolve "my PPL program". */
 export type ImportContext = {
-	programs: { id: string; name: string; days: { day: number; slots: (Slot | null)[] }[] }[];
+	programs: {
+		id: string;
+		name: string;
+		/** The program Today trains from: what "my program" means. */
+		active: boolean;
+		days: { day: number; slots: (Slot | null)[] }[];
+	}[];
 	exerciseNames: string[];
 	/** The user's weekday, 0 = Sunday. */
 	today: number;
@@ -56,7 +68,7 @@ Measures: leave measure null for reps-and-weight lifts. Use "time" for timed wor
 
 Routine name: the title in the photo if it has one, else a short name for the workout ("Push Day", "Leg Day").
 
-Destination comes from the user's note. "routines" when they want it saved as a routine or the note doesn't say. "program" when they name a program or a day: set programId to the id of the program from their list that they mean, or null with newProgramName when they ask for a new program. Set day from the weekday they name (Sunday = 0 … Saturday = 6; "today" and "tomorrow" are relative to today), and slot from the time of day they name (morning, midday, afternoon, evening, night), else null.
+Destination comes from the user's note. "routines" when they want it saved as a routine or the note doesn't say. "program" when they name a program or a day: set programId to the id of the program from their list that they mean ("my program" without a name means the one marked active), or null with newProgramName when they ask for a new program. Set day from the weekday they name (Sunday = 0 … Saturday = 6; "today" and "tomorrow" are relative to today), and slot from the time of day they name (morning, midday, afternoon, evening, night), else null.
 
 Set status to "unreadable" when the photo shows no workout you can read; then return an empty exercise list.`;
 
@@ -70,7 +82,7 @@ export function userPrompt(note: string, context: ImportContext): string {
 								`${DAYS[d.day]} (${d.slots.map((s) => (s ? SLOT_LABEL[s] : 'Anytime')).join(', ')})`
 						)
 						.join('; ');
-					return `- id ${p.id}: "${p.name}"${days ? `, scheduled ${days}` : ''}`;
+					return `- id ${p.id}: "${p.name}"${p.active ? ' (active)' : ''}${days ? `, scheduled ${days}` : ''}`;
 				})
 				.join('\n')
 		: 'None yet.';
@@ -103,6 +115,33 @@ export function checkDestination(extraction: Extraction, programIds: Set<string>
 	const d = extraction.destination;
 	if (d.programId === null || programIds.has(d.programId)) return extraction;
 	return { ...extraction, destination: { ...d, programId: null } };
+}
+
+/** Today's import count, as kept on the user document. */
+export type ImportCount = { day: string; count: number };
+
+/**
+ * Claims one of today's imports: the new count to store, or `null` at the
+ * limit. A count from an earlier day starts over.
+ */
+export function claimImport(
+	used: Partial<ImportCount> | undefined,
+	day: string
+): ImportCount | null {
+	const count = used?.day === day ? (used.count ?? 0) : 0;
+	return count < DAILY_LIMIT ? { day, count: count + 1 } : null;
+}
+
+/**
+ * Whether a failed read gives the import back. Only when no answer was
+ * billed: the API was unreachable, rate-limited or failed itself. A refusal,
+ * a cut-off or an unparsable answer was billed, so it counts, or the daily
+ * limit would not cap what imports cost.
+ */
+export function refundable(err: unknown): boolean {
+	if (err instanceof Anthropic.APIConnectionError) return true;
+	if (err instanceof Anthropic.RateLimitError) return true;
+	return err instanceof Anthropic.APIError && typeof err.status === 'number' && err.status >= 500;
 }
 
 export class UnreadableResponse extends Error {}

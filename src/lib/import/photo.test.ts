@@ -134,6 +134,42 @@ describe('toDraft', () => {
 	});
 });
 
+describe('toDraft while programs load', () => {
+	it("keeps the server-checked program until the user's programs arrive", () => {
+		const draft = toDraft(extraction([], { type: 'program', programId: 'ppl', day: 1 }), null, 3);
+		expect(draft.destination).toMatchObject({ programId: 'ppl', newProgramName: '' });
+	});
+});
+
+describe('catalog matching respects the measure', () => {
+	it('a distance "Row" is not the Barbell Row it shares an alias with', () => {
+		const rowCatalog: CatalogExercise[] = [
+			{
+				id: 'barbell-row',
+				name: 'Barbell Row',
+				aliases: ['Row'],
+				muscles: ['back'],
+				equipment: 'barbell',
+				instructions: '…'
+			}
+		];
+		const { bundle, unstamped } = draftBundle(
+			{
+				name: 'Cardio',
+				destination: { type: 'routines' },
+				exercises: [
+					{ name: 'Row', measure: 'distance', targetMeters: 2000 },
+					{ name: 'Row', targetSets: 4 }
+				]
+			},
+			rowCatalog
+		);
+		expect(bundle.exercises.map((e) => e.id)).toEqual(['photo:row', 'barbell-row']);
+		expect(bundle.exercises[0]).toMatchObject({ measure: 'distance' });
+		expect(unstamped.has('photo:row')).toBe(true);
+	});
+});
+
 describe('draftBundle + planImport', () => {
 	const draft: Draft = {
 		name: 'Push Day',
