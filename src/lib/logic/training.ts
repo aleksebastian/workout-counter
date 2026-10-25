@@ -12,6 +12,7 @@ import {
 	type SessionLog,
 	type SessionSource,
 	type Set,
+	type Slot,
 	type Workout
 } from '$lib/types';
 
@@ -80,10 +81,19 @@ export function buildPlan(source: SessionSource, lookups: Lookups): PlanEntry[] 
 	});
 }
 
+/** When in the day a program session is planned; nothing for a routine or an untimed session. */
+export function sourceSlot(source: SessionSource, lookups: Lookups): Slot | undefined {
+	if (source.type !== 'program') return undefined;
+	const program = lookups.program(source.programId);
+	return program ? sessionOf(program, source.day, source.sessionId)?.slot : undefined;
+}
+
+/** What a workout is called: its routine, or its program session (e.g. "PT homework + Full Body A"). */
 export function sourceName(source: SessionSource, lookups: Lookups): string | null {
-	return source.type === 'routine'
-		? (lookups.routine(source.routineId)?.name ?? null)
-		: (lookups.program(source.programId)?.name ?? null);
+	if (source.type === 'routine') return lookups.routine(source.routineId)?.name ?? null;
+	const program = lookups.program(source.programId);
+	const programSession = program && sessionOf(program, source.day, source.sessionId);
+	return programSession ? sessionName(programSession, lookups.routine, lookups.workout) : null;
 }
 
 export function sameSource(a: SessionSource, b: SessionSource): boolean {
@@ -364,22 +374,33 @@ export function whenNext(day: number, today: number): string {
 	return day === (today + 1) % 7 ? 'tomorrow' : DAY_FULL[day];
 }
 
-/** What a program session is called: its label, else its routines' names, else its size. */
+/**
+ * What a program session is called: its label, else its routines' names,
+ * else its one exercise's name, else its size.
+ */
 export function sessionName(
 	programSession: ProgramSession,
-	routine: (id: string) => Routine | null
+	routine: (id: string) => Routine | null,
+	workout?: (id: string) => Workout | null
 ): string {
 	if (programSession.label) return programSession.label;
-	const names = programSession.items.flatMap((item) => {
+	const { items } = programSession;
+	const names = items.flatMap((item) => {
 		const name = item.type === 'routine' ? routine(item.routineId)?.name : undefined;
 		return name ? [name] : [];
 	});
-	return names.length ? names.join(' + ') : counted(programSession.items.length, 'exercise');
+	if (names.length) return names.join(' + ');
+	const only = items.length === 1 && items[0].type === 'exercise' ? items[0] : null;
+	return (only && workout?.(only.workoutId)?.name) || counted(items.length, 'exercise');
 }
 
 /** What a program day is called: its sessions' names, in slot order. */
-export function programDayName(day: ProgramDay, routine: (id: string) => Routine | null): string {
+export function programDayName(
+	day: ProgramDay,
+	routine: (id: string) => Routine | null,
+	workout?: (id: string) => Workout | null
+): string {
 	return daySessions(day)
-		.map((s) => sessionName(s, routine))
+		.map((s) => sessionName(s, routine, workout))
 		.join(' · ');
 }

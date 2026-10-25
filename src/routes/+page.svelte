@@ -158,7 +158,11 @@
 
 	let heroTitle = $derived(
 		hero === 'program' && todayRow
-			? sessionName(todayRow.session, (id) => session.routine(id))
+			? sessionName(
+					todayRow.session,
+					(id) => session.routine(id),
+					(id) => session.workout(id)
+				)
 			: (suggested?.name ?? '')
 	);
 	let heroEyebrow = $derived.by(() => {
@@ -224,7 +228,11 @@
 		const day = nextScheduledDay(program, todayDow);
 		return day
 			? {
-					name: programDayName(day, (id) => session.routine(id)),
+					name: programDayName(
+						day,
+						(id) => session.routine(id),
+						(id) => session.workout(id)
+					),
 					when: whenNext(day.day, todayDow)
 				}
 			: null;
@@ -410,7 +418,11 @@
 {/snippet}
 
 {#snippet planRow(row: PlanRow)}
-	{@const name = sessionName(row.session, (id) => session.routine(id))}
+	{@const name = sessionName(
+		row.session,
+		(id) => session.routine(id),
+		(id) => session.workout(id)
+	)}
 	<div class="bg-base-200 flex items-center gap-3 rounded-2xl px-4 py-3">
 		{#if row.status === 'done'}
 			<span

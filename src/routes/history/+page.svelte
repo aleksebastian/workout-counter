@@ -2,7 +2,7 @@
 	import { counted, plural } from '$lib/utils';
 	import { session } from '$lib/session.svelte';
 	import { training } from '$lib/logic/training.svelte';
-	import { buildPlan } from '$lib/logic/training';
+	import { buildPlan, sourceSlot } from '$lib/logic/training';
 	import {
 		historyFeed,
 		streakTarget,
@@ -12,7 +12,7 @@
 		type FeedRow
 	} from '$lib/logic/history';
 	import { historyItemHref } from '$lib/routes';
-	import { programDays } from '$lib/types';
+	import { programDays, SLOT_LABEL, type SessionLog } from '$lib/types';
 	import Chevron from '$lib/components/Chevron.svelte';
 
 	/**
@@ -101,6 +101,12 @@
 		{ label: 'This week', rows: feed.filter((r) => r.at >= thisWeekFrom) },
 		{ label: 'Earlier', rows: feed.filter((r) => r.at < thisWeekFrom) }
 	]);
+
+	/** "Evening · " for a program session planned for a slot; nothing otherwise. */
+	function rowSlot(log: SessionLog): string {
+		const slot = sourceSlot(log.source, training.lookups);
+		return slot ? `${SLOT_LABEL[slot]} · ` : '';
+	}
 
 	function dayLabel(at: number): string {
 		const date = new Date(at);
@@ -286,7 +292,7 @@
 											{/if}
 										</span>
 										<span class="text-base-content/55 truncate text-xs"
-											>{dayLabel(row.at)} · {counted(row.sets, 'set')}{row.volume
+											>{dayLabel(row.at)} · {rowSlot(row.log)}{counted(row.sets, 'set')}{row.volume
 												? ` · ${weight(row.volume)}`
 												: ''} · {Math.max(1, Math.round(row.durationMs / 60_000))} min</span
 										>

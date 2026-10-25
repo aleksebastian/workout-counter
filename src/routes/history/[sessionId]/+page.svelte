@@ -5,7 +5,8 @@
 	import { session } from '$lib/session.svelte';
 	import { exercises, sessions } from '$lib/data';
 	import { setPageNav } from '$lib/nav.svelte';
-	import { formatClock } from '$lib/logic/training';
+	import { formatClock, sourceSlot } from '$lib/logic/training';
+	import { training } from '$lib/logic/training.svelte';
 	import { logDuration, recordIds, sessionSets, volume, vsLast } from '$lib/logic/history';
 	import { runProgramHref, runRoutineHref } from '$lib/routes';
 	import { HAPTIC } from '$lib/haptic';
@@ -13,7 +14,7 @@
 	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
 	import EditSetSheet from '$lib/components/EditSetSheet.svelte';
 	import DeleteIcon from '$lib/icons/delete.svg?raw';
-	import type { Set, Workout } from '$lib/types';
+	import { SLOT_LABEL, type Set, type Workout } from '$lib/types';
 
 	/**
 	 * One past workout: what each exercise got, how it compares with that
@@ -60,7 +61,8 @@
 		const time = date.toLocaleTimeString('en', { hour: 'numeric', minute: '2-digit' });
 		const program =
 			log.source.type === 'program' ? session.program(log.source.programId)?.name : null;
-		return [day, time, program].filter(Boolean).join(' · ');
+		const slot = sourceSlot(log.source, training.lookups);
+		return [day, time, slot && SLOT_LABEL[slot], program].filter(Boolean).join(' · ');
 	});
 
 	// ── Editing a set ───────────────────────────────────────────────────────────

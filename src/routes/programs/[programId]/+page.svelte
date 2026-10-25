@@ -170,7 +170,11 @@
 			if (slotMode === 'change' && s.id === targetId) continue;
 			if (!s.items.length) continue;
 			const key = s.slot ?? 'anytime';
-			notes[key] ??= `Has ${sessionName(s, (id) => session.routine(id))}`;
+			notes[key] ??= `Has ${sessionName(
+				s,
+				(id) => session.routine(id),
+				(id) => session.workout(id)
+			)}`;
 		}
 		return notes;
 	});

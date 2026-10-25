@@ -34,7 +34,11 @@
 		const next = nextScheduledDay(program, todayDow);
 		if (!next) return '';
 		const when = whenNext(next.day, todayDow);
-		return ` · Next: ${programDayName(next, (id) => session.routine(id))}, ${when}`;
+		return ` · Next: ${programDayName(
+			next,
+			(id) => session.routine(id),
+			(id) => session.workout(id)
+		)}, ${when}`;
 	}
 	let activeProgram = $derived(session.activeProgram);
 	let others = $derived((session.programs ?? []).filter((p) => p.id !== session.activeProgramId));

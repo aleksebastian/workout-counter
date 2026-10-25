@@ -12,8 +12,10 @@
 		setsSince,
 		formatClock,
 		sourceFromParams,
+		sourceSlot,
 		targetLabel
 	} from '$lib/logic/training';
+	import { SLOT_LABEL } from '$lib/types';
 	import { formatDuration, pickRest } from '$lib/logic/rest';
 	import { loadCatalog, type Catalog } from '$lib/catalog';
 	import { catalogExerciseFor } from '$lib/catalog/match';
@@ -135,6 +137,7 @@
 	}
 
 	let sourceName = $derived(summary?.name ?? training.name);
+	let slot = $derived(active ? sourceSlot(active.source, training.lookups) : undefined);
 	let backHref = $derived(
 		active?.source.type === 'program'
 			? `/programs/${active.source.programId}`
@@ -599,6 +602,7 @@
 	<SessionHeader
 		title={sourceName || 'Workout'}
 		startedAt={training.clockStart}
+		slot={slot ? SLOT_LABEL[slot] : undefined}
 		onFinish={requestFinish}
 	/>
 
@@ -631,6 +635,7 @@
 			class="mx-auto w-full max-w-lg shrink-0"
 			title={sourceName || 'Workout'}
 			startedAt={training.clockStart}
+			slot={slot ? SLOT_LABEL[slot] : undefined}
 			onFinish={requestFinish}
 		/>
 

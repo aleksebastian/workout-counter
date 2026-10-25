@@ -14,6 +14,7 @@ import {
 	previousSets,
 	programDayName,
 	sessionName,
+	sourceName,
 	resolveIndex,
 	resumedSession,
 	routineLastTrained,
@@ -484,5 +485,21 @@ describe('sessionName', () => {
 			]
 		};
 		expect(programDayName(day, lookup)).toBe('Cardio · Full Body A');
+	});
+});
+
+describe('sourceName', () => {
+	it('names a routine run by its routine and a program run by its session', () => {
+		expect(sourceName({ type: 'routine', routineId: 'push' }, lookups())).toBe('Push');
+		expect(
+			sourceName({ type: 'program', programId: 'split', day: 1, sessionId: 'main' }, lookups())
+		).toBe('Push');
+		const curl = { id: 'curl', name: 'Curl', sets: [], createdAt: 0 };
+		expect(
+			sourceName({ type: 'program', programId: 'split', day: 1, sessionId: 'am' }, lookups([curl]))
+		).toBe('Curl');
+		expect(
+			sourceName({ type: 'program', programId: 'split', day: 1, sessionId: 'gone' }, lookups())
+		).toBeNull();
 	});
 });
