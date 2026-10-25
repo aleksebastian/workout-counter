@@ -1,5 +1,12 @@
 import { counted } from '$lib/utils';
-import { programDays, type Program, type SessionLog, type Set, type Workout } from '$lib/types';
+import {
+	programDays,
+	sessionsForDay,
+	type Program,
+	type SessionLog,
+	type Set,
+	type Workout
+} from '$lib/types';
 import {
 	elapsedMs,
 	previousSets,
@@ -231,6 +238,64 @@ export function weekTotals(
 		.filter((l) => l.endedAt >= from)
 		.reduce((sum, l) => sum + logDuration(l), 0);
 	return { volume: volume(sets), durationMs };
+}
+
+/** One day on the week strip. */
+export type WeekDay = {
+	/** Midnight at the start of the day, epoch ms. */
+	start: number;
+	dow: number;
+	/** Sessions the active program schedules that weekday. */
+	planned: number;
+	/** Of those, how many got every planned exercise's sets that day. */
+	done: number;
+	/** Any set was logged that day, which is what counts toward the streak. */
+	trained: boolean;
+	today: boolean;
+};
+
+/**
+ * This week, day by day: what the active program planned, how many of those
+ * sessions were done, and whether anything was trained at all. Any session,
+ * or any set, counts the day for the streak; the per-session count only
+ * drives the segmented ring.
+ */
+export function weekDays(
+	program: Program | null,
+	logs: SessionLog[],
+	setTimes: number[],
+	weekStart: 0 | 1,
+	now = Date.now()
+): WeekDay[] {
+	const trainedOn = new globalThis.Set(setTimes.map((t) => new Date(t).toDateString()));
+	const first = weekStartOf(now, weekStart);
+	const todayKey = new Date(now).toDateString();
+	return Array.from({ length: 7 }, (_, i) => {
+		const date = new Date(first);
+		date.setDate(date.getDate() + i);
+		const key = date.toDateString();
+		const dow = date.getDay();
+		const sessions = program ? sessionsForDay(program, dow) : [];
+		const done = sessions.filter((s) =>
+			logs.some(
+				(l) =>
+					l.complete &&
+					l.source.type === 'program' &&
+					l.source.programId === program!.id &&
+					l.source.day === dow &&
+					l.source.sessionId === s.id &&
+					new Date(l.endedAt).toDateString() === key
+			)
+		).length;
+		return {
+			start: date.getTime(),
+			dow,
+			planned: sessions.length,
+			done,
+			trained: trainedOn.has(key),
+			today: key === todayKey
+		};
+	});
 }
 
 /**

@@ -9,6 +9,7 @@ import {
 	vsLast,
 	volume,
 	weekStartOf,
+	weekDays,
 	weekStreak,
 	weekTotals
 } from './history';
@@ -188,5 +189,53 @@ describe('estimateMinutes', () => {
 		const logs = [log('a', 0, 40, []), log('b', 0, 50, [])];
 		expect(estimateMinutes(plan, () => 90, logs, source)).toEqual({ minutes: 45, measured: true });
 		expect(logDuration(logs[0])).toBe(40 * 60_000);
+	});
+});
+
+describe('weekDays', () => {
+	const item = { type: 'routine', routineId: 'r' } as const;
+	const program: Program = {
+		id: 'p',
+		name: 'P',
+		schedule: [
+			{ day: 1, sessions: [{ id: 'mon', items: [item] }] },
+			{
+				day: 3,
+				sessions: [
+					{ id: 'am', slot: 'morning', items: [item] },
+					{ id: 'pm', slot: 'evening', items: [item] },
+					{ id: 'night', slot: 'night', items: [item] }
+				]
+			}
+		],
+		createdAt: 0
+	};
+	const done = (sessionId: string, day: number, endedAt: number, complete = true): SessionLog => ({
+		...log(sessionId, 0, 0, []),
+		source: { type: 'program', programId: 'p', day, sessionId },
+		endedAt,
+		complete
+	});
+
+	it('counts each day’s planned sessions and the ones done that day', () => {
+		const logs = [
+			done('am', 3, T0 - 9 * 3_600_000),
+			done('pm', 3, T0),
+			done('night', 3, T0, false)
+		];
+		const week = weekDays(program, logs, [T0], 0, T0);
+		expect(week.map((d) => d.dow)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+		expect(week[3]).toMatchObject({ planned: 3, done: 2, trained: true, today: true });
+		expect(week[1]).toMatchObject({ planned: 1, done: 0, trained: false, today: false });
+		expect(week[0]).toMatchObject({ planned: 0, done: 0 });
+	});
+
+	it('ignores another day’s workout of the same session', () => {
+		const lastWeek = done('am', 3, T0 - 7 * DAY * 60_000);
+		expect(weekDays(program, [lastWeek], [], 0, T0)[3].done).toBe(0);
+	});
+
+	it('starts the week on Monday when asked', () => {
+		expect(weekDays(null, [], [], 1, T0).map((d) => d.dow)).toEqual([1, 2, 3, 4, 5, 6, 0]);
 	});
 });
