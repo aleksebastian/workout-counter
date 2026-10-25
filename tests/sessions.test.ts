@@ -78,13 +78,18 @@ test('a session is added to a day at a time of its own', async ({ page }) => {
 	await signIn(page);
 	await page.goto(`/programs/${PROGRAM.id}`);
 
-	await page.getByRole('button', { name: 'Add to Wed' }).click();
+	// An empty day is a rest day, with planning it one tap away.
+	await expect(page.getByText('Rest day')).toBeVisible();
+	await page.getByRole('button', { name: 'Plan a session for Wednesday' }).click();
 	await page.getByRole('tab', { name: 'Routines' }).click();
 	await page.getByRole('button', { name: new RegExp(`^${ROUTINE.name}, `) }).click();
 	await page.getByRole('button', { name: /^Add 1 / }).click();
-	await expect(page.getByRole('button', { name: 'When: Anytime. Change' })).toBeVisible();
+	await expect(page.getByRole('button', { name: `Start ${ROUTINE.name}` })).toBeVisible();
 
-	await page.getByRole('button', { name: 'Add session' }).click();
+	// The time of day and more sessions are edits.
+	await page.getByRole('button', { name: 'Edit', exact: true }).click();
+	await expect(page.getByRole('button', { name: 'When: Anytime. Change' })).toBeVisible();
+	await page.getByRole('button', { name: 'Add another session' }).click();
 	await page.getByRole('button', { name: /^Night/ }).click();
 	await page.getByRole('button', { name: new RegExp(`^${press.name}, `) }).click();
 	await page.getByRole('button', { name: /^Add 1 / }).click();
@@ -111,4 +116,47 @@ test('a session is added to a day at a time of its own', async ({ page }) => {
 	const plan = page.getByRole('region', { name: "Today's plan" });
 	await expect(plan.getByText('Night · Up next')).toBeVisible();
 	await expect(plan.getByText('Anytime')).toBeVisible();
+});
+
+test("a program's other days show their plan, and Edit changes it in place", async ({ page }) => {
+	const [, press] = EXERCISES;
+	const FRI = 5;
+	// A set of the press logged today must not tick off Friday's press.
+	const today = new Date();
+	today.setHours(9, 0, 0, 0);
+	today.setDate(today.getDate() - ((today.getDay() - WED + 7) % 7));
+	await writeDoc(`users/${UID}/workouts/${press.id}`, {
+		...press,
+		sets: [{ id: 'set-today', date: today.toISOString(), reps: 8 }],
+		createdAt: 2
+	});
+	const press3 = { type: 'exercise', workoutId: press.id, targetSets: 3 };
+	await writeDoc(`users/${UID}/programs/${PROGRAM.id}`, {
+		...PROGRAM,
+		schedule: [
+			{ day: WED, sessions: [{ id: 'wed', items: [press3] }] },
+			{ day: FRI, sessions: [{ id: 'fri', items: [press3] }] }
+		],
+		createdAt: 1
+	});
+	await fixWeekday(page, WED);
+	await signIn(page);
+	await page.goto(`/programs/${PROGRAM.id}`);
+
+	// Today's session is the one in green.
+	await expect(page.getByRole('button', { name: `Start ${press.name}` })).toBeVisible();
+
+	await page.getByRole('button', { name: 'Friday: planned' }).click();
+	const friday = page.getByRole('region', { name: 'Friday' });
+	await expect(friday.getByText('3 sets', { exact: true })).toBeVisible();
+	await expect(friday.getByText('Done')).toHaveCount(0);
+	await expect(friday.getByRole('button', { name: 'Start now' })).toBeVisible();
+
+	await page.getByRole('button', { name: 'Edit', exact: true }).click();
+	await page.getByRole('button', { name: `More sets of ${press.name}` }).click();
+	await expect
+		.poll(async () => (await readDoc(`users/${UID}/programs/${PROGRAM.id}`))?.schedule[1])
+		.toEqual({ day: FRI, sessions: [{ id: 'fri', items: [{ ...press3, targetSets: 4 }] }] });
+	await page.getByRole('button', { name: 'Done', exact: true }).click();
+	await expect(friday.getByText('4 sets', { exact: true })).toBeVisible();
 });
