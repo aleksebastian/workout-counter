@@ -18,7 +18,7 @@
 		whenNext,
 		type PlanEntry
 	} from '$lib/logic/training';
-	import { durationMs, pickRest } from '$lib/logic/rest';
+	import { restSeconds } from '$lib/logic/rest';
 	import { estimateMinutes, logDuration, recordIds, sessionSets } from '$lib/logic/history';
 	import {
 		discoverHref,
@@ -140,10 +140,7 @@
 		heroSource
 			? estimateMinutes(
 					heroPlan,
-					(e) => {
-						const rest = pickRest(session.routine(e.routineId), session.prefs);
-						return rest ? durationMs(rest.duration) / 1000 : 0;
-					},
+					(e) => restSeconds(session.routine(e.routineId), session.prefs),
 					logs,
 					heroSource
 				)
@@ -312,10 +309,7 @@
 		const rowPlan = buildPlan(row.source, training.lookups) ?? [];
 		const minutes = estimateMinutes(
 			rowPlan,
-			(e) => {
-				const rest = pickRest(session.routine(e.routineId), session.prefs);
-				return rest ? durationMs(rest.duration) / 1000 : 0;
-			},
+			(e) => restSeconds(session.routine(e.routineId), session.prefs),
 			logs,
 			row.source
 		).minutes;

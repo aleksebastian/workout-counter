@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { v4 as uuidv4 } from 'uuid';
 	import { counted } from '$lib/utils';
 	import { page } from '$app/state';
@@ -18,6 +19,7 @@
 		type ProgramDay,
 		type ProgramItem,
 		type ProgramSession,
+		type SessionLog,
 		type SessionSource,
 		type Slot,
 		type Workout
@@ -25,6 +27,7 @@
 	import {
 		buildPlan,
 		entriesDone,
+		sameSource,
 		programDayName,
 		sessionName,
 		targetLabel,
@@ -33,7 +36,7 @@
 	} from '$lib/logic/training';
 	import { todayPlan, type PlanRow } from '$lib/logic/today';
 	import { estimateMinutes, logDuration, weekDays } from '$lib/logic/history';
-	import { durationMs, pickRest } from '$lib/logic/rest';
+	import { restSeconds } from '$lib/logic/rest';
 	import { measureOf, measureTarget } from '$lib/logic/measure';
 	import { clampTarget } from '$lib/logic/targets';
 	import ActionSheet, { type SheetAction } from '$lib/components/ActionSheet.svelte';
@@ -70,6 +73,12 @@
 	);
 
 	const todayDow = new Date().getDay();
+	/** Up next moves with the time-of-day slot, so the plan follows the clock by the minute. */
+	let minute = $state(Date.now());
+	onMount(() => {
+		const t = setInterval(() => (minute = Date.now()), 60_000);
+		return () => clearInterval(t);
+	});
 
 	let editing = $state(false);
 	let selectedDay = $state(todayDow);
@@ -92,26 +101,23 @@
 			.join(' · ')
 	);
 
+	/**
+	 * This program's week. Unlike Today's strip, only its own sessions fill a
+	 * day: a set of something else doesn't tick off a day of this plan.
+	 */
 	let week = $derived(
-		weekDays(
-			program ?? null,
-			logs,
-			(session.workouts ?? []).flatMap((w) => w.sets.map((s) => Date.parse(s.date))),
-			session.prefs.weekStart
-		)
+		weekDays(program ?? null, logs, [], session.prefs.weekStart).map((d) => ({
+			...d,
+			trained: d.done > 0
+		}))
 	);
 
 	// ── Viewing ─────────────────────────────────────────────────────────────────
 
 	/** Where each of today's sessions stands; on any other day nothing has happened yet. */
 	let todayRows = $derived(
-		program && isToday ? todayPlan(program, todayDow, logs, training.session, Date.now()) : []
+		program && isToday ? todayPlan(program, todayDow, logs, training.session, minute) : []
 	);
-
-	function restSeconds(e: PlanEntry): number {
-		const rest = pickRest(session.routine(e.routineId), session.prefs);
-		return rest ? durationMs(rest.duration) / 1000 : 0;
-	}
 
 	type SessionView = {
 		session: ProgramSession;
@@ -125,6 +131,10 @@
 		row: PlanRow | null;
 		/** Per plan entry, whether today's run got its sets; empty when there's no run. */
 		done: boolean[];
+		/** Today's finished run, when it's done: not a later try ended early. */
+		doneLog: SessionLog | null;
+		/** It ended early today and is the workout that can pick up where it stopped. */
+		resumable: boolean;
 	};
 
 	/** Sessions with something in them, ready to read. */
@@ -142,7 +152,12 @@
 				const plan = buildPlan(source, training.lookups) ?? [];
 				const only = s.items.length === 1 && s.items[0].type === 'routine' ? s.items[0] : null;
 				const sets = plan.reduce((n, e) => n + (e.targetSets ?? 0), 0);
-				const minutes = estimateMinutes(plan, restSeconds, logs, source).minutes;
+				const minutes = estimateMinutes(
+					plan,
+					(e) => restSeconds(session.routine(e.routineId), session.prefs),
+					logs,
+					source
+				).minutes;
 				const row = todayRows.find((r) => r.session.id === s.id) ?? null;
 				// Ticks only for the run under way or the one ended early.
 				const since =
@@ -170,7 +185,17 @@
 						.filter(Boolean)
 						.join(' · '),
 					row,
-					done: since === undefined ? [] : entriesDone(plan, training.lookups, since)
+					done: since === undefined ? [] : entriesDone(plan, training.lookups, since),
+					doneLog:
+						row?.status === 'done'
+							? (logs.find(
+									(l) =>
+										l.complete &&
+										sameSource(l.source, source) &&
+										new Date(l.endedAt).toDateString() === new Date(minute).toDateString()
+								) ?? null)
+							: null,
+					resumable: row?.status === 'partial' && !!training.endedToday(source)
 				};
 			});
 	});
@@ -194,14 +219,19 @@
 	function startButton(v: SessionView): { label: string; primary: boolean } {
 		const row = v.row;
 		if (row?.status === 'live') return { label: 'Continue', primary: true };
-		if (row?.status === 'partial') return { label: 'Resume', primary: row.upNext };
+		if (row?.status === 'partial')
+			return { label: v.resumable ? 'Resume' : 'Start again', primary: row.upNext };
 		if (row?.upNext) return { label: `Start ${v.title}`, primary: true };
 		return { label: isToday ? 'Start' : 'Start now', primary: false };
 	}
 
-	function start(v: SessionView) {
-		const resume = v.row?.status === 'partial' && !!training.endedToday(v.source);
-		goto(runProgramHref(v.source.programId, v.source.day, v.source.sessionId, { resume }));
+	function start(v: SessionView, opts?: { fresh?: boolean }) {
+		goto(
+			runProgramHref(v.source.programId, v.source.day, v.source.sessionId, {
+				resume: v.resumable,
+				...opts
+			})
+		);
 	}
 
 	function entryTarget(e: PlanEntry): string | null {
@@ -267,6 +297,20 @@
 		return item.type === 'routine'
 			? (session.routine(item.routineId)?.name ?? 'Routine')
 			: (session.workout(item.workoutId)?.name ?? 'Exercise');
+	}
+
+	/**
+	 * Items with keys for the sortable list. A session may list the same
+	 * exercise or routine twice, so the key counts repeats as well as the id.
+	 */
+	function keyed(items: ProgramItem[]): { item: ProgramItem; key: string }[] {
+		const seen = new Map<string, number>();
+		return items.map((item) => {
+			const id = item.type === 'routine' ? `r:${item.routineId}` : `w:${item.workoutId}`;
+			const n = seen.get(id) ?? 0;
+			seen.set(id, n + 1);
+			return { item, key: `${id}#${n}` };
+		});
 	}
 
 	/** Under an item's name while editing: what a routine holds, or an exercise's per-set target. */
@@ -580,31 +624,38 @@
 {/snippet}
 
 {#snippet doneCard(v: SessionView)}
-	{@const log = v.row!.log}
-	<a
-		class="bg-base-200 hover:bg-base-300 flex items-center gap-3 rounded-2xl px-4 py-3.5 transition-colors"
-		href={log ? historyItemHref(log.id) : undefined}
-		aria-label="{v.title}: done"
-	>
-		<span
-			class="bg-primary text-primary-content flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+	{@const log = v.doneLog}
+	<div class="bg-base-200 flex items-center gap-1 rounded-2xl pr-3">
+		<a
+			class="hover:bg-base-300 flex min-w-0 flex-1 items-center gap-3 rounded-2xl py-3.5 pr-2 pl-4 transition-colors"
+			href={log ? historyItemHref(log.id) : undefined}
+			aria-label="{v.title}: done"
 		>
-			{@render check('h-4.5 w-4.5')}
-		</span>
-		<div class="min-w-0 flex-1">
-			{#if views.length > 1}{@render slotEyebrow(v.session, slotLabel(v.session.slot))}{/if}
-			<p class="truncate text-[17px] leading-snug font-bold">{v.title}</p>
-			<p class="text-base-content/55 text-sm">
-				{[
-					'Done',
-					...(log
-						? [counted(log.totals.sets, 'set'), `${Math.round(logDuration(log) / 60_000)} min`]
-						: [])
-				].join(' · ')}
-			</p>
-		</div>
-		<Chevron />
-	</a>
+			<span
+				class="bg-primary text-primary-content flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+			>
+				{@render check('h-4.5 w-4.5')}
+			</span>
+			<div class="min-w-0 flex-1">
+				{#if views.length > 1}{@render slotEyebrow(v.session, slotLabel(v.session.slot))}{/if}
+				<p class="truncate text-[17px] leading-snug font-bold">{v.title}</p>
+				<p class="text-base-content/55 text-sm">
+					{[
+						'Done',
+						...(log
+							? [counted(log.totals.sets, 'set'), `${Math.round(logDuration(log) / 60_000)} min`]
+							: [])
+					].join(' · ')}
+				</p>
+			</div>
+		</a>
+		<!-- A second run is a fresh workout, never a resume of the finished one. -->
+		<button
+			class="btn btn-sm bg-base-300 shrink-0 rounded-full border-0"
+			aria-label="Do {v.title} again"
+			onclick={() => start(v, { fresh: true })}>Do again</button
+		>
+	</div>
 {/snippet}
 
 {#snippet editCard(s: ProgramSession)}
@@ -641,13 +692,17 @@
 		{#if s.items.length}
 			<div class="border-base-300 border-t">
 				<SortableList
-					items={s.items}
-					key={(item) => (item.type === 'routine' ? item.routineId : item.workoutId)}
-					onReorder={(next) => setItems(s.id, next)}
+					items={keyed(s.items)}
+					key={(row) => row.key}
+					onReorder={(next) =>
+						setItems(
+							s.id,
+							next.map((row) => row.item)
+						)}
 					disabled={s.items.length < 2}
 					gap="gap-0"
 				>
-					{#snippet children(item, i)}
+					{#snippet children({ item }, i)}
 						{@const detail = itemDetail(item)}
 						<div class="flex min-h-14 items-center gap-2 py-1.5 pl-4">
 							<a

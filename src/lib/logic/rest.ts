@@ -59,6 +59,12 @@ export function pickRest(routine: Routine | null, prefs: Preferences): Rest | nu
 	return prefs.timerEnabled ? { duration: prefs.timer, label: null } : null;
 }
 
+/** Rest after each set in seconds, for time estimates: what `pickRest` picks, or none. */
+export function restSeconds(routine: Routine | null, prefs: Preferences): number {
+	const rest = pickRest(routine, prefs);
+	return rest ? durationMs(rest.duration) / 1000 : 0;
+}
+
 /** `/routines/{id}` links carry routine context onto an exercise page via `?from=`. */
 export function routineIdFromHref(href: string | null | undefined): string | undefined {
 	return href?.match(/^\/routines\/([^/?#]+)/)?.[1];

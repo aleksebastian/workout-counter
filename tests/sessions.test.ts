@@ -160,3 +160,64 @@ test("a program's other days show their plan, and Edit changes it in place", asy
 	await page.getByRole('button', { name: 'Done', exact: true }).click();
 	await expect(friday.getByText('4 sets', { exact: true })).toBeVisible();
 });
+
+test('a done session offers another go, and one ended early resumes', async ({ page }) => {
+	const [, press] = EXERCISES;
+	await seedProgram([
+		{
+			id: 'am',
+			slot: 'morning',
+			items: [{ type: 'exercise', workoutId: press.id, targetSets: 1 }]
+		},
+		{ id: 'pm', slot: 'evening', items: [{ type: 'routine', routineId: ROUTINE.id }] }
+	]);
+	const at = new Date();
+	at.setHours(8, 0, 0, 0);
+	at.setDate(at.getDate() - ((at.getDay() - WED + 7) % 7));
+	const source = (sessionId: string) => ({
+		type: 'program',
+		programId: PROGRAM.id,
+		day: WED,
+		sessionId
+	});
+	const log = (id: string, sessionId: string, complete: boolean, startedAt: number) => ({
+		id,
+		source: source(sessionId),
+		name: id,
+		startedAt,
+		endedAt: startedAt + 20 * 60_000,
+		endReason: 'finished',
+		complete,
+		exercises: [],
+		totals: { sets: complete ? 1 : 2, reps: 10 },
+		createdAt: startedAt
+	});
+	await writeDoc(`users/${UID}/sessions/done`, log('done', 'am', true, at.getTime()));
+	await writeDoc(`users/${UID}/sessions/early`, log('early', 'pm', false, at.getTime() + 3600_000));
+	const user = await readDoc(`users/${UID}`);
+	await writeDoc(`users/${UID}`, {
+		...user,
+		lastSession: {
+			id: 'early',
+			source: source('pm'),
+			name: ROUTINE.name,
+			startedAt: at.getTime() + 3600_000,
+			endedAt: at.getTime() + 3600_000 + 20 * 60_000,
+			currentWorkoutId: null,
+			currentIndex: 0,
+			pausedMs: 0,
+			complete: false
+		}
+	});
+	await fixWeekday(page, WED);
+	await signIn(page);
+	await page.goto(`/programs/${PROGRAM.id}`);
+
+	await expect(page.getByRole('link', { name: `${press.name}: done` })).toBeVisible();
+	await expect(page.getByRole('button', { name: `Do ${press.name} again` })).toBeVisible();
+	const evening = page.getByRole('region', { name: `${ROUTINE.name} session` });
+	await expect(evening.getByText('Evening · Ended early')).toBeVisible();
+	await evening.getByRole('button', { name: 'Resume' }).click();
+	// Resuming carries on the same workout rather than starting a new one.
+	await expect.poll(async () => (await readDoc(`users/${UID}`))?.activeSession?.id).toBe('early');
+});
