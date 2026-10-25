@@ -11,6 +11,7 @@
 	import { HAPTIC } from '$lib/haptic';
 	import { recordSet as recordSet_ } from '$lib/logic/logSet';
 	import { isRecord } from '$lib/logic/history';
+	import { measureOf } from '$lib/logic/measure';
 	import type { Set } from '$lib/types';
 
 	let workout = $derived(session.workout(page.params.workoutId));
@@ -139,7 +140,8 @@
 		const earlier = [...workout.sets];
 		// Opened from a routine: that routine's timer applies. Otherwise the global one.
 		const { set, saved } = recordSet_(workout.id, draft, { routineId, message: 'Set logged' });
-		if ((await saved) && isRecord(set, earlier)) HAPTIC.success();
+		if ((await saved) && isRecord(set, earlier, measureOf(workout), session.prefs.distanceUnit))
+			HAPTIC.success();
 	}
 </script>
 

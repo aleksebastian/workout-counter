@@ -242,7 +242,15 @@ export type SessionLog = {
 	complete: boolean;
 	/** Time it spent ended before being resumed; the duration is end − start − this. */
 	pausedMs?: number;
-	exercises: { workoutId: string; name: string; sets: number; reps: number }[];
+	/** Time and distance sets add up their seconds and meters too. */
+	exercises: {
+		workoutId: string;
+		name: string;
+		sets: number;
+		reps: number;
+		seconds?: number;
+		meters?: number;
+	}[];
 	totals: { sets: number; reps: number };
 	/** Epoch ms — gives the subcollection a stable insertion order. */
 	createdAt: number;

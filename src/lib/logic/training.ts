@@ -258,11 +258,15 @@ export function summarize(
 		const workout = lookups.workout(id);
 		const sets = setsSince(workout, since);
 		if (!workout || sets.length === 0) continue;
+		const seconds = sets.reduce((sum, s) => sum + (s.seconds ?? 0), 0);
+		const meters = sets.reduce((sum, s) => sum + (s.meters ?? 0), 0);
 		exercises.push({
 			workoutId: id,
 			name: workout.name,
 			sets: sets.length,
-			reps: sets.reduce((sum, s) => sum + s.reps, 0)
+			reps: sets.reduce((sum, s) => sum + s.reps, 0),
+			...(seconds > 0 && { seconds }),
+			...(meters > 0 && { meters })
 		});
 	}
 	return {

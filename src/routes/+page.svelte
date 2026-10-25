@@ -36,6 +36,7 @@
 		type SessionSource
 	} from '$lib/types';
 	import { todayPlan, type PlanRow } from '$lib/logic/today';
+	import { formatSet, measureOf, unitsOf } from '$lib/logic/measure';
 	import Chevron from '$lib/components/Chevron.svelte';
 	import SessionProgress from '$lib/components/SessionProgress.svelte';
 	import LogSetSheet from '$lib/components/LogSetSheet.svelte';
@@ -59,7 +60,6 @@
 		session.workouts === null || session.routines === null || session.programs === null
 	);
 	let logs = $derived(session.sessionLogs ?? []);
-	let unit = $derived(session.prefs.weightUnit === 'kg' ? 'kg' : 'lb');
 
 	const todayDow = new Date().getDay();
 	let program = $derived(session.activeProgram);
@@ -216,7 +216,7 @@
 			const ids = recordIds(workout, sets);
 			const best = sets.filter((s) => ids.has(s.id)).at(-1);
 			return best
-				? [`${workout.name} ${best.weight ? `${best.weight} ${unit} × ` : ''}${best.reps}`]
+				? [`${workout.name} ${formatSet(best, measureOf(workout), unitsOf(session.prefs))}`]
 				: [];
 		});
 	});

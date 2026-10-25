@@ -6,6 +6,7 @@ import {
 	logDuration,
 	recordIds,
 	streakTarget,
+	topSet,
 	vsLast,
 	volume,
 	weekStartOf,
@@ -150,7 +151,7 @@ describe('the week', () => {
 	it('totals this week’s volume and workout time', () => {
 		const w = workout('w', [set(0, 10, 100), set(-30 * DAY, 10, 100)]);
 		const totals = weekTotals([log('l', 0, 45, ['w'])], [w], 0, T0 + 3_600_000);
-		expect(totals).toEqual({ volume: 1000, durationMs: 45 * 60_000 });
+		expect(totals).toEqual({ volume: 1000, durationMs: 45 * 60_000, meters: 0 });
 	});
 
 	it('targets the lower of the goal and the program’s planned days', () => {
@@ -237,5 +238,45 @@ describe('weekDays', () => {
 
 	it('starts the week on Monday when asked', () => {
 		expect(weekDays(null, [], [], 1, T0).map((d) => d.dow)).toEqual([1, 2, 3, 4, 5, 6, 0]);
+	});
+});
+
+describe('records by measure', () => {
+	const timed = (minutes: number, fields: Partial<Set>): Set => ({ ...set(minutes, 0), ...fields });
+
+	it('counts the longest time', () => {
+		const earlier = [timed(0, { seconds: 1800 })];
+		expect(isRecord(timed(1, { seconds: 1900 }), earlier, 'time')).toBe(true);
+		expect(isRecord(timed(1, { seconds: 1700 }), earlier, 'time')).toBe(false);
+	});
+
+	it('counts the farthest distance or the best pace', () => {
+		const earlier = [timed(0, { meters: 5000, seconds: 1800 })];
+		expect(isRecord(timed(1, { meters: 6000, seconds: 2400 }), earlier, 'distance')).toBe(true);
+		expect(isRecord(timed(1, { meters: 4000, seconds: 1200 }), earlier, 'distance')).toBe(true);
+		expect(isRecord(timed(1, { meters: 4000, seconds: 1600 }), earlier, 'distance')).toBe(false);
+	});
+
+	it('counts the longest hold, or more reps at it', () => {
+		const earlier = [timed(0, { reps: 10, holdSeconds: 5 })];
+		expect(isRecord(timed(1, { reps: 8, holdSeconds: 6 }), earlier, 'hold')).toBe(true);
+		expect(isRecord(timed(1, { reps: 12, holdSeconds: 5 }), earlier, 'hold')).toBe(true);
+		expect(isRecord(timed(1, { reps: 10, holdSeconds: 5 }), earlier, 'hold')).toBe(false);
+	});
+
+	it('picks the set that stands for a session, and compares it with last time', () => {
+		const run = (minutes: number, meters: number, seconds: number) =>
+			timed(minutes, { meters, seconds });
+		expect(topSet([run(0, 3000, 900), run(1, 5000, 1800)], 'distance')?.meters).toBe(5000);
+		const w: Workout = {
+			...workout('run', [run(-2 * DAY, 4800, 1700), run(0, 5200, 1710)]),
+			measure: 'distance'
+		};
+		expect(vsLast(w, [w.sets[1]], 'lb', 'km')).toBe('+0.4 km vs last');
+		const bike: Workout = {
+			...workout('bike', [timed(-2 * DAY, { seconds: 1800 }), timed(0, { seconds: 1920 })]),
+			measure: 'time'
+		};
+		expect(vsLast(bike, [bike.sets[1]], 'lb')).toBe('+2:00 vs last');
 	});
 });

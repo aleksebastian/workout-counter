@@ -6,6 +6,7 @@
 	import { exercises, sessions } from '$lib/data';
 	import { setPageNav } from '$lib/nav.svelte';
 	import { formatClock, sourceSlot } from '$lib/logic/training';
+	import { formatSet, measureOf, unitsOf } from '$lib/logic/measure';
 	import { training } from '$lib/logic/training.svelte';
 	import { logDuration, recordIds, sessionSets, volume, vsLast } from '$lib/logic/history';
 	import { runProgramHref, runRoutineHref } from '$lib/routes';
@@ -39,7 +40,12 @@
 			const sets = sessionSets(workout, log!);
 			if (!sets.length) return [];
 			return [
-				{ workout, sets, records: recordIds(workout, sets), vs: vsLast(workout, sets, unit) }
+				{
+					workout,
+					sets,
+					records: recordIds(workout, sets),
+					vs: vsLast(workout, sets, unit, session.prefs.distanceUnit)
+				}
 			];
 		});
 	});
@@ -105,7 +111,8 @@
 		);
 	}
 
-	const setLabel = (s: Set) => `${s.weight ? `${s.weight} ${unit} × ` : ''}${s.reps}`;
+	const setLabel = (s: Set, workout: Workout) =>
+		formatSet(s, measureOf(workout), unitsOf(session.prefs));
 </script>
 
 <div class="mx-auto flex w-full max-w-lg flex-col gap-5 pb-4">
@@ -174,11 +181,11 @@
 						<button
 							type="button"
 							class="hover:bg-base-300 grid h-10 grid-cols-[1.75rem_1fr_auto] items-center gap-2 rounded-xl px-2 text-left tabular-nums"
-							aria-label="Edit set {i + 1}: {setLabel(set)}"
+							aria-label="Edit set {i + 1}: {setLabel(set, card.workout)}"
 							onclick={() => edit(card.workout, set)}
 						>
 							<span class="text-base-content/40">{i + 1}</span>
-							<span>{setLabel(set)}</span>
+							<span>{setLabel(set, card.workout)}</span>
 							{#if card.records.has(set.id)}
 								<span class="text-primary-strong text-xs font-semibold">PR</span>
 							{:else if set.notes}
