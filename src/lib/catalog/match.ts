@@ -62,10 +62,22 @@ export function catalogExerciseFor(
 	const stamped = stampedId && exercises.find((e) => e.id === stampedId);
 	if (stamped) return stamped;
 
-	const name = normalizeName(workout.name);
-	const named = exercises.find((e) => normalizeName(e.name) === name);
-	if (named) return named;
-	if (workout.source) return null;
+	if (workout.source) {
+		const name = normalizeName(workout.name);
+		return exercises.find((e) => normalizeName(e.name) === name) ?? null;
+	}
+	return catalogExerciseNamed(workout.name, exercises);
+}
 
-	return exercises.find((e) => e.aliases?.some((a) => normalizeName(a) === name)) ?? null;
+/** The catalog exercise a name means: its own name first, then an alias. */
+export function catalogExerciseNamed(
+	name: string,
+	exercises: CatalogExercise[]
+): CatalogExercise | null {
+	const key = normalizeName(name);
+	return (
+		exercises.find((e) => normalizeName(e.name) === key) ??
+		exercises.find((e) => e.aliases?.some((a) => normalizeName(a) === key)) ??
+		null
+	);
 }

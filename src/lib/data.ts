@@ -263,14 +263,19 @@ export const programs = {
 
 // ── Library additions ────────────────────────────────────────────────────────
 
+/** A program to create, or one whose schedule changes, alongside an import (a photo's routine put on a day). */
+export type ProgramChange =
+	| { type: 'create'; program: Program }
+	| { type: 'schedule'; programId: string; schedule: ProgramDay[] };
+
 export const library = {
 	/**
 	 * Writes an import plan (see `$lib/catalog/plan`) in one batch, so a routine
 	 * never lands without the exercises it points at and a failed add leaves
 	 * nothing half-written.
 	 */
-	add(plan: ImportPlan) {
-		if (planSize(plan) === 0) return Promise.resolve(true);
+	add(plan: ImportPlan, program?: ProgramChange) {
+		if (planSize(plan) === 0 && !program) return Promise.resolve(true);
 		const uid = requireUid();
 		return mutate('add to library', () => {
 			const batch = writeBatch(db);
@@ -280,6 +285,11 @@ export const library = {
 			for (const p of plan.create.programs) batch.set(at('programs', p.id), p);
 			for (const s of plan.stamps) {
 				batch.update(at('workouts', s.workoutId), { source: { catalogId: s.catalogId } });
+			}
+			if (program?.type === 'create')
+				batch.set(at('programs', program.program.id), program.program);
+			if (program?.type === 'schedule') {
+				batch.update(at('programs', program.programId), { schedule: program.schedule });
 			}
 			return batch.commit();
 		});
