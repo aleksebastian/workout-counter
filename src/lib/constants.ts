@@ -61,6 +61,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
 	timerEnabled: false,
 	theme: 'system',
 	weightUnit: 'lbs',
+	distanceUnit: 'mi',
 	weekStart: 0,
 	weeklyGoal: 3,
 	streaksEnabled: true

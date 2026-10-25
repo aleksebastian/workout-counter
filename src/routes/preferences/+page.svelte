@@ -107,6 +107,7 @@
 			timerEnabled: draft.timerEnabled,
 			theme: draft.theme,
 			weightUnit: draft.weightUnit,
+			distanceUnit: draft.distanceUnit,
 			weekStart: draft.weekStart,
 			weeklyGoal: clamp(draft.weeklyGoal, 1, 7, 3),
 			streaksEnabled: draft.streaksEnabled
@@ -203,6 +204,23 @@
 							draft.weightUnit = value;
 							autoSave();
 						}}>{value === 'lbs' ? 'lb' : value}</button
+					>
+				{/each}
+			</div>
+		</div>
+
+		<div class="bg-base-200 flex items-center justify-between gap-4 rounded-2xl px-4 py-4">
+			{@render row('Distance unit', 'For runs, rides and rows')}
+			<div class="join">
+				{#each ['km', 'mi'] as const as value (value)}
+					<button
+						type="button"
+						class="btn btn-sm join-item px-6"
+						class:btn-active={draft.distanceUnit === value}
+						onclick={() => {
+							draft.distanceUnit = value;
+							autoSave();
+						}}>{value}</button
 					>
 				{/each}
 			</div>

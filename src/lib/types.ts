@@ -4,11 +4,23 @@
  * browser runtime.
  */
 
+/** How an exercise is measured. Without one, it's reps and weight. */
+export type Measure = 'reps' | 'time' | 'distance' | 'hold';
+
+export const MEASURES: readonly Measure[] = ['reps', 'time', 'distance', 'hold'];
+
 export type Set = {
 	id: string;
 	date: string;
+	/** 0 for time and distance sets. */
 	reps: number;
 	weight?: number;
+	/** Time and distance sets: how long it took, in whole seconds. */
+	seconds?: number;
+	/** Distance sets, in meters whatever unit they were entered in. */
+	meters?: number;
+	/** Hold sets: how long each rep was held, in seconds. */
+	holdSeconds?: number;
 	notes?: string;
 };
 
@@ -22,6 +34,8 @@ export type Source = { catalogId: string };
 export type Workout = {
 	id: string;
 	name: string;
+	/** How its sets are measured; none means reps and weight. */
+	measure?: Measure;
 	sets: Set[];
 	notes?: string;
 	source?: Source;
@@ -31,7 +45,17 @@ export type Workout = {
 
 export type Duration = { minutes: number; seconds: number };
 
-export type RoutineExercise = {
+/** What a set should reach for an exercise measured by time, distance or a hold. */
+export type MeasureTargets = {
+	/** Time and distance: how long each set should last. */
+	targetSeconds?: number;
+	/** Distance: how far each set should go, in meters. */
+	targetMeters?: number;
+	/** Hold: how long each rep is held, in seconds. */
+	holdSeconds?: number;
+};
+
+export type RoutineExercise = MeasureTargets & {
 	workoutId: string;
 	targetSets?: number; // undefined = free-form (user advances manually)
 	minReps?: number;
@@ -51,7 +75,7 @@ export type Routine = {
 
 export type ProgramItem =
 	| { type: 'routine'; routineId: string }
-	| { type: 'exercise'; workoutId: string; targetSets: number };
+	| ({ type: 'exercise'; workoutId: string; targetSets: number } & MeasureTargets);
 
 /** When in the day a session happens. Only orders and labels sessions; there are no clock times. */
 export type Slot = 'morning' | 'midday' | 'afternoon' | 'evening' | 'night';
@@ -231,6 +255,8 @@ export type Preferences = {
 	timerEnabled: boolean;
 	theme: 'light' | 'dark' | 'system';
 	weightUnit: 'lbs' | 'kg';
+	/** Follows the weight unit (kg → km, lbs → mi) until it's chosen. */
+	distanceUnit: 'km' | 'mi';
 	weekStart: 0 | 1;
 	weeklyGoal: number;
 	streaksEnabled: boolean;
@@ -299,6 +325,7 @@ export const parseWorkout: Parse<Workout> = (raw, id) => ({
 	...(raw as Workout),
 	id: str(raw.id, id),
 	name: str(raw.name),
+	measure: MEASURES.includes(raw.measure as Measure) ? (raw.measure as Measure) : undefined,
 	sets: arrayOf<Set>(raw.sets),
 	source: source(raw.source),
 	createdAt: num(raw.createdAt)

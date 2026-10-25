@@ -310,6 +310,19 @@ describe('targetLabel', () => {
 		expect(targetLabel({ targetSets: 2 })).toBe('2 sets');
 		expect(targetLabel({ minReps: 8, maxReps: 12 })).toBeNull();
 	});
+	it('describes time, distance and hold targets', () => {
+		expect(targetLabel({ targetSets: 1, targetSeconds: 1800 }, 'time')).toBe('30 min');
+		expect(targetLabel({ targetSets: 3, targetSeconds: 45 }, 'time')).toBe('3 × 45s');
+		expect(targetLabel({ targetSets: 1, targetMeters: 5000 }, 'distance', 'km')).toBe('5 km');
+		expect(
+			targetLabel({ targetSets: 1, targetMeters: 5000, targetSeconds: 1800 }, 'distance', 'km')
+		).toBe('5 km in 30 min');
+		expect(targetLabel({ targetSets: 3, maxReps: 10, holdSeconds: 5 }, 'hold')).toBe(
+			'3 × 10 × 5s hold'
+		);
+		expect(targetLabel({ targetSets: 2 }, 'time')).toBe('2 sets');
+		expect(targetLabel({}, 'time')).toBeNull();
+	});
 });
 
 describe('formatClock', () => {

@@ -1,4 +1,5 @@
 import { counted } from '$lib/utils';
+import { measureTarget, type DistanceUnit } from '$lib/logic/measure';
 import { DAY_FULL } from '$lib/constants';
 import {
 	daySessions,
@@ -13,6 +14,8 @@ import {
 	type SessionSource,
 	type Set,
 	type Slot,
+	type Measure,
+	type MeasureTargets,
 	type Workout
 } from '$lib/types';
 
@@ -25,7 +28,7 @@ import {
 /** No set logged and no move between exercises for this long: the workout was abandoned. */
 export const STALE_AFTER_MS = 2 * 60 * 60 * 1000;
 
-export type PlanEntry = {
+export type PlanEntry = MeasureTargets & {
 	workoutId: string;
 	/** undefined = free-form: the user decides when to move on. */
 	targetSets?: number;
@@ -44,12 +47,22 @@ export type Lookups = {
 	workout(id: string): Workout | null;
 };
 
+/** Just the measure targets that are set, so a plan entry carries no empty keys. */
+function measureTargets(from: MeasureTargets): MeasureTargets {
+	return {
+		...(from.targetSeconds !== undefined && { targetSeconds: from.targetSeconds }),
+		...(from.targetMeters !== undefined && { targetMeters: from.targetMeters }),
+		...(from.holdSeconds !== undefined && { holdSeconds: from.holdSeconds })
+	};
+}
+
 function expandRoutine(routine: Routine, grouped: boolean): PlanEntry[] {
 	return routine.exercises.map((ex, idx) => ({
 		workoutId: ex.workoutId,
 		targetSets: ex.targetSets,
 		...(ex.minReps !== undefined && { minReps: ex.minReps }),
 		...(ex.maxReps !== undefined && { maxReps: ex.maxReps }),
+		...measureTargets(ex),
 		routineId: routine.id,
 		...(grouped
 			? {
@@ -75,7 +88,7 @@ export function buildPlan(source: SessionSource, lookups: Lookups): PlanEntry[] 
 	if (!programSession) return null;
 	return programSession.items.flatMap((item) => {
 		if (item.type === 'exercise')
-			return [{ workoutId: item.workoutId, targetSets: item.targetSets }];
+			return [{ workoutId: item.workoutId, targetSets: item.targetSets, ...measureTargets(item) }];
 		const routine = lookups.routine(item.routineId);
 		return routine ? expandRoutine(routine, true) : [];
 	});
@@ -157,11 +170,24 @@ export function previousSets(workout: Workout | null, since: number): Set[] {
 		.sort((a, b) => timeOf(a) - timeOf(b));
 }
 
-/** "3 × 10", "3 × 8–12", or "3 sets" without a rep range; `null` for free-form. */
+/**
+ * "3 × 10", "3 × 8–12", or "3 sets" without a rep range; for other measures,
+ * "30 min", "3 × 45s", "5 km" or "3 × 10 × 5s hold". `null` for free-form.
+ */
 export function targetLabel(
-	entry: Pick<PlanEntry, 'targetSets' | 'minReps' | 'maxReps'>
+	entry: Pick<
+		PlanEntry,
+		'targetSets' | 'minReps' | 'maxReps' | 'targetSeconds' | 'targetMeters' | 'holdSeconds'
+	>,
+	measure: Measure = 'reps',
+	unit: DistanceUnit = 'km'
 ): string | null {
 	const { targetSets, minReps: lo, maxReps: hi } = entry;
+	if (measure !== 'reps') {
+		const each = measureTarget(entry, measure, unit);
+		if (!each) return targetSets === undefined ? null : counted(targetSets, 'set');
+		return targetSets && targetSets > 1 ? `${targetSets} × ${each}` : each;
+	}
 	if (targetSets === undefined) return null;
 	const reps = lo !== undefined && hi !== undefined && lo !== hi ? `${lo}–${hi}` : (lo ?? hi);
 	return reps === undefined ? counted(targetSets, 'set') : `${targetSets} × ${reps}`;
