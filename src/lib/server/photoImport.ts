@@ -9,6 +9,7 @@ import {
 	type ImportRequest
 } from '$lib/import/photo';
 import { MEASURES, SLOTS, SLOT_LABEL, type Slot } from '$lib/types';
+import { DAY_FULL as DAYS } from '$lib/constants';
 
 /**
  * Reading a workout out of a photo. Everything that knows about the model
@@ -55,8 +56,6 @@ export type ImportContext = {
 	/** The user's weekday, 0 = Sunday. */
 	today: number;
 };
-
-const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 const SYSTEM = `You read photos and screenshots of workouts for a workout-logging app and turn them into one routine.
 

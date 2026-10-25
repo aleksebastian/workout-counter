@@ -107,6 +107,28 @@ test("put a photo's routine on every day the note names", async ({ page }) => {
 	}
 });
 
+test("importing the same photo again doesn't double it", async ({ page }) => {
+	await importToProgram(page);
+	await page.getByRole('button', { name: 'Add to program' }).click();
+	await expect(page).toHaveURL(/\/programs\/ppl/);
+	await expect.poll(async () => (await savedSchedule()).length).toBe(3);
+
+	await page.goto('/library?tab=routines');
+	await page.getByRole('button', { name: 'New routine' }).click();
+	await page
+		.getByRole('dialog')
+		.getByRole('button', { name: /^Import from photo/ })
+		.click();
+	await importPhoto(page, 'Add to my program Mon, Wed and Fri mornings');
+	await page.getByRole('button', { name: /Save to/ }).click();
+	await expect(page.getByText(/already have this routine, so they stay as they are/)).toBeVisible();
+	await page.getByRole('button', { name: 'Done' }).click();
+	await page.getByRole('button', { name: 'Add to program' }).click();
+
+	await expect(page.getByText('Already in your program on those days')).toBeVisible();
+	for (const day of await savedSchedule()) expect(day.sessions).toHaveLength(1);
+});
+
 test('change the days in the picker before saving', async ({ page }) => {
 	await importToProgram(page);
 	await page.getByRole('button', { name: /Save to/ }).click();

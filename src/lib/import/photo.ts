@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { catalogExerciseNamed, normalizeName } from '$lib/catalog/match';
+import { DAY_FULL, DAY_NAMES } from '$lib/constants';
 import type { CatalogBundle, CatalogExercise } from '$lib/catalog/types';
 import {
 	MEASURES,
@@ -132,7 +133,10 @@ export function toDraft(extraction: Extraction, programs: Program[] | null, toda
 		.slice(0, EXERCISES_MAX);
 
 	const d = extraction.destination;
-	const named = [...new Set(d.days.filter((n) => Number.isInteger(n) && n >= 0 && n <= 6))];
+	// 7 is Sunday in ISO numbering, a slip the model can make for "every day".
+	const named = [
+		...new Set(d.days.filter((n) => Number.isInteger(n) && n >= 0 && n <= 7).map((n) => n % 7))
+	];
 	const days = named.length ? named.sort((a, b) => a - b) : [today];
 	const slot = d.slot && SLOTS.includes(d.slot) ? d.slot : undefined;
 	const programId = programs
@@ -154,17 +158,6 @@ export function toDraft(extraction: Extraction, programs: Program[] | null, toda
 
 // ── Showing the days ─────────────────────────────────────────────────────────
 
-export const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-export const DAY_LONG = [
-	'Sunday',
-	'Monday',
-	'Tuesday',
-	'Wednesday',
-	'Thursday',
-	'Friday',
-	'Saturday'
-];
-
 /** Days in the order the user's week runs, starting on `weekStart`. */
 export function weekOrder(days: number[], weekStart: 0 | 1): number[] {
 	return [...days].sort((a, b) => ((a - weekStart + 7) % 7) - ((b - weekStart + 7) % 7));
@@ -180,15 +173,15 @@ export function andList(items: string[]): string {
 /** The days for the Save to line: "Monday", "Mon, Wed, Fri" or "Every day". */
 export function daysLabel(days: number[], weekStart: 0 | 1): string {
 	if (days.length === 7) return 'Every day';
-	if (days.length === 1) return DAY_LONG[days[0]];
+	if (days.length === 1) return DAY_FULL[days[0]];
 	return weekOrder(days, weekStart)
-		.map((d) => DAY_SHORT[d])
+		.map((d) => DAY_NAMES[d])
 		.join(', ');
 }
 
 /** "Monday", "Monday and Friday": days spelled out in a sentence. */
 export function daysSentence(days: number[], weekStart: 0 | 1): string {
-	return andList(weekOrder(days, weekStart).map((d) => DAY_LONG[d]));
+	return andList(weekOrder(days, weekStart).map((d) => DAY_FULL[d]));
 }
 
 // ── Saving ───────────────────────────────────────────────────────────────────
@@ -265,6 +258,23 @@ export function bundleIdFor(ex: Named, catalog: CatalogExercise[]): string {
 	return catalogMatch(ex, catalog)?.id ?? PHOTO_ID + normalizeName(ex.name);
 }
 
+/** Whether `day` already has a session in `slot` that runs this routine. */
+export function runsRoutine(
+	schedule: ProgramDay[],
+	day: number,
+	slot: Slot | undefined,
+	routineId: string
+): boolean {
+	return (
+		schedule
+			.find((d) => d.day === day)
+			?.sessions.some(
+				(s) =>
+					s.slot === slot && s.items.some((i) => i.type === 'routine' && i.routineId === routineId)
+			) ?? false
+	);
+}
+
 /**
  * The schedule with the routine added as a new session on each of `days`,
  * all in the same slot. A day that already has a session in that slot keeps
@@ -279,13 +289,7 @@ export function addSessions(
 	newId: () => string = uuidv4
 ): ProgramDay[] {
 	return days.reduce((next, day) => {
-		const already = next
-			.find((d) => d.day === day)
-			?.sessions.some(
-				(s) =>
-					s.slot === slot && s.items.some((i) => i.type === 'routine' && i.routineId === routineId)
-			);
-		if (already) return next;
+		if (runsRoutine(next, day, slot, routineId)) return next;
 		const session = {
 			id: newId(),
 			...(slot && { slot }),

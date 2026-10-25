@@ -91,6 +91,15 @@ describe('toDraft', () => {
 		expect(draft.exercises[0].name).toBe('Curl & Press');
 	});
 
+	it('reads 7 as Sunday and drops anything else out of range', () => {
+		const draft = toDraft(
+			extraction([], { type: 'program', programId: 'ppl', days: [1, 2, 3, 4, 5, 6, 7, 9, -1] }),
+			[program],
+			3
+		);
+		expect(draft.destination).toMatchObject({ days: [0, 1, 2, 3, 4, 5, 6] });
+	});
+
 	it('keeps time and hold measures with their targets', () => {
 		const draft = toDraft(
 			extraction([

@@ -20,10 +20,9 @@
 		addSessions,
 		andList,
 		bundleIdFor,
-		DAY_LONG,
-		DAY_SHORT,
 		daysLabel,
 		daysSentence,
+		runsRoutine,
 		weekOrder,
 		draftBundle,
 		NOTE_MAX,
@@ -36,6 +35,7 @@
 	import { repRange } from '$lib/logic/targets';
 	import { photoToJpegBase64 } from '$lib/logic/resizeImage';
 	import { ANYTIME, SLOTS, SLOT_LABEL, type Program, type Slot } from '$lib/types';
+	import { DAY_FULL, DAY_NAMES } from '$lib/constants';
 	import CameraIcon from '$lib/icons/camera.svg?raw';
 	import Chevron from '$lib/components/Chevron.svelte';
 
@@ -254,10 +254,17 @@
 	let slotNote = $derived.by(() => {
 		const d = destination;
 		if (!d || d.type !== 'program' || !destProgram) return null;
+		const routineId = plan?.root.id;
 		const busy: number[] = [];
+		const kept: number[] = [];
 		const names = new Set<string>();
 		let unnamed = 0;
 		for (const day of d.days) {
+			// A day that already runs this routine here is left as it is.
+			if (routineId && runsRoutine(destProgram.schedule, day, d.slot, routineId)) {
+				kept.push(day);
+				continue;
+			}
 			const there = (destProgram.schedule.find((x) => x.day === day)?.sessions ?? []).filter(
 				(s) => s.items.length && s.slot === d.slot
 			);
@@ -274,17 +281,26 @@
 				else unnamed++;
 			}
 		}
-		if (!busy.length) return null;
-		const slot = d.slot ? ` ${SLOT_LABEL[d.slot].toLowerCase()}${busy.length > 1 ? 's' : ''}` : '';
-		const when = daysSentence(busy, session.prefs.weekStart) + slot;
-		const have = busy.length > 1 ? 'have' : 'has';
-		// A session that can't be named (its routine was deleted) is counted, not called "a session".
-		const what = names.size
-			? andList([...names, ...(unnamed ? [`${unnamed} more`] : [])])
-			: unnamed > 1
-				? 'other sessions'
-				: 'another session';
-		return `${when} already ${have} ${what}. This goes after it.`;
+		const when = (days: number[]) =>
+			daysSentence(days, session.prefs.weekStart) +
+			(d.slot ? ` ${SLOT_LABEL[d.slot].toLowerCase()}${days.length > 1 ? 's' : ''}` : '');
+		const have = (days: number[]) => (days.length > 1 ? 'have' : 'has');
+		const notes: string[] = [];
+		if (busy.length) {
+			// A session that can't be named (its routine was deleted) is counted, not called "a session".
+			const what = names.size
+				? andList([...names, ...(unnamed ? [`${unnamed} more`] : [])])
+				: unnamed > 1
+					? 'other sessions'
+					: 'another session';
+			notes.push(`${when(busy)} already ${have(busy)} ${what}. This goes after it.`);
+		}
+		if (kept.length) {
+			notes.push(
+				`${when(kept)} already ${have(kept)} this routine, so ${kept.length > 1 ? 'they stay' : 'it stays'} as ${kept.length > 1 ? 'they are' : 'it is'}.`
+			);
+		}
+		return notes.length ? notes.join(' ') : null;
 	});
 
 	function setDestination(next: Draft['destination']) {
@@ -368,8 +384,13 @@
 		let change: ProgramChange | undefined;
 		let target = libraryItemHref('routine', routineId);
 
+		// Days that get a new session; ones already running this routine there are skipped.
+		let added = 0;
 		if (d.type === 'program') {
 			const existing = d.programId ? session.program(d.programId) : null;
+			added = d.days.filter(
+				(day) => !existing || !runsRoutine(existing.schedule, day, d.slot, routineId)
+			).length;
 			if (existing) {
 				change = {
 					type: 'schedule',
@@ -405,9 +426,11 @@
 		toaster.success(
 			d.type === 'routines'
 				? 'Routine saved'
-				: d.days.length > 1
-					? `Added to ${d.days.length} days of your program`
-					: 'Added to your program'
+				: added === 0
+					? 'Already in your program on those days'
+					: added > 1
+						? `Added to ${added} days of your program`
+						: 'Added to your program'
 		);
 		open = false;
 		goto(target);
@@ -516,7 +539,7 @@
 						class="btn btn-xs rounded-full"
 						onclick={() =>
 							suggest(
-								`Add to ${session.activeProgram ? `my ${session.activeProgram.name} program` : 'a new program'} on ${DAY_LONG[new Date().getDay()]}`
+								`Add to ${session.activeProgram ? `my ${session.activeProgram.name} program` : 'a new program'} on ${DAY_FULL[new Date().getDay()]}`
 							)}>Add to a program day</button
 					>
 				</div>
@@ -765,8 +788,8 @@
 							<button
 								class={['btn btn-sm px-0', on && 'btn-primary']}
 								aria-pressed={on}
-								aria-label={DAY_LONG[day]}
-								onclick={() => toggleDay(day)}>{DAY_SHORT[day]}</button
+								aria-label={DAY_FULL[day]}
+								onclick={() => toggleDay(day)}>{DAY_NAMES[day]}</button
 							>
 						{/each}
 					</div>
