@@ -3,6 +3,8 @@
 		label: string;
 		/** Inline SVG markup, e.g. an imported `?raw` icon. */
 		icon?: string;
+		/** A short line under the label. */
+		description?: string;
 		destructive?: boolean;
 		onSelect: () => void;
 	};
@@ -55,7 +57,14 @@
 						{@html action.icon}
 					</span>
 				{/if}
-				<span class="font-medium">{action.label}</span>
+				{#if action.description}
+					<span class="flex min-w-0 flex-col">
+						<span class="font-medium">{action.label}</span>
+						<span class="text-base-content/50 text-xs">{action.description}</span>
+					</span>
+				{:else}
+					<span class="font-medium">{action.label}</span>
+				{/if}
 			</button>
 		{/each}
 	</div>

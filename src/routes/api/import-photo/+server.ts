@@ -40,7 +40,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 	if (typeof parsed === 'string') throw error(400, parsed);
 
 	const apiKey = env.ANTHROPIC_API_KEY;
-	if (!apiKey && !dev) throw error(503, 'Photo import is not configured');
+	if (!apiKey && !dev && !__E2E__) throw error(503, 'Photo import is not configured');
 
 	// Claim one of today's imports before calling the model, in a transaction,
 	// so parallel requests can't slip past the limit. Like bug reports, never
