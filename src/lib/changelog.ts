@@ -32,6 +32,13 @@ export const CHANGELOG: ChangelogEntry[] = [
 		fixed: ['Other days of a program no longer show today’s sets as their progress']
 	},
 	{
+		version: '0.19.1',
+		date: '2026-10-25',
+		improved: [
+			'Importing from a photo can put a routine on several days at once: say “Mon, Wed and Fri mornings” and it lands on all three, or pick the days yourself before saving'
+		]
+	},
+	{
 		version: '0.19.0',
 		date: '2026-10-25',
 		new: [
