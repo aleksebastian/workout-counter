@@ -27,13 +27,14 @@ pnpm dev
 
 Create a `.env` file with:
 
-| Variable                                                        | Used for                                                   |
-| --------------------------------------------------------------- | ---------------------------------------------------------- |
-| `FB_PROJECT_ID`, `FB_CLIENT_EMAIL`, `FB_PRIVATE_KEY`            | Firebase Admin: session cookies and server-side reads      |
-| `PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Web Push                                                   |
-| `QSTASH_URL`, `QSTASH_TOKEN`                                    | Scheduling rest-end pushes in production                   |
-| `QSTASH_CURRENT_SIGNING_KEY`, `QSTASH_NEXT_SIGNING_KEY`         | Verifying QStash callbacks                                 |
-| `GITHUB_TOKEN` (optional)                                       | Filing in-app bug reports; without it, dev logs the report |
+| Variable                                                        | Used for                                                         |
+| --------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `FB_PROJECT_ID`, `FB_CLIENT_EMAIL`, `FB_PRIVATE_KEY`            | Firebase Admin: session cookies and server-side reads            |
+| `PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Web Push                                                         |
+| `QSTASH_URL`, `QSTASH_TOKEN`                                    | Scheduling rest-end pushes in production                         |
+| `QSTASH_CURRENT_SIGNING_KEY`, `QSTASH_NEXT_SIGNING_KEY`         | Verifying QStash callbacks                                       |
+| `GITHUB_TOKEN` (optional)                                       | Filing in-app bug reports; without it, dev logs the report       |
+| `ANTHROPIC_API_KEY` (optional)                                  | Importing workouts from photos; without it, dev returns a sample |
 
 In dev, rest-end pushes fire from the dev server process instead of QStash.
 

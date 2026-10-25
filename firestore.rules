@@ -10,9 +10,10 @@ service cloud.firestore {
 										&& request.auth.uid == userId
 										&& request.resource.data.username == resource.data.username
 										// Written only by the server (Admin SDK bypasses rules): the
-										// bug-report cooldown, the push subscription, the queued push.
+										// bug-report cooldown, the push subscription, the queued push,
+										// the daily photo-import count.
 										&& !request.resource.data.diff(resource.data).affectedKeys()
-												.hasAny(['lastBugReportAt', 'pushSubscription', 'pendingPush']);
+												.hasAny(['lastBugReportAt', 'pushSubscription', 'pendingPush', 'photoImports']);
 			allow delete: if false;
 		}
 
