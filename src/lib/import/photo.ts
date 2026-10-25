@@ -87,6 +87,20 @@ export type Destination =
 
 export type Draft = { name: string; exercises: DraftExercise[]; destination: Destination };
 
+const ENTITIES: Record<string, string> = {
+	amp: '&',
+	lt: '<',
+	gt: '>',
+	quot: '"',
+	apos: "'",
+	'#39': "'"
+};
+
+/** The model sometimes writes "Back &amp; Biceps"; names are plain text. */
+function plain(text: string): string {
+	return text.replace(/&(amp|lt|gt|quot|apos|#39);/g, (_, e: string) => ENTITIES[e]).trim();
+}
+
 const count = (n: number | null, max: number) =>
 	n !== null && Number.isInteger(n) && n > 0 && n <= max ? n : undefined;
 
@@ -102,7 +116,7 @@ export function toDraft(extraction: Extraction, programs: Program[], today: numb
 			const minReps = count(e.minReps, 1000);
 			const maxReps = count(e.maxReps, 1000);
 			return {
-				name: e.name.trim(),
+				name: plain(e.name),
 				...(measure && measure !== 'reps' && { measure }),
 				...(count(e.targetSets, 50) && { targetSets: count(e.targetSets, 50) }),
 				...(minReps && { minReps }),
@@ -124,13 +138,13 @@ export function toDraft(extraction: Extraction, programs: Program[], today: numb
 			? {
 					type: 'program',
 					programId: known?.id ?? null,
-					newProgramName: known ? '' : (d.newProgramName?.trim() ?? ''),
+					newProgramName: known ? '' : plain(d.newProgramName ?? ''),
 					day,
 					...(slot && { slot })
 				}
 			: { type: 'routines' };
 
-	return { name: extraction.routine.name.trim() || 'Imported workout', exercises, destination };
+	return { name: plain(extraction.routine.name) || 'Imported workout', exercises, destination };
 }
 
 // ── Saving ───────────────────────────────────────────────────────────────────

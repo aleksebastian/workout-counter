@@ -81,6 +81,14 @@ describe('toDraft', () => {
 		]);
 	});
 
+	it('turns HTML entities in names back into plain text', () => {
+		const e = extraction([extracted('Curl &amp; Press')]);
+		e.routine.name = 'Back &amp; Biceps';
+		const draft = toDraft(e, [], 1);
+		expect(draft.name).toBe('Back & Biceps');
+		expect(draft.exercises[0].name).toBe('Curl & Press');
+	});
+
 	it('keeps time and hold measures with their targets', () => {
 		const draft = toDraft(
 			extraction([
