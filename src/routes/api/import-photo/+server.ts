@@ -23,8 +23,8 @@ const NAMES_MAX = 300;
  * review sheet; nothing is saved here. The photo is passed through and never
  * stored.
  *
- * Without ANTHROPIC_API_KEY the dev server (and the end-to-end tests) return
- * a fixed sample instead, so the flow can be exercised without a key.
+ * Without ANTHROPIC_API_KEY the dev server returns a fixed sample instead, so
+ * the flow can be exercised without a key; end-to-end builds always do.
  */
 export const POST: RequestHandler = async ({ locals, request }) => {
 	const uid = locals.userID;
@@ -39,7 +39,9 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 	const parsed = parseRequest(body);
 	if (typeof parsed === 'string') throw error(400, parsed);
 
-	const apiKey = env.ANTHROPIC_API_KEY;
+	// End-to-end builds always read the sample, even with a key in .env, so
+	// tests never call (or pay for) the real model.
+	const apiKey = __E2E__ ? undefined : env.ANTHROPIC_API_KEY;
 	if (!apiKey && !dev && !__E2E__) throw error(503, 'Photo import is not configured');
 
 	// Claim one of today's imports before calling the model, in a transaction,

@@ -41,7 +41,11 @@ test('import a photo as a new routine from the Library', async ({ page }) => {
 	await signIn(page);
 	await page.goto('/library?tab=routines');
 	await page.getByRole('button', { name: 'New routine' }).click();
-	await page.getByRole('button', { name: /Import from photo/ }).click();
+	// The menu's row, not the empty state's button of the same name.
+	await page
+		.getByRole('dialog')
+		.getByRole('button', { name: /^Import from photo/ })
+		.click();
 	await importPhoto(page, 'Add to my routines');
 
 	await expect(page.getByText('Overhead Press')).toBeVisible();
@@ -71,7 +75,11 @@ test("put a photo's routine on a program's Monday morning", async ({ page }) => 
 	await signIn(page);
 	await page.goto('/library?tab=routines');
 	await page.getByRole('button', { name: 'New routine' }).click();
-	await page.getByRole('button', { name: /Import from photo/ }).click();
+	// The menu's row, not the empty state's button of the same name.
+	await page
+		.getByRole('dialog')
+		.getByRole('button', { name: /^Import from photo/ })
+		.click();
 	await importPhoto(page, 'Add to my program on Monday morning');
 
 	await expect(page.getByText('E2E Program · Monday · Morning')).toBeVisible();
