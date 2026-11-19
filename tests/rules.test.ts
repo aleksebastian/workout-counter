@@ -2,7 +2,14 @@ import { deleteApp, initializeApp } from 'firebase/app';
 import { connectAuthEmulator, getAuth, signInWithCustomToken } from 'firebase/auth';
 import { connectFirestoreEmulator, doc, getFirestore, writeBatch } from 'firebase/firestore';
 import { getAuth as getAdminAuth } from 'firebase-admin/auth';
-import { DEFAULT_PREFERENCES, PROJECT_ID, expect, readDoc, test } from './fixtures';
+import {
+	DEFAULT_PREFERENCES,
+	PROJECT_ID,
+	deleteAccountData,
+	expect,
+	readDoc,
+	test
+} from './fixtures';
 
 /**
  * Firestore rules, checked with the client SDK the app uses, signed in as a
@@ -11,6 +18,7 @@ import { DEFAULT_PREFERENCES, PROJECT_ID, expect, readDoc, test } from './fixtur
  */
 
 const NEW_UID = 'rules-new-user';
+const NEW_USERNAME = 'rulestester';
 
 async function signedInClient() {
 	const app = initializeApp({ apiKey: 'test', projectId: PROJECT_ID }, `rules-${Date.now()}`);
@@ -41,18 +49,21 @@ test.describe('profile creation', () => {
 	test.skip(({ browserName }) => browserName !== 'chromium', 'rules are browser-independent');
 
 	test('only takes the fields onboarding writes', async () => {
+		// The fixtures reset only the worker's own user; this account is extra,
+		// so a retry starts it from scratch here.
+		await deleteAccountData(NEW_UID, NEW_USERNAME);
 		const { app, db } = await signedInClient();
 		try {
 			// A server-owned field, set by the client: a negative count would mean
 			// unlimited photo imports for the day.
 			await expect(
-				claim(db, 'rulestester', { photoImports: { day: '2026-11-19', count: -100000 } })
+				claim(db, NEW_USERNAME, { photoImports: { day: '2026-11-19', count: -100000 } })
 			).rejects.toMatchObject({ code: 'permission-denied' });
 			expect(await readDoc(`users/${NEW_UID}`)).toBeUndefined();
 
 			// What the username screen writes still goes through.
-			await claim(db, 'rulestester');
-			expect(await readDoc(`users/${NEW_UID}`)).toMatchObject({ username: 'rulestester' });
+			await claim(db, NEW_USERNAME);
+			expect(await readDoc(`users/${NEW_UID}`)).toMatchObject({ username: NEW_USERNAME });
 		} finally {
 			await deleteApp(app);
 		}

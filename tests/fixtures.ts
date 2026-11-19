@@ -5,14 +5,21 @@ import { getFirestore } from 'firebase-admin/firestore';
 
 /**
  * Shared setup for the end-to-end tests. Everything runs against the Firebase
- * emulators (see playwright.config.ts): before each test the database is
- * wiped and seeded with one signed-up user, plus whatever the test's seed
- * variant adds (see `Seed`).
+ * emulators (see playwright.config.ts): before each test the worker's own
+ * user is wiped and seeded again, plus whatever the test's seed variant adds
+ * (see `Seed`).
  */
 
 export const PROJECT_ID = process.env.GCLOUD_PROJECT ?? 'workout-counter-99d56';
-export const UID = 'e2e-user';
-export const USERNAME = 'e2etester';
+/**
+ * Each Playwright worker signs in as its own user, so workers running at the
+ * same time share the emulators without touching each other's data. The
+ * parallel index is the worker's slot (0 … workers - 1): a worker restarted
+ * after a failure takes over its slot, and with it the user.
+ */
+const SLOT = process.env.TEST_PARALLEL_INDEX ?? '0';
+export const UID = `e2e-user-${SLOT}`;
+export const USERNAME = `e2etester${SLOT}`;
 export const ROUTINE = { id: 'routine-e2e', name: 'E2E Routine' };
 export const EXERCISES = [
 	{ id: 'workout-squat', name: 'E2E Squat' },
@@ -34,12 +41,16 @@ if (!getApps().length) initializeApp({ projectId: PROJECT_ID });
 const adminDB = getFirestore();
 const adminAuth = getAuth();
 
-async function resetFirestore() {
-	const res = await fetch(
-		`http://${process.env.FIRESTORE_EMULATOR_HOST}/emulator/v1/projects/${PROJECT_ID}/databases/(default)/documents`,
-		{ method: 'DELETE' }
-	);
-	if (!res.ok) throw new Error(`Couldn't clear the Firestore emulator: ${res.status}`);
+/**
+ * Deletes one account's documents: its user doc with everything under it, and
+ * its username claim. The app keeps nothing else per account. Never the whole
+ * database — other workers are using it.
+ */
+export async function deleteAccountData(uid: string, username: string) {
+	await Promise.all([
+		adminDB.recursiveDelete(adminDB.doc(`users/${uid}`)),
+		adminDB.doc(`usernames/${username}`).delete()
+	]);
 }
 
 export const DEFAULT_PREFERENCES = {
@@ -148,7 +159,7 @@ export const test = base.extend<{ seed: Seed; seeded: void }>({
 	seed: ['default', { option: true }],
 	seeded: [
 		async ({ seed: variant }, use) => {
-			await resetFirestore();
+			await deleteAccountData(UID, USERNAME);
 			await seed(variant);
 			await use();
 		},
