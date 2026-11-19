@@ -201,10 +201,7 @@
 	placeholder="e.g., Push Day"
 	submitLabel="Add Routine"
 	validate={(name) => getNameValidationMsg('Routine', name, session.routines)}
-	onSave={async (name) => {
-		const created = await routines.create(name);
-		if (created) goto(`/routines/${created.id}`);
-	}}
+	onSave={(name) => goto(`/routines/${routines.create(name).id}`)}
 />
 
 <ConfirmationDialog

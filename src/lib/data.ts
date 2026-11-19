@@ -55,6 +55,12 @@ function userRef(): DocumentReference {
 	return doc(db, 'users', requireUid());
 }
 
+// Writes apply locally at once but only settle when the server confirms, so
+// offline an awaited write never returns. The `create` methods below hand
+// back the new item straight away and leave the write running; a failure
+// still shows its toast, and the local copy rolls back. Callers that move on
+// after a write (close a sheet, leave a page) shouldn't await it either.
+
 /**
  * Runs a write, reporting failures as a toast. `label` completes the sentence
  * "Couldn't … — try again", so phrase it as a verb: "save set", "delete program".
@@ -95,15 +101,15 @@ function saveWithNewWorkouts(
 // ── Exercises ────────────────────────────────────────────────────────────────
 
 export const exercises = {
-	async create(name: string): Promise<Workout | null> {
+	create(name: string): Workout {
 		const workout: Workout = {
 			id: uuidv4(),
 			name: name.trim(),
 			sets: [],
 			createdAt: Date.now()
 		};
-		const ok = await mutate('create exercise', () => setDoc(ref('workouts', workout.id), workout));
-		return ok ? workout : null;
+		void exercises.put(workout);
+		return workout;
 	},
 
 	/**
@@ -184,15 +190,15 @@ export const exercises = {
 // ── Routines ─────────────────────────────────────────────────────────────────
 
 export const routines = {
-	async create(name: string): Promise<Routine | null> {
+	create(name: string): Routine {
 		const routine: Routine = {
 			id: uuidv4(),
 			name: name.trim(),
 			exercises: [],
 			createdAt: Date.now()
 		};
-		const ok = await mutate('create routine', () => setDoc(ref('routines', routine.id), routine));
-		return ok ? routine : null;
+		void mutate('create routine', () => setDoc(ref('routines', routine.id), routine));
+		return routine;
 	},
 
 	update(id: string, fields: { name: string; timer?: Duration; notes?: string }) {
@@ -222,15 +228,15 @@ export const routines = {
 // ── Programs ─────────────────────────────────────────────────────────────────
 
 export const programs = {
-	async create(name: string): Promise<Program | null> {
+	create(name: string): Program {
 		const program: Program = {
 			id: uuidv4(),
 			name: name.trim(),
 			schedule: [],
 			createdAt: Date.now()
 		};
-		const ok = await mutate('create program', () => setDoc(ref('programs', program.id), program));
-		return ok ? program : null;
+		void mutate('create program', () => setDoc(ref('programs', program.id), program));
+		return program;
 	},
 
 	update(id: string, fields: { name: string; notes?: string }) {
@@ -242,13 +248,20 @@ export const programs = {
 		);
 	},
 
-	async remove(id: string) {
-		const ok = await mutate('delete program', () => deleteDoc(ref('programs', id)));
-		// activeProgramId lives on the user doc — clear it if it pointed here.
-		if (ok && session.activeProgramId === id) {
-			await user.setActiveProgram(null);
-		}
-		return ok;
+	/**
+	 * Deletes the program and, in the same batch, clears activeProgramId on
+	 * the user doc if it pointed here — so neither waits on the other.
+	 */
+	remove(id: string) {
+		const uid = requireUid();
+		return mutate('delete program', () => {
+			const batch = writeBatch(db);
+			batch.delete(doc(db, 'users', uid, 'programs', id));
+			if (session.activeProgramId === id) {
+				batch.update(doc(db, 'users', uid), { activeProgramId: null });
+			}
+			return batch.commit();
+		});
 	},
 
 	setSchedule(id: string, schedule: ProgramDay[]) {

@@ -141,3 +141,50 @@ test('create and delete a program', async ({ page }) => {
 	await expect.poll(async () => (await listDocs(`users/${UID}/programs`)).length).toBe(0);
 	expect(await readDoc(`users/${UID}`)).toBeTruthy();
 });
+
+const WRITES = '**/google.firestore.v1.Firestore/Write/**';
+
+/**
+ * Lets writes through again, then tells the page it's back online, which is
+ * what has Firestore retry now rather than after its growing backoff.
+ */
+async function releaseWrites(page: Page) {
+	await page.unroute(WRITES);
+	await page.evaluate(() => {
+		window.dispatchEvent(new Event('offline'));
+		window.dispatchEvent(new Event('online'));
+	});
+}
+
+test('creating and deleting keep going while writes are unconfirmed', async ({ page }) => {
+	await signIn(page);
+	// What offline does to a write: applied locally at once, never confirmed.
+	// Going offline itself would also break page loads, with the service
+	// worker blocked in tests.
+	await page.route(WRITES, (route) => route.abort());
+
+	await openTab(page, 'Library');
+	await librarySegment(page, 'Programs');
+	await createNamed(page, 'New program', 'New program', 'Offline Block', 'Add Program');
+	await expect(page).toHaveURL(/\/programs\//);
+
+	await openTab(page, 'Library');
+	await librarySegment(page, 'Routines');
+	await createNamed(page, 'New routine', 'New routine', 'Leg Day', 'Add Routine');
+	await expect(page).toHaveURL(/\/routines\//);
+	await page.getByRole('button', { name: 'Routine options' }).click();
+	await page.getByRole('button', { name: 'Delete routine' }).click();
+	await page
+		.locator('dialog[open]')
+		.filter({ hasText: 'Delete “Leg Day”?' })
+		.getByRole('button', { name: 'Delete', exact: true })
+		.click();
+	await expect(page).toHaveURL(/\/library/);
+
+	// Once writes go through, the queue lands: the program stays, the routine doesn't.
+	await releaseWrites(page);
+	await expect
+		.poll(async () => (await docsNamed('programs', 'Offline Block')).length, { timeout: 15_000 })
+		.toBe(1);
+	expect(await docsNamed('routines', 'Leg Day')).toHaveLength(0);
+});

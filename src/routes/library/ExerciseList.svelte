@@ -75,9 +75,8 @@
 		showActions = true;
 	}
 
-	async function create(name: string) {
-		const created = await exercises.create(name);
-		if (created) goto(`/workout/${created.id}`);
+	function create(name: string) {
+		goto(`/workout/${exercises.create(name).id}`);
 	}
 </script>
 

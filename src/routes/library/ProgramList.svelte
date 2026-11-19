@@ -272,10 +272,7 @@
 	hint="You'll schedule the week after creating it"
 	submitLabel="Add Program"
 	validate={(name) => getNameValidationMsg('Program', name, session.programs)}
-	onSave={async (name) => {
-		const created = await programs.create(name);
-		if (created) goto(`/programs/${created.id}`);
-	}}
+	onSave={(name) => goto(`/programs/${programs.create(name).id}`)}
 />
 
 <ConfirmationDialog

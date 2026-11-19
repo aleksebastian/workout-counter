@@ -385,10 +385,12 @@
 	content="Your exercises and their history won't be affected."
 	actionLabel="Delete"
 	destructive
-	onclose={async (e) => {
+	onclose={(e) => {
 		if ((e.target as HTMLDialogElement).returnValue === 'default' && routine) {
-			await routines.remove(routine.id);
-			goto(libraryHref('routines'));
+			// Leave first: not awaited (it'd never return offline), and the page
+			// shouldn't flash "not found" as the local delete lands.
+			const id = routine.id;
+			goto(libraryHref('routines')).then(() => routines.remove(id));
 		}
 	}}
 />
