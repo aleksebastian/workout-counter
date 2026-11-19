@@ -102,11 +102,14 @@
 		};
 	}
 
-	function save() {
+	/**
+	 * Sends the draft. Not awaited by anyone: the change applies locally at
+	 * once, but offline the write only settles once back online. A failure
+	 * shows its own toast.
+	 */
+	function writeDraft() {
 		debounce = undefined;
-		// Not awaited: the change applies locally at once, but offline the
-		// write only settles once back online. A failure shows its own toast.
-		const write = user.setPreferences({
+		return user.setPreferences({
 			timer: cleanTimer(),
 			timerEnabled: draft.timerEnabled,
 			theme: draft.theme,
@@ -116,6 +119,10 @@
 			weeklyGoal: clamp(draft.weeklyGoal, 1, 7, 3),
 			streaksEnabled: draft.streaksEnabled
 		});
+	}
+
+	function save() {
+		const write = writeDraft();
 		saveState = 'saved';
 		clearTimeout(savedFade);
 		savedFade = setTimeout(() => (saveState = 'idle'), 1000);
@@ -124,12 +131,13 @@
 		});
 	}
 
-	// Leaving within the debounce still saves the last change.
+	// Leaving within the debounce still saves the last change; there's no
+	// "Saved" left to show.
 	onDestroy(() => {
 		clearTimeout(savedFade);
 		if (debounce === undefined) return;
 		clearTimeout(debounce);
-		save();
+		void writeDraft();
 	});
 
 	/** Every control calls this; writes coalesce while the user is still tapping. */

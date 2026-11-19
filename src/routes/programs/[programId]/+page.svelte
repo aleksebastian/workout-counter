@@ -1013,9 +1013,12 @@
 	onclose={(e) => {
 		if ((e.target as HTMLDialogElement).returnValue === 'default' && program) {
 			// Leave first: not awaited (it'd never return offline), and the page
-			// shouldn't flash "not found" as the local delete lands.
+			// shouldn't flash "not found" as the local delete lands. Deleted
+			// even if that navigation doesn't complete: it was confirmed.
 			const id = program.id;
-			goto(libraryHref('programs')).then(() => programs.remove(id));
+			goto(libraryHref('programs'))
+				.finally(() => programs.remove(id))
+				.catch(() => {});
 		}
 	}}
 />

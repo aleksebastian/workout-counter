@@ -388,9 +388,12 @@
 	onclose={(e) => {
 		if ((e.target as HTMLDialogElement).returnValue === 'default' && routine) {
 			// Leave first: not awaited (it'd never return offline), and the page
-			// shouldn't flash "not found" as the local delete lands.
+			// shouldn't flash "not found" as the local delete lands. Deleted
+			// even if that navigation doesn't complete: it was confirmed.
 			const id = routine.id;
-			goto(libraryHref('routines')).then(() => routines.remove(id));
+			goto(libraryHref('routines'))
+				.finally(() => routines.remove(id))
+				.catch(() => {});
 		}
 	}}
 />
