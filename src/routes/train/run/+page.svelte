@@ -1,16 +1,14 @@
 <script lang="ts">
-	import { counted, plural } from '$lib/utils';
+	import { counted } from '$lib/utils';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { formatDistanceToNow } from 'date-fns';
-	import { exercises } from '$lib/data';
 	import { session } from '$lib/session.svelte';
 	import { training, type EndedToday, type SessionSummary } from '$lib/logic/training.svelte';
 	import {
 		previousSets,
 		sameSource,
 		setsSince,
-		formatClock,
 		sourceFromParams,
 		sourceSlot,
 		targetLabel
@@ -20,10 +18,7 @@
 	import { loadCatalog, type Catalog } from '$lib/catalog';
 	import { catalogExerciseFor } from '$lib/catalog/match';
 	import { HAPTIC } from '$lib/haptic';
-	import { toaster } from '$lib/toast.svelte';
-	import ActionSheet, { type SheetAction } from '$lib/components/ActionSheet.svelte';
-	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
-	import EditSetSheet from '$lib/components/EditSetSheet.svelte';
+	import { type SheetAction } from '$lib/components/ActionSheet.svelte';
 	import SessionHeader from './SessionHeader.svelte';
 	import SessionProgress from '$lib/components/SessionProgress.svelte';
 	import SetTable from './SetTable.svelte';
@@ -31,7 +26,6 @@
 	import MeasureEntry from '$lib/components/MeasureEntry.svelte';
 	import TimerCard from '$lib/components/TimerCard.svelte';
 	import HoldTimer from '$lib/components/HoldTimer.svelte';
-	import BottomSheet from '$lib/components/BottomSheet.svelte';
 	import { pastTarget, timerSeconds } from '$lib/logic/setTimer';
 	import { onMount } from 'svelte';
 	import {
@@ -44,8 +38,11 @@
 	} from '$lib/logic/measure';
 	import { recordSet as recordSet_ } from '$lib/logic/logSet';
 	import RunFooter from './RunFooter.svelte';
-	import HowToSheet from './HowToSheet.svelte';
-	import HistorySheet from './HistorySheet.svelte';
+	import RunSheets from './RunSheets.svelte';
+	import PastTargetSheet from './PastTargetSheet.svelte';
+	import EndWorkoutDialogs from './EndWorkoutDialogs.svelte';
+	import DoneSummary from './DoneSummary.svelte';
+	import { keyboardView } from './keyboardView.svelte';
 	import EditIcon from '$lib/icons/edit.svg?raw';
 	import type { Set } from '$lib/types';
 
@@ -352,52 +349,9 @@
 	});
 
 	// ── Keyboard ────────────────────────────────────────────────────────────────
-	/**
-	 * The part of the screen the keyboard leaves visible, while it's up. iOS
-	 * doesn't shrink the layout for the keyboard, and only scrolls a focused
-	 * field into view when it can find one — the note field is focused while
-	 * still zero-width, so the keyboard simply covered it. Fitting the column
-	 * to the visible area keeps the footer on top of the keyboard, with the
-	 * set list giving up the room.
-	 */
-	let keyboardView = $state<{ top: number; height: number } | null>(null);
 	/** The logging column; only its own fields count as typing into this screen. */
 	let column = $state<HTMLElement>();
-
-	$effect(() => {
-		const vv = window.visualViewport;
-		// A touch screen shows a keyboard for any focused text field; a desktop
-		// browser shows none, so its layout is left alone.
-		if (!vv || !matchMedia('(pointer: coarse)').matches) return;
-		// A field in this column has focus *and* the visible area has shrunk
-		// from its full height. Focus alone misfires with a hardware keyboard
-		// or a field in a sheet; height alone missed the number pad, which
-		// shrinks innerHeight along with the visual viewport.
-		let fullHeight = vv.height;
-		const update = () => {
-			const el = document.activeElement;
-			const typing =
-				(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) &&
-				!!column?.contains(el);
-			if (!typing) fullHeight = Math.max(fullHeight, vv.height);
-			keyboardView =
-				typing && vv.height < fullHeight - 120 ? { top: vv.offsetTop, height: vv.height } : null;
-		};
-		// Moving between fields with the keyboard's arrows blurs one a moment
-		// before focusing the next; checking after that keeps the layout still.
-		const afterBlur = () => setTimeout(update);
-		update();
-		vv.addEventListener('resize', update);
-		vv.addEventListener('scroll', update);
-		document.addEventListener('focusin', update);
-		document.addEventListener('focusout', afterBlur);
-		return () => {
-			vv.removeEventListener('resize', update);
-			vv.removeEventListener('scroll', update);
-			document.removeEventListener('focusin', update);
-			document.removeEventListener('focusout', afterBlur);
-		};
-	});
+	const keyboard = keyboardView(() => column);
 
 	// ── Set list scrolling ──────────────────────────────────────────────────────
 	let tableScroller = $state<HTMLElement>();
@@ -447,21 +401,6 @@
 		formatSet({ id: '', date: '', reps, weight, seconds, meters, holdSeconds }, measure, units) +
 			(measure === 'reps' && !(weight > 0) && weightUnset ? ' · no weight' : '')
 	);
-
-	/** One exercise on the done screen: "3 × 10 · top 25 lb". */
-	function summaryLine(item: SessionSummary['list'][number], since: number): string {
-		const sets = setsSince(session.workout(item.workoutId), since);
-		const reps = new globalThis.Set(sets.map((s) => s.reps));
-		const top = Math.max(0, ...sets.map((s) => s.weight ?? 0));
-		return [
-			reps.size === 1
-				? `${item.sets} × ${sets[0].reps}`
-				: `${counted(item.sets, 'set')} · ${counted(item.reps, 'rep')}`,
-			top > 0 && `top ${top} ${unitLabel}`
-		]
-			.filter(Boolean)
-			.join(' · ');
-	}
 
 	// ── Actions ─────────────────────────────────────────────────────────────────
 	async function recordSet() {
@@ -513,36 +452,17 @@
 	}
 
 	let finishDialog = $state<HTMLDialogElement>()!;
-
-	// A workout that hit every target just finishes; ending one early asks first.
 	/**
-	 * Taken when the dialog opens: finishing clears the session while the
-	 * dialog is still fading out, and live values would read "0 of 0".
+	 * Taken when the dialog opens, never live: finishing clears the session
+	 * while the dialog is still fading out, and live values would read "0 of 0".
 	 */
 	let finishProgress = $state('');
 
+	// A workout that hit every target just finishes; ending one early asks first.
 	function requestFinish() {
 		if (training.complete) return finish();
 		finishProgress = `${fills.filter((f) => f >= 1).length} of ${counted(entries.length, 'exercise')}`;
 		finishDialog?.showModal();
-	}
-
-	// Discarding deletes sets, so it's never one tap: Finish early offers it,
-	// and this asks again, saying exactly what goes.
-	let discardDialog = $state<HTMLDialogElement>()!;
-	let setsToDiscard = $state(0);
-
-	function requestDiscard() {
-		setsToDiscard = training.loggedSets.reduce((n, e) => n + e.sets.length, 0);
-		discardDialog?.showModal();
-	}
-
-	function discard() {
-		HAPTIC.heavy();
-		// Gone from the store at once; the "ended elsewhere" redirect then
-		// takes this screen down to Train.
-		training.discard();
-		toaster.show({ type: 'info', message: 'Workout discarded', timeout: 2500 });
 	}
 
 	// ── Sheets ──────────────────────────────────────────────────────────────────
@@ -629,67 +549,7 @@
 		</div>
 	</div>
 {:else if summary}
-	<SessionHeader title={summary.name} />
-	<div class="mx-auto flex w-full max-w-lg flex-col items-center gap-6 pt-8 pb-28 text-center">
-		{#if summary.complete}
-			<div class="bg-success/10 flex h-28 w-28 items-center justify-center rounded-full">
-				<svg class="text-success h-12 w-12" viewBox="0 0 36 36" aria-hidden="true">
-					<path
-						fill="currentColor"
-						d="M34.459 1.375a2.999 2.999 0 0 0-4.149.884L13.5 28.17l-8.198-7.58a2.999 2.999 0 1 0-4.073 4.405l10.764 9.952s.309.266.452.359a2.999 2.999 0 0 0 4.15-.884L35.343 5.524a2.999 2.999 0 0 0-.884-4.149z"
-					/>
-				</svg>
-			</div>
-		{/if}
-		<div>
-			<!-- Only a workout that hit every target is "complete"; ending early is
-			     reported plainly rather than celebrated. -->
-			<h1 class="text-2xl font-black">
-				{summary.complete ? 'Workout complete' : 'Workout ended'}
-			</h1>
-		</div>
-
-		<div class="bg-base-200 divide-base-300 grid w-full grid-cols-3 divide-x rounded-2xl">
-			<div class="flex flex-col items-center gap-0.5 px-4 py-4">
-				<span class="text-2xl font-black tabular-nums">{summary.sets}</span>
-				<span class="text-base-content/50 text-xs">{plural(summary.sets, 'set')}</span>
-			</div>
-			<div class="flex flex-col items-center gap-0.5 px-4 py-4">
-				<span class="text-2xl font-black tabular-nums">{summary.reps}</span>
-				<span class="text-base-content/50 text-xs">{plural(summary.reps, 'rep')}</span>
-			</div>
-			<div class="flex flex-col items-center gap-0.5 px-4 py-4">
-				<span class="text-2xl font-black tabular-nums">{formatClock(summary.durationMs)}</span>
-				<span class="text-base-content/50 text-xs">time</span>
-			</div>
-		</div>
-
-		{#if summary.list.length}
-			<!-- What each exercise got, so the screen says what was done and not
-			     only how much. -->
-			<ul class="bg-base-200 divide-base-300 w-full divide-y rounded-2xl text-left">
-				{#each summary.list as item (item.workoutId)}
-					<li class="flex items-baseline justify-between gap-3 px-4 py-3">
-						<span class="min-w-0 truncate font-semibold">{item.name}</span>
-						<span class="text-base-content/60 shrink-0 text-sm tabular-nums"
-							>{summaryLine(item, summary.startedAt)}</span
-						>
-					</li>
-				{/each}
-			</ul>
-		{/if}
-	</div>
-
-	<!-- Pinned where the Log set button was, under the thumb. -->
-	<div
-		class="bg-base-100 fixed inset-x-0 bottom-0 px-4 pt-3"
-		style:padding-bottom="calc(env(safe-area-inset-bottom, 0px) + 0.75rem)"
-	>
-		<button
-			class="btn btn-primary btn-lg mx-auto flex h-14 w-full max-w-lg rounded-2xl"
-			onclick={() => goto('/')}>Done</button
-		>
-	</div>
+	<DoneSummary {summary} unit={unitLabel} />
 {:else if !ready || !active}
 	<SessionHeader title="" />
 	<div class="mx-auto flex w-full max-w-lg flex-col gap-4">
@@ -726,9 +586,9 @@
 	<div
 		bind:this={column}
 		class="bg-base-100 fixed inset-x-0 flex flex-col"
-		style:top="{keyboardView?.top ?? 0}px"
-		style:bottom={keyboardView ? 'auto' : '0px'}
-		style:height={keyboardView ? `${keyboardView.height}px` : undefined}
+		style:top="{keyboard.current?.top ?? 0}px"
+		style:bottom={keyboard.current ? 'auto' : '0px'}
+		style:height={keyboard.current ? `${keyboard.current.height}px` : undefined}
 	>
 		<SessionHeader
 			class="mx-auto w-full max-w-lg shrink-0"
@@ -743,7 +603,7 @@
 		     and this steps aside rather than being cut off mid-row. -->
 		<div
 			class="mx-auto flex min-h-0 w-full max-w-lg flex-1 flex-col gap-5 overflow-hidden px-4 pt-2"
-			class:invisible={keyboardView !== null}
+			class:invisible={keyboard.current !== null}
 		>
 			<SessionProgress {fills} index={currentIndex} detail={progressDetail} />
 
@@ -857,7 +717,7 @@
 			bind:notes
 			bind:noteOpen
 			setNumber={exerciseComplete ? null : setsDone + 1}
-			keyboardUp={keyboardView !== null}
+			keyboardUp={keyboard.current !== null}
 		>
 			{#snippet controls()}
 				{#if exerciseComplete}
@@ -984,98 +844,28 @@
 	</div>
 {/if}
 
-<HowToSheet bind:open={howToOpen} workout={currentWorkout} />
-
-<HistorySheet
-	bind:open={historyOpen}
+<RunSheets
 	workout={currentWorkout}
 	routineId={currentEntry?.routineId}
-/>
-
-<ActionSheet bind:open={menuOpen} title={currentWorkout?.name} actions={menuActions} />
-
-<BottomSheet
-	bind:open={pastOpen}
-	size="large"
-	title="You passed {formatSeconds(currentEntry?.targetSeconds ?? 0)} while away"
->
-	<div class="flex flex-col gap-2">
-		<p class="text-base-content/55 mb-2 text-sm">
-			The timer kept going. Log your target, the full time, or keep going.
-		</p>
-		<button
-			class="btn btn-primary btn-lg w-full"
-			onclick={() => {
-				pastOpen = false;
-				logTime(currentEntry?.targetSeconds ?? timerSecs ?? 0);
-			}}>Log {formatSeconds(currentEntry?.targetSeconds ?? 0)}</button
-		>
-		<button
-			class="btn btn-lg bg-base-200 w-full border-none shadow-none"
-			onclick={() => {
-				pastOpen = false;
-				logTime(timerSecs ?? 0);
-			}}>Log {formatSeconds(timerSecs ?? 0)}</button
-		>
-		<button class="btn btn-ghost btn-lg w-full" onclick={() => (pastOpen = false)}
-			>Keep going</button
-		>
-		<button
-			class="text-primary-strong min-h-11 text-sm font-semibold"
-			onclick={() => {
-				pastOpen = false;
-				seconds = timerSecs ?? 0;
-				training.clearTimer();
-				manualEntry = true;
-			}}>Enter a different time</button
-		>
-	</div>
-</BottomSheet>
-
-<EditSetSheet
-	bind:open={editOpen}
-	set={editing}
 	{measure}
-	onSave={(newReps, newWeight, date, newNotes, values) => {
-		if (!currentWorkout || !editing) return;
-		exercises.updateSet(currentWorkout, editing.id, {
-			reps: newReps,
-			weight: newWeight,
-			date,
-			notes: newNotes,
-			...values
-		});
-	}}
-	onDelete={() => {
-		if (!currentWorkout || !editing) return;
-		HAPTIC.heavy();
-		exercises.removeSet(currentWorkout, editing.id);
+	{menuActions}
+	bind:howToOpen
+	bind:historyOpen
+	bind:menuOpen
+	bind:editOpen
+	{editing}
+/>
+
+<PastTargetSheet
+	bind:open={pastOpen}
+	target={currentEntry?.targetSeconds}
+	elapsed={timerSecs}
+	onLog={logTime}
+	onEnterTime={() => {
+		seconds = timerSecs ?? 0;
+		training.clearTimer();
+		manualEntry = true;
 	}}
 />
 
-<ConfirmationDialog
-	bind:dialog={finishDialog}
-	header="Finish workout early?"
-	content="{finishProgress} done. Your sets are saved, and it's added to your history."
-	actionLabel="Finish"
-	secondaryLabel="Discard workout"
-	onclose={(e) => {
-		const choice = (e.target as HTMLDialogElement).returnValue;
-		if (choice === 'default') finish();
-		else if (choice === 'secondary') requestDiscard();
-	}}
-/>
-
-<ConfirmationDialog
-	bind:dialog={discardDialog}
-	destructive
-	header="Discard this workout?"
-	content={setsToDiscard
-		? `The ${counted(setsToDiscard, 'set')} you logged will be deleted and it won't be added to your history. This can't be undone.`
-		: "Nothing's been logged yet, so there's nothing to lose."}
-	actionLabel="Discard workout"
-	cancelLabel="Keep workout"
-	onclose={(e) => {
-		if ((e.target as HTMLDialogElement).returnValue === 'default') discard();
-	}}
-/>
+<EndWorkoutDialogs bind:finishDialog progress={finishProgress} onFinish={finish} />
