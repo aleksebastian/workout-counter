@@ -164,7 +164,9 @@ async function completeSession(user: User) {
 	const destination = getPostLoginDestination(userDoc.exists() ? userDoc.data() : null);
 
 	// Awaited so the caller's spinner stays up until the page actually commits.
-	await goto(destination);
+	// Replacing the login entry: the server guard runs on full page loads only,
+	// so Back would otherwise show the login screen to a signed-in user.
+	await goto(destination, { replaceState: true });
 }
 
 /**

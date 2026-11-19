@@ -32,6 +32,14 @@ let programList = $state<Program[] | null>(null);
 let logList = $state<SessionLog[] | null>(null);
 let firstError = $state<string | null>(null);
 
+// By id, for the lookups below: they run inside plan building, summaries and
+// sorts, where a scan of the list per call added up. Rebuilt when a list changes.
+const byId = <T extends { id: string }>(list: T[] | null) =>
+	new Map((list ?? []).map((item) => [item.id, item]));
+let workoutsById = $derived(byId(workoutList));
+let routinesById = $derived(byId(routineList));
+let programsById = $derived(byId(programList));
+
 if (browser) {
 	user.subscribe((v) => (authUser = v));
 	userData.subscribe((v) => (data = v));
@@ -103,13 +111,13 @@ export const session = {
 	},
 
 	workout(id: string | undefined) {
-		return id ? (workoutList?.find((w) => w.id === id) ?? null) : null;
+		return id ? (workoutsById.get(id) ?? null) : null;
 	},
 	routine(id: string | undefined) {
-		return id ? (routineList?.find((r) => r.id === id) ?? null) : null;
+		return id ? (routinesById.get(id) ?? null) : null;
 	},
 	program(id: string | undefined) {
-		return id ? (programList?.find((p) => p.id === id) ?? null) : null;
+		return id ? (programsById.get(id) ?? null) : null;
 	},
 	get activeProgram() {
 		return this.program(this.activeProgramId ?? undefined);

@@ -95,9 +95,11 @@
 
 	let suggested = $derived.by(() => {
 		if (!runnable.length) return null;
-		const last = (id: string) =>
-			routineLastTrained(session.routine(id)!, training.lookups, windows) ?? -Infinity;
-		return [...runnable].sort((a, b) => last(a.id) - last(b.id))[0];
+		// Worked out once per routine, not once per comparison.
+		const last = new Map(
+			runnable.map((r) => [r.id, routineLastTrained(r, training.lookups, windows) ?? -Infinity])
+		);
+		return [...runnable].sort((a, b) => last.get(a.id)! - last.get(b.id)!)[0];
 	});
 
 	type Hero = 'progress' | 'done' | 'program' | 'rest' | 'routine' | 'new';

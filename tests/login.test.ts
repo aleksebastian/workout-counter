@@ -8,6 +8,16 @@ test('a signed-out visitor lands on the login page', async ({ page }) => {
 
 const HOME = /^(Good (morning|afternoon|evening)|Welcome|Nice work)/;
 
+test('Back after signing in leaves the app rather than showing login again', async ({ page }) => {
+	await page.goto('/history');
+	await expect(page).toHaveURL(/\/login/);
+	await signIn(page);
+	// The server guard only runs on full page loads, so the login entry is
+	// replaced on the way in instead of bounced off on the way back.
+	await page.goBack();
+	expect(page.url()).not.toMatch(/\/login/);
+});
+
 test('a device still signed in walks back in when its server session is gone', async ({ page }) => {
 	await signIn(page);
 	// What an expired cookie looks like to the server: the next page load that

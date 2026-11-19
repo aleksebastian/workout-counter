@@ -68,7 +68,8 @@
 			// onboarding step — the user goes straight to the app afterwards
 			// instead of through a settings questionnaire.
 			await user.claimUsername(normalized, session.user?.photoURL ?? null, DEFAULT_PREFERENCES);
-			goto('/');
+			// Replacing it, so Back can't return to a username already claimed.
+			goto('/', { replaceState: true });
 		} catch {
 			toaster.error("Couldn't claim that username — it may have just been taken");
 			isAvailable = false;

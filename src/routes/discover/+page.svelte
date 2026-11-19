@@ -15,7 +15,7 @@
 	} from '$lib/catalog/labels';
 	import SegmentedTabs from '$lib/components/SegmentedTabs.svelte';
 	import Chevron from '$lib/components/Chevron.svelte';
-	import ImportPhotoSheet from '$lib/components/ImportPhotoSheet.svelte';
+	import LazyImportPhotoSheet from '$lib/components/LazyImportPhotoSheet.svelte';
 	import CameraIcon from '$lib/icons/camera.svg?raw';
 	import WeekStrip from './WeekStrip.svelte';
 
@@ -225,4 +225,4 @@
 	{/if}
 </div>
 
-<ImportPhotoSheet bind:open={showImport} />
+<LazyImportPhotoSheet bind:open={showImport} />

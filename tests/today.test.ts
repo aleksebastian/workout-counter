@@ -27,3 +27,21 @@ test('the old Train tab lands on Today', async ({ page }) => {
 		'page'
 	);
 });
+
+test('moving between tabs asks the server for nothing', async ({ page }) => {
+	await signIn(page);
+	// The root layout's server guard runs on full page loads only, so neither
+	// a tab change nor a hover preload fetches its data.
+	const dataRequests: string[] = [];
+	page.on('request', (r) => {
+		if (r.url().includes('__data.json')) dataRequests.push(r.url());
+	});
+	for (const tab of ['History', 'Library', 'Discover', 'Today'] as const) {
+		await openTab(page, tab);
+		await expect(
+			page.getByRole('link', { name: tab === 'Today' ? /^Today/ : tab }).last()
+		).toHaveAttribute('aria-current', 'page');
+	}
+	await page.getByRole('link', { name: 'History', exact: true }).last().hover();
+	expect(dataRequests).toEqual([]);
+});
