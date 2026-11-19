@@ -68,29 +68,32 @@ function toDevice(doc: FirebaseFirestore.DocumentSnapshot): Device | null {
  * account, and trims devices that are stale or over the cap. Returns the
  * device id, or null when `uid` has no user document — a deleted account
  * whose session cookie hasn't run out, which mustn't leave a device behind.
+ *
+ * One transaction, so the user check holds until the write: an account
+ * deleted mid-registration can't end up owning a device afterwards.
  */
 export async function saveDevice(uid: string, subscription: PushSubscription, now = Date.now()) {
 	const id = deviceIdFor(subscription.endpoint);
-	const [user, owned] = await Promise.all([
-		adminDB.doc(`users/${uid}`).get(),
-		devices().where('uid', '==', uid).get()
-	]);
-	if (!user.exists) return null;
+	return adminDB.runTransaction(async (tx) => {
+		const [user, owned] = await Promise.all([
+			tx.get(adminDB.doc(`users/${uid}`)),
+			tx.get(devices().where('uid', '==', uid))
+		]);
+		if (!user.exists) return null;
 
-	const batch = adminDB.batch();
-	batch.set(devices().doc(id), { ...subscription, uid, updatedAt: now });
+		tx.set(devices().doc(id), { ...subscription, uid, updatedAt: now });
 
-	const others = owned.docs
-		.filter((doc) => doc.id !== id)
-		.map((doc) => ({ ref: doc.ref, updatedAt: Number(doc.get('updatedAt')) || 0 }))
-		.sort((a, b) => b.updatedAt - a.updatedAt);
-	const room = MAX_DEVICES_PER_USER - 1;
-	others.forEach((doc, i) => {
-		if (i >= room || now - doc.updatedAt > STALE_AFTER_MS) batch.delete(doc.ref);
+		const others = owned.docs
+			.filter((doc) => doc.id !== id)
+			.map((doc) => ({ ref: doc.ref, updatedAt: Number(doc.get('updatedAt')) || 0 }))
+			.sort((a, b) => b.updatedAt - a.updatedAt);
+		const room = MAX_DEVICES_PER_USER - 1;
+		others.forEach((doc, i) => {
+			if (i >= room || now - doc.updatedAt > STALE_AFTER_MS) tx.delete(doc.ref);
+		});
+
+		return id;
 	});
-
-	await batch.commit();
-	return id;
 }
 
 /** Unregisters a device, if it's this user's to unregister. */
