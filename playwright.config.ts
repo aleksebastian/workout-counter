@@ -22,14 +22,19 @@ const config: PlaywrightTestConfig = {
 		trace: 'retain-on-failure'
 	},
 	// Desktop Chrome, and WebKit at iPhone size — the closest to the installed
-	// iOS PWA. They share the emulator database, so tests run one at a time.
+	// iOS PWA.
 	projects: [
 		{ name: 'chromium', use: { ...devices['Desktop Chrome'] } },
 		{ name: 'iphone', use: { ...devices['iPhone 15'] } }
 	],
 	retries: 2,
 	timeout: 30 * 1000,
-	workers: 1
+	// Workers share the emulators, each signed in as its own user (see
+	// tests/fixtures.ts), so any test can run beside any other. More than 3 at
+	// once has made WebKit's Firestore client give up as offline mid sign-in;
+	// CI's 4-core runners get 2.
+	fullyParallel: true,
+	workers: process.env.CI ? 2 : 3
 };
 
 export default config;
