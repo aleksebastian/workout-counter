@@ -10,44 +10,44 @@
 	import { DAY_FULL, DAY_NAMES } from '$lib/constants';
 	import { historyItemHref, libraryHref, runProgramHref } from '$lib/routes';
 	import {
-		daySessions,
 		nextScheduledDay,
 		orderedSessions,
-		programDays,
 		slotLabel,
 		type ProgramDay,
 		type ProgramItem,
 		type ProgramSession,
-		type SessionLog,
-		type SessionSource,
 		type Slot,
 		type Workout
 	} from '$lib/types';
-	import {
-		buildPlan,
-		entriesDone,
-		sameSource,
-		programDayName,
-		sessionName,
-		targetLabel,
-		whenNext,
-		type PlanEntry
-	} from '$lib/logic/training';
-	import { todayPlan, type PlanRow } from '$lib/logic/today';
-	import { estimateMinutes, logDuration, weekDays } from '$lib/logic/history';
-	import { restSeconds } from '$lib/logic/rest';
-	import { measureOf, measureTarget } from '$lib/logic/measure';
+	import { programDayName, sessionName, whenNext } from '$lib/logic/training';
+	import { todayPlan } from '$lib/logic/today';
+	import { logDuration, weekDays } from '$lib/logic/history';
 	import { clampTarget } from '$lib/logic/targets';
+	import {
+		chipLabel,
+		entryTarget,
+		eyebrow,
+		itemDetail,
+		itemName,
+		keyed,
+		presentExercises as presentIn,
+		programSummary,
+		sessionViews,
+		startButton,
+		takenSlots,
+		withSessions,
+		type SessionView
+	} from '$lib/logic/programWeek';
 	import ActionSheet, { type SheetAction } from '$lib/components/ActionSheet.svelte';
 	import AddToPlanSheet, { type PlanChange } from '$lib/components/AddToPlanSheet.svelte';
 	import Chevron from '$lib/components/Chevron.svelte';
 	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
-	import DayRing, { dayLabel } from '$lib/components/DayRing.svelte';
 	import EditProgramSheet from '$lib/components/EditProgramSheet.svelte';
 	import NameSheet from '$lib/components/NameSheet.svelte';
 	import SortableList from '$lib/components/SortableList.svelte';
 	import SlotSheet, { slotIcon } from '$lib/components/SlotSheet.svelte';
 	import RowMenuButton from '../../library/RowMenuButton.svelte';
+	import WeekNav from './WeekNav.svelte';
 	import AddIcon from '$lib/icons/add.svg?raw';
 	import EditIcon from '$lib/icons/edit.svg?raw';
 	import DeleteIcon from '$lib/icons/delete.svg?raw';
@@ -88,17 +88,7 @@
 	let sessions = $derived(orderedSessions(dayEntry));
 	let multi = $derived(sessions.length > 1);
 
-	let dayCount = $derived(program ? programDays(program).length : 0);
-	let sessionCount = $derived(schedule.reduce((n, d) => n + daySessions(d).length, 0));
-	/** "3 days a week", and how many sessions when some days have more than one. */
-	let summary = $derived(
-		[
-			dayCount ? `${counted(dayCount, 'day')} a week` : 'nothing planned yet',
-			sessionCount > dayCount ? counted(sessionCount, 'session') : null
-		]
-			.filter(Boolean)
-			.join(' · ')
-	);
+	let summary = $derived(program ? programSummary(program) : '');
 
 	/**
 	 * This program's week. Unlike Today's strip, only its own sessions fill a
@@ -118,111 +108,20 @@
 		program && isToday ? todayPlan(program, todayDow, logs, training.session, minute) : []
 	);
 
-	type SessionView = {
-		session: ProgramSession;
-		source: Extract<SessionSource, { type: 'program' }>;
-		plan: PlanEntry[];
-		title: string;
-		/** The routine a session is made of, when it's exactly one, to open from its header. */
-		routineId: string | null;
-		meta: string;
-		/** Today's run of it, if any. */
-		row: PlanRow | null;
-		/** Per plan entry, whether today's run got its sets; empty when there's no run. */
-		done: boolean[];
-		/** Today's finished run, when it's done: not a later try ended early. */
-		doneLog: SessionLog | null;
-		/** It ended early today and is the workout that can pick up where it stopped. */
-		resumable: boolean;
-	};
-
-	/** Sessions with something in them, ready to read. */
-	let views = $derived.by((): SessionView[] => {
-		if (!program) return [];
-		return sessions
-			.filter((s) => s.items.length > 0)
-			.map((s) => {
-				const source = {
-					type: 'program',
-					programId: program!.id,
-					day: selectedDay,
-					sessionId: s.id
-				} as const;
-				const plan = buildPlan(source, training.lookups) ?? [];
-				const only = s.items.length === 1 && s.items[0].type === 'routine' ? s.items[0] : null;
-				const sets = plan.reduce((n, e) => n + (e.targetSets ?? 0), 0);
-				const minutes = estimateMinutes(
-					plan,
-					(e) => restSeconds(session.routine(e.routineId), session.prefs),
+	let views = $derived(
+		program
+			? sessionViews(program.id, selectedDay, sessions, {
+					lookups: training.lookups,
+					prefs: session.prefs,
 					logs,
-					source
-				).minutes;
-				const row = todayRows.find((r) => r.session.id === s.id) ?? null;
-				// Ticks only for the run under way or the one ended early.
-				const since =
-					row?.status === 'live'
-						? training.session!.startedAt
-						: row?.status === 'partial'
-							? row.log?.startedAt
-							: undefined;
-				return {
-					session: s,
-					source,
-					plan,
-					title: sessionName(
-						s,
-						(id) => session.routine(id),
-						(id) => session.workout(id)
-					),
-					routineId: only?.routineId ?? null,
-					meta: [
-						only ? 'Routine' : null,
-						counted(plan.length, 'exercise'),
-						sets ? counted(sets, 'set') : null,
-						`about ${minutes} min`
-					]
-						.filter(Boolean)
-						.join(' · '),
-					row,
-					done: since === undefined ? [] : entriesDone(plan, training.lookups, since),
-					doneLog:
-						row?.status === 'done'
-							? (logs.find(
-									(l) =>
-										l.complete &&
-										sameSource(l.source, source) &&
-										new Date(l.endedAt).toDateString() === new Date(minute).toDateString()
-								) ?? null)
-							: null,
-					resumable: row?.status === 'partial' && !!training.endedToday(source)
-				};
-			});
-	});
+					todayRows,
+					liveStartedAt: training.session?.startedAt,
+					canResume: (source) => !!training.endedToday(source),
+					now: minute
+				})
+			: []
+	);
 	let doneCount = $derived(views.filter((v) => v.row?.status === 'done').length);
-
-	function eyebrow(v: SessionView): string {
-		const status =
-			v.row?.status === 'live'
-				? 'In progress'
-				: v.row?.status === 'partial'
-					? 'Ended early'
-					: v.row?.upNext
-						? 'Up next'
-						: null;
-		return [views.length > 1 ? slotLabel(v.session.slot) : null, status]
-			.filter(Boolean)
-			.join(' · ');
-	}
-
-	/** Green only for what to do now: the session up next today, or the one under way. */
-	function startButton(v: SessionView): { label: string; primary: boolean } {
-		const row = v.row;
-		if (row?.status === 'live') return { label: 'Continue', primary: true };
-		if (row?.status === 'partial')
-			return { label: v.resumable ? 'Resume' : 'Start again', primary: row.upNext };
-		if (row?.upNext) return { label: `Start ${v.title}`, primary: true };
-		return { label: isToday ? 'Start' : 'Start now', primary: false };
-	}
 
 	function start(v: SessionView, opts?: { fresh?: boolean }) {
 		goto(
@@ -231,10 +130,6 @@
 				...opts
 			})
 		);
-	}
-
-	function entryTarget(e: PlanEntry): string | null {
-		return targetLabel(e, measureOf(session.workout(e.workoutId)), session.prefs.distanceUnit);
 	}
 
 	let nextDay = $derived(program ? nextScheduledDay(program, selectedDay) : null);
@@ -259,67 +154,14 @@
 	let target = $derived(sessions.find((s) => s.id === targetId) ?? null);
 	let targetItems = $derived(target?.items ?? []);
 
-	/**
-	 * What the add sheet shows as already in the session: exercises scheduled
-	 * directly (removable there), then those that come with a scheduled routine
-	 * (shown for context — removing one means removing the routine).
-	 */
-	let presentExercises = $derived.by(() => {
-		const direct = targetItems.flatMap((item) =>
-			item.type === 'exercise' ? [{ workoutId: item.workoutId, removable: true }] : []
-		);
-		const seen = new Set(direct.map((p) => p.workoutId));
-		const viaRoutines = targetItems.flatMap((item) => {
-			if (item.type !== 'routine') return [];
-			const routine = session.routine(item.routineId);
-			return (routine?.exercises ?? []).flatMap((ex) => {
-				if (seen.has(ex.workoutId)) return [];
-				seen.add(ex.workoutId);
-				return [{ workoutId: ex.workoutId, removable: false, note: `In ${routine!.name}` }];
-			});
-		});
-		return [...direct, ...viaRoutines];
-	});
+	let presentExercises = $derived(presentIn(targetItems, training.lookups));
 	let presentRoutineIds = $derived(
 		targetItems.filter((i) => i.type === 'routine').map((i) => i.routineId)
 	);
 
-	/** A lone session without a slot doesn't need one; its chip invites setting it. */
-	function chipLabel(s: ProgramSession): string {
-		return !s.slot && !multi ? 'Set a time' : slotLabel(s.slot);
-	}
 	let targetTitle = $derived(
 		multi && target ? `${DAY_FULL[selectedDay]} · ${slotLabel(target.slot)}` : DAY_FULL[selectedDay]
 	);
-
-	function itemName(item: ProgramItem): string {
-		return item.type === 'routine'
-			? (session.routine(item.routineId)?.name ?? 'Routine')
-			: (session.workout(item.workoutId)?.name ?? 'Exercise');
-	}
-
-	/**
-	 * Items with keys for the sortable list. A session may list the same
-	 * exercise or routine twice, so the key counts repeats as well as the id.
-	 */
-	function keyed(items: ProgramItem[]): { item: ProgramItem; key: string }[] {
-		const seen = new Map<string, number>();
-		return items.map((item) => {
-			const id = item.type === 'routine' ? `r:${item.routineId}` : `w:${item.workoutId}`;
-			const n = seen.get(id) ?? 0;
-			seen.set(id, n + 1);
-			return { item, key: `${id}#${n}` };
-		});
-	}
-
-	/** Under an item's name while editing: what a routine holds, or an exercise's per-set target. */
-	function itemDetail(item: ProgramItem): string | null {
-		if (item.type === 'routine') {
-			return `Routine · ${counted(session.routine(item.routineId)?.exercises.length ?? 0, 'exercise')}`;
-		}
-		const measure = measureOf(session.workout(item.workoutId));
-		return measure === 'reps' ? null : measureTarget(item, measure, session.prefs.distanceUnit);
-	}
 
 	// ── Sheets ──────────────────────────────────────────────────────────────────
 	let showProgramMenu = $state(false);
@@ -339,25 +181,14 @@
 
 	let selectedItemName = $derived(
 		selectedItemIndex !== null && targetItems[selectedItemIndex]
-			? itemName(targetItems[selectedItemIndex])
+			? itemName(targetItems[selectedItemIndex], training.lookups)
 			: ''
 	);
 
 	/** What each slot already holds, so picking one says what it joins. */
-	let taken = $derived.by(() => {
-		const notes: Partial<Record<Slot | 'anytime', string>> = {};
-		for (const s of sessions) {
-			if (slotMode === 'change' && s.id === targetId) continue;
-			if (!s.items.length) continue;
-			const key = s.slot ?? 'anytime';
-			notes[key] ??= `Has ${sessionName(
-				s,
-				(id) => session.routine(id),
-				(id) => session.workout(id)
-			)}`;
-		}
-		return notes;
-	});
+	let taken = $derived(
+		takenSlots(sessions, slotMode === 'change' ? targetId : null, training.lookups)
+	);
 
 	// No Edit here: the page's own Edit button sits right beside this menu.
 	// Destructive actions come last, set apart by the sheet.
@@ -411,18 +242,9 @@
 
 	// ── Mutations ───────────────────────────────────────────────────────────────
 
-	/** The schedule with one day's sessions replaced, dropping the day when none are left. */
-	function withSessions(day: number, next: ProgramSession[]): ProgramDay[] {
-		if (next.length === 0) return schedule.filter((d) => d.day !== day);
-		const entry: ProgramDay = { day, sessions: next };
-		return schedule.some((d) => d.day === day)
-			? schedule.map((d) => (d.day === day ? entry : d))
-			: [...schedule, entry].sort((a, b) => a.day - b.day);
-	}
-
 	function saveSessions(next: ProgramSession[], create: Workout[] = []) {
 		if (!program) return;
-		return programs.saveSchedule(program.id, withSessions(selectedDay, next), create);
+		return programs.saveSchedule(program.id, withSessions(schedule, selectedDay, next), create);
 	}
 
 	function patchSession(id: string, patch: (s: ProgramSession) => ProgramSession) {
@@ -560,8 +382,8 @@
 {/snippet}
 
 {#snippet sessionCard(v: SessionView)}
-	{@const button = startButton(v)}
-	{@const label = eyebrow(v)}
+	{@const button = startButton(v, isToday)}
+	{@const label = eyebrow(v, views.length)}
 	<section class="bg-base-200 rounded-2xl" aria-label="{v.title} session">
 		{#snippet head()}
 			<div class="min-w-0 flex-1">
@@ -584,7 +406,7 @@
 		<ul>
 			{#each v.plan as entry, i (i)}
 				{@const name = session.workout(entry.workoutId)?.name ?? '—'}
-				{@const target = entryTarget(entry)}
+				{@const target = entryTarget(entry, training.lookups, session.prefs.distanceUnit)}
 				<li>
 					<a
 						class="hover:bg-base-300 flex h-11 items-center gap-3 px-4 transition-colors"
@@ -666,7 +488,7 @@
 				onclick={() => changeSlot(s)}
 			>
 				{@html slotIcon(s.slot)}
-				{chipLabel(s)}
+				{chipLabel(s, multi)}
 				<span class="text-base-content/45 [&>svg]:h-3.5 [&>svg]:w-3.5">{@html DownIcon}</span>
 			</button>
 			<RowMenuButton
@@ -702,7 +524,7 @@
 					gap="gap-0"
 				>
 					{#snippet children({ item }, i)}
-						{@const detail = itemDetail(item)}
+						{@const detail = itemDetail(item, training.lookups, session.prefs.distanceUnit)}
 						<div class="flex min-h-14 items-center gap-2 py-1.5 pl-4">
 							<a
 								class="flex min-w-0 flex-1 flex-col"
@@ -710,14 +532,14 @@
 									? `/routines/${item.routineId}`
 									: `/workout/${item.workoutId}?from=/programs/${program!.id}`}
 							>
-								<span class="truncate text-[15px]">{itemName(item)}</span>
+								<span class="truncate text-[15px]">{itemName(item, training.lookups)}</span>
 								{#if detail}<span class="text-base-content/50 text-xs">{detail}</span>{/if}
 							</a>
 							{#if item.type === 'exercise'}
 								<div class="bg-base-300 flex h-8 shrink-0 items-center rounded-full">
 									<button
 										class="text-base-content/75 flex h-8 w-8 items-center justify-center disabled:opacity-30 [&>svg]:h-3.5 [&>svg]:w-3.5"
-										aria-label="Fewer sets of {itemName(item)}"
+										aria-label="Fewer sets of {itemName(item, training.lookups)}"
 										disabled={item.targetSets <= 1}
 										onclick={() => stepTargetSets(s, i, -1)}>{@html RemoveIcon}</button
 									>
@@ -726,14 +548,14 @@
 									>
 									<button
 										class="text-base-content/75 flex h-8 w-8 items-center justify-center [&>svg]:h-3.5 [&>svg]:w-3.5"
-										aria-label="More sets of {itemName(item)}"
+										aria-label="More sets of {itemName(item, training.lookups)}"
 										onclick={() => stepTargetSets(s, i, 1)}>{@html AddIcon}</button
 									>
 								</div>
 							{/if}
 							<button
 								class="text-error flex h-11 w-9 shrink-0 items-center justify-center"
-								aria-label="Remove {itemName(item)}"
+								aria-label="Remove {itemName(item, training.lookups)}"
 								onclick={() => askRemove(s, i)}
 							>
 								<svg
@@ -809,28 +631,7 @@
 			{/if}
 		</section>
 
-		<!-- The same rings as Today's week strip; the selected day gets the tint. -->
-		<nav class="bg-base-200 grid grid-cols-7 gap-0.5 rounded-2xl p-2" aria-label="Days of the week">
-			{#each week as day (day.start)}
-				{@const selected = day.dow === selectedDay}
-				<button
-					class={[
-						'flex h-15.5 flex-col items-center justify-center gap-1.5 rounded-xl text-[11px]',
-						selected
-							? 'bg-primary/15 text-primary-strong font-bold'
-							: day.today
-								? 'text-base-content font-bold'
-								: 'text-base-content/45'
-					]}
-					aria-label={dayLabel(day)}
-					aria-pressed={selected}
-					onclick={() => (selectedDay = day.dow)}
-				>
-					<DayRing {day} />
-					<span aria-hidden="true">{day.today ? 'Today' : DAY_NAMES[day.dow]}</span>
-				</button>
-			{/each}
-		</nav>
+		<WeekNav days={week} bind:selected={selectedDay} />
 
 		<section class="flex flex-col gap-3" aria-label={DAY_FULL[selectedDay]}>
 			<div class="flex items-baseline justify-between gap-3">
