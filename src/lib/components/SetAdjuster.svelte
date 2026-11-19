@@ -57,9 +57,13 @@
 	</div>
 {/snippet}
 
-{#snippet glyph(label: string, action: () => void, path: string)}
+<!-- Reps' pair is always 36pt wide: at 44pt its − sat far from the number and
+     its + ran up against the divider, reading as the weight's. -->
+{#snippet glyph(label: string, action: () => void, path: string, wide: boolean)}
 	<button
-		class="btn btn-ghost hover:bg-base-300 h-11 min-h-0 w-9 rounded-full border-none px-0 shadow-none @min-[22rem]:w-11"
+		class="btn btn-ghost hover:bg-base-300 h-11 min-h-0 rounded-full border-none px-0 shadow-none {wide
+			? 'w-9 @min-[22rem]:w-11'
+			: 'w-9'}"
 		use:holdRepeat={action}
 		aria-label={label}
 	>
@@ -87,14 +91,14 @@
 	<!-- Held for repeat, so iOS mustn't treat the hold as a long press on the
 	     step label: no text selection, no Copy / Look Up callout. -->
 	<div class="flex items-center select-none [-webkit-touch-callout:none]">
-		{@render glyph(`Decrease ${name} by ${delta}`, onDown, 'M5 12h14')}
+		{@render glyph(`Decrease ${name} by ${delta}`, onDown, 'M5 12h14', showStep)}
 		{#if showStep}
 			<span
 				class="text-base-content/60 w-5 text-center text-xs font-semibold tabular-nums @min-[22rem]:w-6"
 				>{delta}</span
 			>
 		{/if}
-		{@render glyph(`Increase ${name} by ${delta}`, onUp, 'M12 5v14M5 12h14')}
+		{@render glyph(`Increase ${name} by ${delta}`, onUp, 'M12 5v14M5 12h14', showStep)}
 	</div>
 {/snippet}
 
@@ -106,7 +110,9 @@
 				<span class="text-base-content/55 text-xs font-semibold tracking-widest uppercase"
 					>Reps</span
 				>
-				<div class="flex flex-1 items-center justify-between gap-1">
+				<!-- The steppers sit right after the number, not against the divider,
+				     so they read as the reps' own rather than the weight's. -->
+				<div class="flex flex-1 items-center gap-1">
 					{@render value('reps', reps, '', (n) => (reps = clamp(n, 0)), 'numeric')}
 					{@render stepper(
 						'reps',
