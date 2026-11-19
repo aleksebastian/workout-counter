@@ -48,15 +48,12 @@ export async function replacePendingPush(uid: string, pending: PendingPush) {
 	if (stale) await deleteMessage(stale.messageId);
 }
 
-/**
- * Cancels the pending push if it belongs to `key` — a rest id, or a message
- * id from a client built before rest ids existed.
- */
-export async function cancelPendingPush(uid: string, key: string) {
+/** Cancels the pending push if it's for the rest `restId`. */
+export async function cancelPendingPush(uid: string, restId: string) {
 	const ref = adminDB.doc(`users/${uid}`);
 	const cancelled = await adminDB.runTransaction(async (tx) => {
 		const current = (await tx.get(ref)).get(FIELD) as PendingPush | undefined;
-		if (!current || (current.restId !== key && current.messageId !== key)) return null;
+		if (current?.restId !== restId) return null;
 		tx.update(ref, { [FIELD]: FieldValue.delete() });
 		return current;
 	});
