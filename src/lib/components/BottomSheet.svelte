@@ -137,9 +137,11 @@
 			sheetElement.focus();
 			return;
 		}
+		// A stepper's number (NumberField) is skipped: focusing it selects the
+		// number and can raise the keypad, when its steppers are what's meant.
 		sheetElement
 			.querySelector<HTMLElement>(
-				'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+				'button, [href], input:not([data-skip-autofocus]), select, textarea, [tabindex]:not([tabindex="-1"])'
 			)
 			?.focus();
 	}

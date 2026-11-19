@@ -21,6 +21,18 @@ export interface ChangelogEntry {
 /** Newest first. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.20.1',
+		date: '2026-11-19',
+		improved: [
+			'Recording or editing a set from an exercise’s page now uses the same reps and weight buttons as a workout, with − and + beside each number and weight steps of 2.5 and 10'
+		],
+		fixed: [
+			'Reps and weight buttons no longer spill off the edge on smaller phones or with a long weight like 102.5 lb',
+			'Editing a set no longer highlights the reps number as soon as it opens',
+			'Holding a + or − button to count up fast no longer pops up the Copy menu'
+		]
+	},
+	{
 		version: '0.20.0',
 		date: '2026-10-25',
 		improved: [

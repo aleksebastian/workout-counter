@@ -12,26 +12,10 @@ export const DAY_FULL = [
 	'Saturday'
 ] as const;
 
-export const QUICK_REPS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 20, 25, 30];
-
-export const QUICK_WEIGHTS_LBS = [
-	2.5, 5, 7.5, 10, 12.5, 15, 17.5, 20, 22.5, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 95,
-	100, 115, 135, 155, 185, 225, 275, 315
-];
-
-export const QUICK_WEIGHTS_KG = [
-	2.5, 5, 7.5, 10, 12.5, 15, 17.5, 20, 22.5, 25, 30, 35, 40, 45, 50, 55, 60, 70, 80, 90, 100, 110,
-	120, 140
-];
-
-export function quickWeights(unit: 'lbs' | 'kg') {
-	return unit === 'kg' ? QUICK_WEIGHTS_KG : QUICK_WEIGHTS_LBS;
-}
-
 /** Step used by the weight +/- buttons, in the user's unit. */
 export const WEIGHT_STEP = 2.5;
 
-/** The run screen's second, coarser weight stepper — about a plate pair's jump. */
+/** The second, coarser weight stepper — about a plate pair's jump. */
 export function bigWeightStep(unit: 'lbs' | 'kg') {
 	return unit === 'kg' ? 5 : 10;
 }

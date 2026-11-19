@@ -1,6 +1,6 @@
 <script lang="ts">
 	import BottomSheet from '$lib/components/BottomSheet.svelte';
-	import SetEntry from '$lib/components/SetEntry.svelte';
+	import SetAdjuster from '$lib/components/SetAdjuster.svelte';
 	import { session } from '$lib/session.svelte';
 	import DeleteIcon from '$lib/icons/delete.svg?raw';
 	import MeasureEntry from '$lib/components/MeasureEntry.svelte';
@@ -110,7 +110,7 @@
 			</div>
 		{:else}
 			{#if measure === 'reps'}
-				<SetEntry bind:reps bind:weight fadeClass="from-base-100" />
+				<SetAdjuster bind:reps bind:weight />
 			{:else}
 				<MeasureEntry {measure} bind:reps bind:seconds bind:meters bind:holdSeconds />
 			{/if}
