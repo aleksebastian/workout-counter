@@ -10,7 +10,8 @@ import {
 	signIn,
 	startRoutine,
 	storedSets,
-	test
+	test,
+	writeDoc
 } from './fixtures';
 
 type SessionLog = { name?: string; endReason?: string; totals?: { sets: number; reps: number } };
@@ -92,4 +93,34 @@ test('a workout ended early can be resumed the same day, without logging it twic
 	await expect(page.getByRole('button', { name: /^Set 1: .*Edit$/ })).toBeVisible();
 	await expect.poll(async () => (await sessions()).length).toBe(0);
 	expect((await readDoc(`users/${UID}`))?.activeSession).toBeTruthy();
+});
+
+test('loads workouts older than the latest 100 on request', async ({ page }) => {
+	const DAY = 24 * 3600_000;
+	await Promise.all(
+		Array.from({ length: 105 }, (_, i) => {
+			const startedAt = Date.now() - (i + 1) * DAY;
+			return writeDoc(`users/${UID}/sessions/old-${i + 1}`, {
+				id: `old-${i + 1}`,
+				source: { type: 'routine', routineId: ROUTINE.id },
+				name: `Session ${i + 1}`,
+				startedAt,
+				endedAt: startedAt + 30 * 60_000,
+				endReason: 'finished',
+				complete: true,
+				exercises: [],
+				totals: { sets: 0, reps: 0 },
+				createdAt: startedAt + 30 * 60_000
+			});
+		})
+	);
+	await signIn(page);
+	await openTab(page, 'History');
+
+	await expect(page.getByText('Session 100', { exact: true })).toBeVisible();
+	await expect(page.getByText('Session 101', { exact: true })).toHaveCount(0);
+	await page.getByRole('button', { name: 'Load older workouts' }).click();
+	await expect(page.getByText('Session 105', { exact: true })).toBeVisible();
+	// Fewer than a page came back, so that was all of them.
+	await expect(page.getByRole('button', { name: 'Load older workouts' })).toHaveCount(0);
 });

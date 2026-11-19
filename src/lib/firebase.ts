@@ -5,6 +5,8 @@ import {
 	query,
 	orderBy,
 	limit,
+	startAfter,
+	getDocs,
 	type QueryConstraint,
 	getFirestore,
 	initializeFirestore,
@@ -237,14 +239,39 @@ function userCollection<T>(
 export const workouts = userCollection<Workout>('workouts', parseWorkout);
 export const routines = userCollection<Routine>('routines', parseRoutine);
 export const programs = userCollection<Program>('programs', parseProgram);
+/** How many sessions `sessionLogs` keeps live, and History loads per page. */
+export const SESSION_PAGE = 100;
+
 /**
  * Recent workout history, newest first. Enough to say when each routine was
- * last trained without reading every session ever kept.
+ * last trained without reading every session ever kept; History pages
+ * further back with `olderSessionLogs`.
  */
 export const sessionLogs = userCollection<SessionLog | null>('sessions', parseSessionLog, [
 	orderBy('createdAt', 'desc'),
-	limit(100)
+	limit(SESSION_PAGE)
 ]);
+
+/**
+ * One page of the signed-in user's sessions created before `before` (a
+ * `createdAt`), newest first: a one-off read, not a listener, since old
+ * history rarely changes. `full` says a further page may exist; `fromCache`
+ * that the server couldn't be reached, so the page may be short.
+ */
+export async function olderSessionLogs(uid: string, before: number) {
+	const snapshot = await getDocs(
+		query(
+			collection(db, `users/${uid}/sessions`),
+			orderBy('createdAt', 'desc'),
+			startAfter(before),
+			limit(SESSION_PAGE)
+		)
+	);
+	const logs = snapshot.docs
+		.map((d) => parseSessionLog(d.data(), d.id))
+		.filter((l): l is SessionLog => l !== null);
+	return { logs, full: snapshot.size === SESSION_PAGE, fromCache: snapshot.metadata.fromCache };
+}
 
 export const userData: Readable<UserData | null | undefined> = derived(user, ($user, set) => {
 	if ($user) {

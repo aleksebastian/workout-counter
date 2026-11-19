@@ -16,6 +16,8 @@
 	import { historyItemHref } from '$lib/routes';
 	import { programDays, SLOT_LABEL, type SessionLog } from '$lib/types';
 	import Chevron from '$lib/components/Chevron.svelte';
+	import { olderSessionLogs, SESSION_PAGE } from '$lib/firebase';
+	import { toaster } from '$lib/toast.svelte';
 
 	/**
 	 * Everything you've trained, newest first: the week's numbers, a month
@@ -26,11 +28,46 @@
 	let unit = $derived(session.prefs.weightUnit === 'kg' ? 'kg' : 'lb');
 	let weekStart = $derived(session.prefs.weekStart);
 	let workouts = $derived(session.workouts ?? []);
-	let logs = $derived(session.sessionLogs ?? []);
 	let loading = $derived(session.workouts === null || session.sessionLogs === null);
 
+	// ── Older history ───────────────────────────────────────────────────────────
+	// Only the latest SESSION_PAGE sessions are live; older pages load on request.
+	let older = $state<SessionLog[]>([]);
+	let olderDone = $state(false);
+	let loadingOlder = $state(false);
+	let logs = $derived.by(() => {
+		const recent = session.sessionLogs ?? [];
+		const ids = new globalThis.Set(recent.map((l) => l.id));
+		// A new session pushes the oldest live one out into the pages loaded.
+		return [...recent, ...older.filter((l) => !ids.has(l.id))];
+	});
+	/** Every page so far came back full, so there may be more. */
+	let more = $derived(!olderDone && logs.length >= SESSION_PAGE);
+	/** The oldest session loaded; sets before it may belong to sessions that aren't. */
+	let oldestLoaded = $derived(logs.reduce((t, l) => Math.min(t, l.createdAt), Infinity));
+
+	async function loadOlder() {
+		const uid = session.uid;
+		if (!uid || loadingOlder) return;
+		loadingOlder = true;
+		try {
+			const page = await olderSessionLogs(uid, oldestLoaded);
+			older = [...older, ...page.logs];
+			if (page.fromCache && !page.logs.length) {
+				toaster.error('Older workouts need a connection', 'history-older');
+			} else if (!page.full && !page.fromCache) {
+				olderDone = true;
+			}
+		} catch (err) {
+			console.error('[history] loading older sessions failed:', err);
+			toaster.error("Couldn't load older workouts — try again", 'history-older');
+		} finally {
+			loadingOlder = false;
+		}
+	}
+
 	// The workout in progress isn't history yet; its sets stay out of the feed.
-	let feed = $derived(
+	let allRows = $derived(
 		historyFeed(
 			logs,
 			workouts,
@@ -38,6 +75,11 @@
 				? [{ source: training.session.source, start: training.session.startedAt, end: Infinity }]
 				: []
 		)
+	);
+	// Until every session is loaded, sets older than the oldest one stay out:
+	// they'd show as single sets when they're part of a workout not loaded yet.
+	let feed = $derived(
+		more ? allRows.filter((r) => r.kind === 'session' || r.at >= oldestLoaded) : allRows
 	);
 
 	// ── This week ───────────────────────────────────────────────────────────────
@@ -330,5 +372,14 @@
 				</section>
 			{/if}
 		{/each}
+
+		{#if more}
+			<button class="btn btn-ghost btn-sm self-center" disabled={loadingOlder} onclick={loadOlder}>
+				{#if loadingOlder}
+					<span class="loading loading-spinner loading-xs" aria-hidden="true"></span>
+				{/if}
+				Load older workouts
+			</button>
+		{/if}
 	{/if}
 </div>
