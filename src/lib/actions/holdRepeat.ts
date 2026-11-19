@@ -11,7 +11,7 @@ const REPEAT_INTERVAL = 100;
  *
  * A press with no pointer behind it (Enter or Space on the focused button, or
  * a click from assistive tech) fires once through `click`. A tap's own click
- * is skipped, since its pointerdown already fired.
+ * is skipped, since its pointerdown already fired, whatever its `detail`.
  */
 export function holdRepeat(node: HTMLElement, action: () => void) {
 	let current = action;
@@ -42,18 +42,26 @@ export function holdRepeat(node: HTMLElement, action: () => void) {
 		repeatTimer = undefined;
 	}
 
-	function click(e: MouseEvent) {
-		// A keyboard click has detail 0 and never follows a pointerdown. Any
-		// other click fires only if no pointerdown already did.
-		const fromPointer = e.detail !== 0 && pressed;
+	/** A press that won't end in a click (or a key that will) leaves none pending. */
+	function forget() {
 		pressed = false;
-		if (!fromPointer) fire();
+	}
+
+	function cancel() {
+		stop();
+		forget();
+	}
+
+	function click() {
+		if (pressed) pressed = false;
+		else fire();
 	}
 
 	node.addEventListener('pointerdown', start);
 	node.addEventListener('pointerup', stop);
 	node.addEventListener('pointerleave', stop);
-	node.addEventListener('pointercancel', stop);
+	node.addEventListener('pointercancel', cancel);
+	node.addEventListener('keydown', forget);
 	node.addEventListener('click', click);
 
 	return {
@@ -65,7 +73,8 @@ export function holdRepeat(node: HTMLElement, action: () => void) {
 			node.removeEventListener('pointerdown', start);
 			node.removeEventListener('pointerup', stop);
 			node.removeEventListener('pointerleave', stop);
-			node.removeEventListener('pointercancel', stop);
+			node.removeEventListener('pointercancel', cancel);
+			node.removeEventListener('keydown', forget);
 			node.removeEventListener('click', click);
 		}
 	};

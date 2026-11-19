@@ -33,8 +33,31 @@ describe('holdRepeat', () => {
 	});
 
 	it('fires once for a keyboard click', () => {
+		node.dispatchEvent(event('keydown'));
 		node.dispatchEvent(event('click', { detail: 0 }));
 		expect(count).toBe(1);
+	});
+
+	it('fires once when a press is followed by a click with no detail', () => {
+		node.dispatchEvent(event('pointerdown', { button: 0 }));
+		node.dispatchEvent(event('pointerup'));
+		node.dispatchEvent(event('click', { detail: 0 }));
+		expect(count).toBe(1);
+	});
+
+	it('does not swallow the next activation after a cancelled press', () => {
+		node.dispatchEvent(event('pointerdown', { button: 0 }));
+		node.dispatchEvent(event('pointercancel'));
+		node.dispatchEvent(event('click', { detail: 1 }));
+		expect(count).toBe(2);
+	});
+
+	it('does not swallow a key press after a press dragged off the button', () => {
+		node.dispatchEvent(event('pointerdown', { button: 0 }));
+		node.dispatchEvent(event('pointerleave'));
+		node.dispatchEvent(event('keydown'));
+		node.dispatchEvent(event('click', { detail: 0 }));
+		expect(count).toBe(2);
 	});
 
 	it('fires for a click with no pointer press before it', () => {

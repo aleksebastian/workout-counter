@@ -25,7 +25,7 @@ export const CHANGELOG: ChangelogEntry[] = [
 		date: '2026-11-19',
 		fixed: [
 			'The + and − buttons on the set sheets now work from a keyboard and with VoiceOver, not just by tapping',
-			'A few behind-the-scenes fixes to notifications and error reporting'
+			'A deleted account can no longer be left with a device signed up for rest notifications'
 		]
 	},
 	{
