@@ -116,9 +116,10 @@
 	let makeActive = $state(!session.activeProgramId);
 	/**
 	 * The plan last added, so a second tap before the library catches up can't
-	 * add it again; the plan is rebuilt once the write lands locally.
+	 * add it again; the plan is rebuilt once the write lands locally. Raw:
+	 * plain `$state` would hold a proxy, never `===` the plan itself.
 	 */
-	let added = $state<typeof plan>(null);
+	let added = $state.raw<typeof plan>(null);
 
 	function add() {
 		if (!plan || plan === added) return;
