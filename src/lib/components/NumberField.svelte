@@ -18,9 +18,14 @@
 		onchange: (n: number) => void;
 		/** Shown with at least this many digits, e.g. 2 for the seconds of "1:05". */
 		digits?: number;
+		/**
+		 * Size to the nearest size container (SetAdjuster's card) instead of
+		 * by digits alone, so the number shrinks where the card is narrow.
+		 */
+		fit?: boolean;
 	}
 
-	let { value, label, mode, onchange, digits = 1 }: Props = $props();
+	let { value, label, mode, onchange, digits = 1, fit = false }: Props = $props();
 
 	const shown = (n: number) => String(n).padStart(digits, '0');
 
@@ -49,7 +54,15 @@
 	// beside its buttons in half the card.
 	let size = $derived.by(() => {
 		const digits = text.replace('.', '').length;
-		return digits <= 2 ? 'text-4xl' : digits === 3 ? 'text-3xl' : 'text-2xl';
+		if (!fit) return digits <= 2 ? 'text-4xl' : digits === 3 ? 'text-3xl' : 'text-2xl';
+		// On a card under 22rem (a sheet on a 375 or 390pt phone, or the session
+		// screen on a 375pt one) every number drops two sizes; under 23rem a long
+		// weight like 102.5 drops one. Wider cards keep the full sizes.
+		return digits <= 2
+			? 'text-2xl @min-[22rem]:text-4xl'
+			: digits === 3
+				? 'text-xl @min-[22rem]:text-3xl'
+				: 'text-lg @min-[22rem]:text-xl @min-[23rem]:text-2xl';
 	});
 
 	function commit(next: string) {

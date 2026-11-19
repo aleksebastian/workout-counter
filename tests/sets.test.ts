@@ -1,3 +1,4 @@
+import type { Locator } from '@playwright/test';
 import { EXERCISES, expect, signIn, startRoutine, storedSets, test } from './fixtures';
 
 test('a set edited and then deleted is gone', async ({ page }) => {
@@ -64,4 +65,48 @@ test('the Record Set sheet saves what its steppers show', async ({ page }) => {
 			return { reps: set?.reps, weight: set?.weight };
 		})
 		.toEqual({ reps: repsBefore + 1, weight: weightBefore + 12.5 });
+});
+
+test.describe('on a 375pt phone', () => {
+	test.use({ viewport: { width: 375, height: 667 } });
+
+	/** Types a long set into the card, then checks every stepper sits inside it. */
+	async function expectLongSetToFit(scope: Locator) {
+		const weight = scope.getByRole('textbox', { name: 'weight', exact: true });
+		await weight.click();
+		await weight.fill('102.5');
+		const reps = scope.getByRole('textbox', { name: 'reps', exact: true });
+		await reps.click();
+		await reps.fill('12');
+		await reps.blur();
+
+		const fit = await scope
+			.getByRole('button', { name: 'Increase weight by 10' })
+			.evaluate((button) => {
+				const card = button.closest('.rounded-2xl')!.getBoundingClientRect();
+				const [repsColumn, weightColumn] = button.closest('.rounded-2xl')!.firstElementChild!
+					.children as unknown as HTMLElement[];
+				const divider = weightColumn.getBoundingClientRect().left;
+				const glyphs = (el: Element) =>
+					[...el.querySelectorAll('button svg')].map((g) => g.getBoundingClientRect());
+				return {
+					weightInside: glyphs(weightColumn).every((g) => g.right <= card.right),
+					repsBeforeDivider: glyphs(repsColumn).every((g) => g.right <= divider)
+				};
+			});
+		expect(fit).toEqual({ weightInside: true, repsBeforeDivider: true });
+	}
+
+	test('a long set fits the Record Set sheet', async ({ page }) => {
+		await signIn(page);
+		await page.goto(`/workout/${EXERCISES[1].id}`);
+		await page.getByRole('button', { name: 'Record a set' }).click();
+		await expectLongSetToFit(page.getByRole('dialog'));
+	});
+
+	test('a long set fits the session screen', async ({ page }) => {
+		await signIn(page);
+		await startRoutine(page);
+		await expectLongSetToFit(page.locator('body'));
+	});
 });
