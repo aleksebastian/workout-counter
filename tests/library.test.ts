@@ -164,11 +164,6 @@ test('creating and deleting keep going while writes are unconfirmed', async ({ p
 	await page.route(WRITES, (route) => route.abort());
 
 	await openTab(page, 'Library');
-	await librarySegment(page, 'Programs');
-	await createNamed(page, 'New program', 'New program', 'Offline Block', 'Add Program');
-	await expect(page).toHaveURL(/\/programs\//);
-
-	await openTab(page, 'Library');
 	await librarySegment(page, 'Routines');
 	await createNamed(page, 'New routine', 'New routine', 'Leg Day', 'Add Routine');
 	await expect(page).toHaveURL(/\/routines\//);
@@ -181,7 +176,13 @@ test('creating and deleting keep going while writes are unconfirmed', async ({ p
 		.click();
 	await expect(page).toHaveURL(/\/library/);
 
-	// Once writes go through, the queue lands: the program stays, the routine doesn't.
+	// Queued last, so once it lands everything before it has too.
+	await librarySegment(page, 'Programs');
+	await createNamed(page, 'New program', 'New program', 'Offline Block', 'Add Program');
+	await expect(page).toHaveURL(/\/programs\//);
+
+	// Once writes go through, the queue lands in order: the routine was
+	// created and deleted, and the program stays.
 	await releaseWrites(page);
 	await expect
 		.poll(async () => (await docsNamed('programs', 'Offline Block')).length, { timeout: 15_000 })
