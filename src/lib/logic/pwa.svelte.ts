@@ -137,16 +137,14 @@ async function reloadIfStale(): Promise<boolean> {
  * arrived.
  */
 function checkWhatsNew() {
-	try {
-		const seen = localStorage.getItem(CHANGELOG_SEEN_KEY);
-		if (!seen) {
-			localStorage.setItem(CHANGELOG_SEEN_KEY, __APP_VERSION__);
-			return;
-		}
-		showWhatsNew = unseenEntries(seen).length > 0;
-	} catch {
-		// Storage blocked: skip the banner rather than show it every launch.
+	// Blocked storage reads as a first launch: no banner, rather than one
+	// every launch.
+	const seen = readStorage('local', CHANGELOG_SEEN_KEY);
+	if (!seen) {
+		writeStorage('local', CHANGELOG_SEEN_KEY, __APP_VERSION__);
+		return;
 	}
+	showWhatsNew = unseenEntries(seen).length > 0;
 }
 
 export const pwa = {
@@ -278,11 +276,8 @@ export const pwa = {
 	/** Records the current release's notes as seen and drops the banner. */
 	markWhatsNewSeen() {
 		showWhatsNew = false;
-		try {
-			localStorage.setItem(CHANGELOG_SEEN_KEY, __APP_VERSION__);
-		} catch {
-			// Storage blocked: the banner may come back next launch, which is harmless.
-		}
+		// Blocked storage: the banner may come back next launch, which is harmless.
+		writeStorage('local', CHANGELOG_SEEN_KEY, __APP_VERSION__);
 	},
 
 	async install() {

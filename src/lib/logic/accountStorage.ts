@@ -1,3 +1,5 @@
+import { removeStorage } from '$lib/storage';
+
 /**
  * localStorage keys that describe the signed-in account rather than the
  * device, so they go when the account leaves. Device-level keys — the theme,
@@ -14,11 +16,5 @@ export const SESSION_RENEWED_KEY = 'sc-session-renewed';
 const ACCOUNT_KEYS = [SETUP_SEEN_KEY, REST_OFFER_ANSWERED_KEY, SESSION_RENEWED_KEY];
 
 export function forgetAccountStorage() {
-	for (const key of ACCOUNT_KEYS) {
-		try {
-			localStorage.removeItem(key);
-		} catch {
-			// Storage unavailable: nothing was kept.
-		}
-	}
+	for (const key of ACCOUNT_KEYS) removeStorage('local', key);
 }
