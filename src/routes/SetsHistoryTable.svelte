@@ -74,7 +74,7 @@
 		return format(new Date(date), 'MMMM d, yyyy');
 	}
 
-	async function duplicate(set: Set) {
+	function duplicate(set: Set) {
 		HAPTIC.success();
 		const copy: Set = {
 			id: uuidv4(),
@@ -87,10 +87,10 @@
 				holdSeconds: set.holdSeconds ?? 0
 			})
 		};
-		const ok = await exercises.addSet(workout.id, copy);
-		if (ok && !isTimed(measure)) {
-			pwa.noteSetRecorded(restTimer.start({ routineId }));
-		}
+		// The rest starts with the set, not when the server confirms it: online
+		// that's a beat late, offline never. A failed save shows its own toast.
+		void exercises.addSet(workout.id, copy);
+		if (!isTimed(measure)) pwa.noteSetRecorded(restTimer.start({ routineId }));
 	}
 
 	function confirmDelete(set: Set) {

@@ -219,11 +219,11 @@ export const restTimer = {
 	 * Accepts the offer: turns the global timer on and starts it right away,
 	 * since the user has just finished a set.
 	 */
-	async acceptOffer() {
+	acceptOffer() {
 		answerOffer();
 		const prefs = session.prefs;
 		restTimer.start({ duration: prefs.timer });
-		await user.setPreferences({ ...prefs, timerEnabled: true });
+		void user.setPreferences({ ...prefs, timerEnabled: true });
 	},
 
 	dismissOffer() {
