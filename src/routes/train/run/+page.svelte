@@ -42,7 +42,7 @@
 	import PastTargetSheet from './PastTargetSheet.svelte';
 	import EndWorkoutDialogs from './EndWorkoutDialogs.svelte';
 	import DoneSummary from './DoneSummary.svelte';
-	import { keyboardView as trackKeyboard } from './keyboardView.svelte';
+	import { keyboardView } from './keyboardView.svelte';
 	import EditIcon from '$lib/icons/edit.svg?raw';
 	import type { Set } from '$lib/types';
 
@@ -351,8 +351,7 @@
 	// ── Keyboard ────────────────────────────────────────────────────────────────
 	/** The logging column; only its own fields count as typing into this screen. */
 	let column = $state<HTMLElement>();
-	const keyboard = trackKeyboard(() => column);
-	let keyboardView = $derived(keyboard.current);
+	const keyboard = keyboardView(() => column);
 
 	// ── Set list scrolling ──────────────────────────────────────────────────────
 	let tableScroller = $state<HTMLElement>();
@@ -453,7 +452,10 @@
 	}
 
 	let finishDialog = $state<HTMLDialogElement>()!;
-	/** Taken when the dialog opens; see `EndWorkoutDialogs`. */
+	/**
+	 * Taken when the dialog opens, never live: finishing clears the session
+	 * while the dialog is still fading out, and live values would read "0 of 0".
+	 */
 	let finishProgress = $state('');
 
 	// A workout that hit every target just finishes; ending one early asks first.
@@ -584,9 +586,9 @@
 	<div
 		bind:this={column}
 		class="bg-base-100 fixed inset-x-0 flex flex-col"
-		style:top="{keyboardView?.top ?? 0}px"
-		style:bottom={keyboardView ? 'auto' : '0px'}
-		style:height={keyboardView ? `${keyboardView.height}px` : undefined}
+		style:top="{keyboard.current?.top ?? 0}px"
+		style:bottom={keyboard.current ? 'auto' : '0px'}
+		style:height={keyboard.current ? `${keyboard.current.height}px` : undefined}
 	>
 		<SessionHeader
 			class="mx-auto w-full max-w-lg shrink-0"
@@ -601,7 +603,7 @@
 		     and this steps aside rather than being cut off mid-row. -->
 		<div
 			class="mx-auto flex min-h-0 w-full max-w-lg flex-1 flex-col gap-5 overflow-hidden px-4 pt-2"
-			class:invisible={keyboardView !== null}
+			class:invisible={keyboard.current !== null}
 		>
 			<SessionProgress {fills} index={currentIndex} detail={progressDetail} />
 
@@ -715,7 +717,7 @@
 			bind:notes
 			bind:noteOpen
 			setNumber={exerciseComplete ? null : setsDone + 1}
-			keyboardUp={keyboardView !== null}
+			keyboardUp={keyboard.current !== null}
 		>
 			{#snippet controls()}
 				{#if exerciseComplete}
