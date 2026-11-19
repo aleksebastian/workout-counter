@@ -1,15 +1,18 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import type ImportPhotoSheet from './ImportPhotoSheet.svelte';
 	import { toaster } from '$lib/toast.svelte';
 
 	/**
-	 * ImportPhotoSheet, loaded the first time it opens. It's one of the larger
-	 * pieces of the app and most visits to Discover or the Library never open
-	 * it. The installed app has it cached with the rest of the build, so the
-	 * first open is still immediate offline.
+	 * ImportPhotoSheet, kept out of the page's first load: it's one of the
+	 * larger pieces of the app and most visits to Discover or the Library
+	 * never open it. It's fetched shortly after the page settles, so the first
+	 * tap is still instant, or on that tap if it comes sooner.
 	 */
 	let { open = $bindable(false) }: { open?: boolean } = $props();
+
+	/** After the page has had its first paint and data to itself. */
+	const PREFETCH_AFTER_MS = 1500;
 
 	let Sheet = $state.raw<typeof ImportPhotoSheet | null>(null);
 	/**
@@ -17,23 +20,34 @@
 	 * its slide-in, so it mounts closed and opens a tick later.
 	 */
 	let mounted = $state(false);
-	let loading = false;
+	let request: Promise<void> | null = null;
 
-	$effect(() => {
-		if (!open || Sheet || loading) return;
-		loading = true;
-		import('./ImportPhotoSheet.svelte')
+	function load() {
+		request ??= import('./ImportPhotoSheet.svelte')
 			.then(async (module) => {
 				Sheet = module.default;
 				await tick();
 				mounted = true;
 			})
 			.catch((err) => {
-				console.error('[import] loading the photo sheet failed:', err);
-				open = false;
-				toaster.error("Couldn't open photo import — try again", 'import-sheet-load');
-			})
-			.finally(() => (loading = false));
+				request = null; // so the next open tries again
+				throw err;
+			});
+		return request;
+	}
+
+	onMount(() => {
+		const prefetch = setTimeout(() => load().catch(() => {}), PREFETCH_AFTER_MS);
+		return () => clearTimeout(prefetch);
+	});
+
+	$effect(() => {
+		if (!open || mounted) return;
+		load().catch((err) => {
+			console.error('[import] loading the photo sheet failed:', err);
+			open = false;
+			toaster.error("Couldn't open photo import — try again", 'import-sheet-load');
+		});
 	});
 </script>
 
