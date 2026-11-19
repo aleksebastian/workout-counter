@@ -35,7 +35,6 @@
 		if (
 			path.startsWith('/library') ||
 			path.startsWith('/workout') ||
-			path.startsWith('/exercises') ||
 			path.startsWith('/routines') ||
 			path.startsWith('/programs')
 		) {

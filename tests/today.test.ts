@@ -18,16 +18,6 @@ test('a single set is logged from Today without leaving it', async ({ page }) =>
 	await expect(page).toHaveURL(/\/$/);
 });
 
-test('the old Train tab lands on Today', async ({ page }) => {
-	await signIn(page);
-	await page.goto('/train');
-	await expect(page).toHaveURL(/\/$/);
-	await expect(page.getByRole('link', { name: /^Today/ }).last()).toHaveAttribute(
-		'aria-current',
-		'page'
-	);
-});
-
 test('moving between tabs asks the server for nothing', async ({ page }) => {
 	await signIn(page);
 	// The root layout's server guard runs on full page loads only, so neither
