@@ -1,7 +1,6 @@
 <script lang="ts">
-	import BottomSheet from '$lib/components/BottomSheet.svelte';
+	import NameNotesSheet from '$lib/components/NameNotesSheet.svelte';
 	import { session } from '$lib/session.svelte';
-	import { getNameValidationMsg } from '$lib/utils';
 	import type { Program } from '$lib/types';
 
 	interface Props {
@@ -11,64 +10,18 @@
 	}
 
 	let { open = $bindable(false), program, onSave }: Props = $props();
-
-	let name = $state('');
-	let notes = $state('');
-	let error = $state<string | undefined>(undefined);
-
-	$effect(() => {
-		if (open && program) {
-			name = program.name;
-			notes = program.notes ?? '';
-			error = undefined;
-		}
-	});
-
-	function save() {
-		error = getNameValidationMsg(
-			'Program',
-			name,
-			(session.programs ?? []).filter((p) => p.id !== program?.id)
-		);
-		if (error) return;
-		onSave(name, notes);
-		open = false;
-	}
 </script>
 
-<BottomSheet bind:open size="medium" title="Edit program">
-	<div class="flex flex-col gap-4">
-		<div class="flex flex-col gap-1.5">
-			<label class="text-base-content/60 text-sm font-medium" for="edit-program-name">Name</label>
-			<input
-				id="edit-program-name"
-				type="text"
-				autocomplete="off"
-				class="input input-bordered w-full text-base"
-				bind:value={name}
-				oninput={() => (error = undefined)}
-				onkeydown={(e) => {
-					if (e.key === 'Enter') {
-						e.preventDefault();
-						save();
-					}
-				}}
-			/>
-			{#if error}
-				<p class="text-error px-0.5 text-xs">{error}</p>
-			{/if}
-		</div>
-
-		<div class="flex flex-col gap-1.5">
-			<label class="text-base-content/60 text-sm font-medium" for="edit-program-notes">Notes</label>
-			<textarea
-				id="edit-program-notes"
-				rows="3"
-				class="textarea textarea-bordered w-full resize-none text-base"
-				placeholder="Optional notes about this program…"
-				bind:value={notes}></textarea>
-		</div>
-
-		<button class="btn btn-primary w-full" onclick={save}>Save</button>
-	</div>
-</BottomSheet>
+<NameNotesSheet
+	bind:open
+	title="Edit program"
+	size="medium"
+	kind="Program"
+	idPrefix="edit-program"
+	item={program}
+	existing={session.programs}
+	notesPlaceholder="Optional notes about this program…"
+	inputClass="text-base"
+	notesClass="text-base"
+	{onSave}
+/>
