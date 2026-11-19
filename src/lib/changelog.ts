@@ -21,6 +21,14 @@ export interface ChangelogEntry {
 /** Newest first. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.21.1',
+		date: '2026-11-19',
+		improved: [
+			'Moving between tabs is quicker: it no longer checks in with the server each time',
+			'Discover and your Library open faster, and Today works out what to suggest with less effort'
+		]
+	},
+	{
 		version: '0.21.0',
 		date: '2026-11-19',
 		improved: [
