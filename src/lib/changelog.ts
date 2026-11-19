@@ -28,7 +28,8 @@ export const CHANGELOG: ChangelogEntry[] = [
 		],
 		fixed: [
 			'Reps and weight buttons no longer spill off the edge on smaller phones or with a long weight like 102.5 lb',
-			'Editing a set no longer highlights the reps number as soon as it opens'
+			'Editing a set no longer highlights the reps number as soon as it opens',
+			'Holding a + or − button to count up fast no longer pops up the Copy menu'
 		]
 	},
 	{

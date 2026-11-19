@@ -84,7 +84,9 @@
 	onUp: () => void,
 	showStep = true
 )}
-	<div class="flex items-center">
+	<!-- Held for repeat, so iOS mustn't treat the hold as a long press on the
+	     step label: no text selection, no Copy / Look Up callout. -->
+	<div class="flex items-center select-none [-webkit-touch-callout:none]">
 		{@render glyph(`Decrease ${name} by ${delta}`, onDown, 'M5 12h14')}
 		{#if showStep}
 			<span
