@@ -53,6 +53,7 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 	// send none, and get every device.
 	const subscription = cleanSubscription(body.subscription);
 	const deviceId = subscription ? await saveDevice(uid, subscription) : undefined;
+	if (deviceId === null) throw error(403, 'No account to notify');
 
 	let messageId: string;
 	if (dev) {

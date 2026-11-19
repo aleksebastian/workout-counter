@@ -126,13 +126,13 @@ describe('per-device push', () => {
 
 	it('notifies only the device that started the rest', async () => {
 		await saveDevice('u1', sub('phone'));
-		const ipad = await saveDevice('u1', sub('ipad'));
+		const ipad = (await saveDevice('u1', sub('ipad')))!;
 		await sendPushToUser('u1', ipad);
 		expect(sent.endpoints).toEqual([sub('ipad').endpoint]);
 	});
 
 	it('moves a device to whoever registers it last, so the previous account cannot ring it', async () => {
-		const ipad = await saveDevice('u1', sub('ipad'));
+		const ipad = (await saveDevice('u1', sub('ipad')))!;
 		await saveDevice('u2', sub('ipad'));
 		await sendPushToUser('u1', ipad);
 		await sendPushToUser('u1');
@@ -159,6 +159,12 @@ describe('per-device push', () => {
 		]);
 	});
 
+	it('registers no device for an account whose user document is gone', async () => {
+		// A deleted account's session cookie keeps verifying until it runs out.
+		expect(await saveDevice('deleted', sub('phone'))).toBeNull();
+		expect(store.has(deviceDoc('phone'))).toBe(false);
+	});
+
 	it('forgets an expired device and still notifies the others', async () => {
 		await saveDevice('u1', sub('phone'));
 		await saveDevice('u1', sub('ipad'));
@@ -177,7 +183,7 @@ describe('per-device push', () => {
 	});
 
 	it('fails, so the send is retried, when no device could be reached', async () => {
-		const phone = await saveDevice('u1', sub('phone'));
+		const phone = (await saveDevice('u1', sub('phone')))!;
 		sent.down.add(sub('phone').endpoint);
 		await expect(sendPushToUser('u1', phone)).rejects.toThrow('down');
 	});

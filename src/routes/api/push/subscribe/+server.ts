@@ -17,7 +17,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const subscription = cleanSubscription(body?.subscription);
 	if (!subscription) throw error(400, 'Invalid subscription');
 
-	await saveDevice(uid, subscription);
+	if (!(await saveDevice(uid, subscription))) throw error(403, 'No account to register for');
 	return json({ ok: true });
 };
 
