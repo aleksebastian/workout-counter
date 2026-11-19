@@ -1,17 +1,74 @@
 import type { RequestHandler } from './$types';
 
-/** Enough of a report to see what was blocked; anything longer is cut. */
-const MAX_BODY = 4000;
+/** A real report is a few hundred bytes; a longer body isn't read. */
+const MAX_BODY = 16_000;
+/** Reports logged per request — the Reporting API can batch several. */
+const MAX_REPORTS = 5;
+/** Characters kept of any one field (a blocked URL, a source file). */
+const MAX_FIELD = 300;
+
+/** What a browser sends: `report-uri` reports, or Reporting API batches. */
+const REPORT_TYPES = new Set(['application/csp-report', 'application/reports+json']);
+
+/**
+ * The fields worth keeping, in both spellings: `report-uri` reports use
+ * kebab-case, Reporting API ones camelCase.
+ */
+const FIELDS = [
+	['document', 'document-uri', 'documentURL'],
+	['directive', 'effective-directive', 'effectiveDirective'],
+	['blocked', 'blocked-uri', 'blockedURL'],
+	['source', 'source-file', 'sourceFile'],
+	['line', 'line-number', 'lineNumber'],
+	['disposition', 'disposition', 'disposition']
+] as const;
+
+function summarize(report: Record<string, unknown>) {
+	const summary: Record<string, string> = {};
+	for (const [name, kebab, camel] of FIELDS) {
+		const value = report[kebab] ?? report[camel];
+		if (typeof value === 'string' || typeof value === 'number') {
+			summary[name] = String(value).slice(0, MAX_FIELD);
+		}
+	}
+	return summary;
+}
+
+/** The violation objects in a body, whichever format it's in. */
+function violations(body: unknown): Record<string, unknown>[] {
+	const found = Array.isArray(body)
+		? body.filter((r) => r?.type === 'csp-violation').map((r) => r.body)
+		: [(body as { 'csp-report'?: unknown } | null)?.['csp-report']];
+	return found.filter((r): r is Record<string, unknown> => !!r && typeof r === 'object');
+}
 
 /**
  * Where browsers send Content-Security-Policy violations while the policy
  * runs report-only (see `kit.csp` in svelte.config.js). Each one goes to the
  * server log, so the policy can be tightened, then enforced, from what real
- * devices actually load. Open to anyone, like every report endpoint: it only
- * logs, and never more than `MAX_BODY` characters.
+ * devices actually load.
+ *
+ * Open to anyone, like every report endpoint, so it only takes what a browser
+ * sends and logs a few short fields of each report: junk posted here can't
+ * fill the log with its own text.
  */
 export const POST: RequestHandler = async ({ request }) => {
-	const body = (await request.text().catch(() => '')).slice(0, MAX_BODY);
-	if (body) console.warn('[csp-report]', body.replace(/\s+/g, ' '));
+	const type = request.headers.get('content-type')?.split(';')[0].trim().toLowerCase();
+	if (!type || !REPORT_TYPES.has(type)) return new Response(null, { status: 415 });
+
+	const text = await request.text().catch(() => '');
+	if (text.length > MAX_BODY) return new Response(null, { status: 413 });
+
+	let body: unknown;
+	try {
+		body = JSON.parse(text);
+	} catch {
+		return new Response(null, { status: 400 });
+	}
+
+	for (const report of violations(body).slice(0, MAX_REPORTS)) {
+		const summary = summarize(report);
+		if (Object.keys(summary).length) console.warn('[csp-report]', JSON.stringify(summary));
+	}
 	return new Response(null, { status: 204 });
 };
