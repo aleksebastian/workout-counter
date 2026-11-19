@@ -21,6 +21,14 @@ export interface ChangelogEntry {
 /** Newest first. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.21.4',
+		date: '2026-11-19',
+		fixed: [
+			'The + and − buttons on the set sheets now work from a keyboard and with VoiceOver, not just by tapping',
+			'A few behind-the-scenes fixes to notifications and error reporting'
+		]
+	},
+	{
 		version: '0.21.3',
 		date: '2026-11-19',
 		fixed: [
