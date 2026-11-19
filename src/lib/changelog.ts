@@ -21,6 +21,13 @@ export interface ChangelogEntry {
 /** Newest first. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.21.3',
+		date: '2026-11-19',
+		fixed: [
+			'Tidied up behind the scenes on the workout screen, program pages and the edit sheets, so they’re easier to keep working well. Nothing should look or work any differently'
+		]
+	},
+	{
 		version: '0.21.2',
 		date: '2026-11-19',
 		improved: ['The app is a little smaller to download, after a tidy-up behind the scenes'],
