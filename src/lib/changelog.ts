@@ -21,6 +21,19 @@ export interface ChangelogEntry {
 /** Newest first. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.21.0',
+		date: '2026-11-19',
+		improved: [
+			'History now goes back past your latest 100 workouts: tap Load older workouts at the bottom'
+		],
+		fixed: [
+			'With no signal, creating or deleting an exercise, routine or program, saving a routine from a photo, adding from Discover and changing Preferences no longer get stuck: they carry on and sync when you’re back online',
+			'Copying a set from an exercise’s history starts the rest timer straight away',
+			'The app starts properly even when your browser blocks site storage',
+			'A rest notification still shows if its message arrives garbled'
+		]
+	},
+	{
 		version: '0.20.2',
 		date: '2026-11-19',
 		fixed: [
