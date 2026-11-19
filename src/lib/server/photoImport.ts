@@ -127,7 +127,9 @@ export function claimImport(
 	used: Partial<ImportCount> | undefined,
 	day: string
 ): ImportCount | null {
-	const count = used?.day === day ? (used.count ?? 0) : 0;
+	const stored = used?.day === day ? (used.count ?? 0) : 0;
+	// Anything but a count this server could have written is treated as used up.
+	const count = Number.isInteger(stored) && stored >= 0 ? stored : DAILY_LIMIT;
 	return count < DAILY_LIMIT ? { day, count: count + 1 } : null;
 }
 
