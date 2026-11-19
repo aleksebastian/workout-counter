@@ -26,6 +26,8 @@
 </script>
 
 <script lang="ts">
+	import { counted } from '$lib/utils';
+	import { lastDoneAt } from '$lib/logic/history';
 	import { formatDistanceToNow } from 'date-fns';
 	import BottomSheet from '$lib/components/BottomSheet.svelte';
 	import CheckIcon from '$lib/components/CheckIcon.svelte';
@@ -123,10 +125,6 @@
 			: { key, name, sub: note, state: 'present' };
 	}
 
-	function lastDone(w: Workout): number {
-		return w.sets.reduce((latest, s) => Math.max(latest, new Date(s.date).getTime()), 0);
-	}
-
 	let presentIds = $derived(new Set(presentExercises.map((p) => p.workoutId)));
 
 	let presentRows = $derived(
@@ -146,7 +144,7 @@
 	let libraryRows = $derived(
 		(session.workouts ?? [])
 			.filter((w) => !presentIds.has(w.id) && hit(w.name))
-			.map((w) => ({ w, at: lastDone(w) }))
+			.map((w) => ({ w, at: lastDoneAt(w) }))
 			.sort((a, b) => b.at - a.at || a.w.name.localeCompare(b.w.name))
 			.map(({ w, at }) =>
 				addRow(
@@ -197,13 +195,7 @@
 	let routineRows = $derived(
 		(routines?.all ?? [])
 			.filter((r) => !routines?.present.includes(r.id) && hit(r.name))
-			.map((r) =>
-				addRow(
-					`r:${r.id}`,
-					r.name,
-					`${r.exercises.length} exercise${r.exercises.length === 1 ? '' : 's'}`
-				)
-			)
+			.map((r) => addRow(`r:${r.id}`, r.name, counted(r.exercises.length, 'exercise')))
 	);
 
 	// ── Toggling ────────────────────────────────────────────────────────────────
@@ -250,13 +242,12 @@
 			? 'item'
 			: 'exercise'
 	);
-	const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 	let confirmLabel = $derived(
 		picks.length && removals.length
 			? `Add ${picks.length} · Remove ${removals.length}`
 			: picks.length
-				? `Add ${plural(picks.length, noun)}`
-				: `Remove ${plural(removals.length, noun)}`
+				? `Add ${counted(picks.length, noun)}`
+				: `Remove ${counted(removals.length, noun)}`
 	);
 
 	function confirm() {

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { counted } from '$lib/utils';
 	import { discoverItemHref } from '$lib/routes';
 	import type { Catalog, CatalogRoutine, ImportPlan } from '$lib/catalog';
 	import Chevron from '$lib/components/Chevron.svelte';
@@ -38,7 +39,7 @@
 							<div class="flex flex-wrap items-center gap-1.5">
 								{#if entry.targetSets}
 									<span class="badge badge-sm badge-outline font-medium"
-										>{entry.targetSets} set{entry.targetSets > 1 ? 's' : ''}</span
+										>{counted(entry.targetSets, 'set')}</span
 									>
 								{/if}
 								{#if entry.minReps || entry.maxReps}

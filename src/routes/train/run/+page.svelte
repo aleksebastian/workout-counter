@@ -444,13 +444,8 @@
 	);
 
 	let draftLabel = $derived(
-		measure !== 'reps'
-			? formatSet({ id: '', date: '', reps, seconds, meters, holdSeconds }, measure, units)
-			: weight > 0
-				? `${weight} ${unitLabel} × ${reps}`
-				: weightUnset
-					? `${counted(reps, 'rep')} · no weight`
-					: `${counted(reps, 'rep')}`
+		formatSet({ id: '', date: '', reps, weight, seconds, meters, holdSeconds }, measure, units) +
+			(measure === 'reps' && !(weight > 0) && weightUnset ? ' · no weight' : '')
 	);
 
 	/** One exercise on the done screen: "3 × 10 · top 25 lb". */

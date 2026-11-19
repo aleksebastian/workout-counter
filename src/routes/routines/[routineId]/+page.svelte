@@ -167,7 +167,7 @@
 				<div class="flex flex-wrap items-center gap-1.5">
 					{#if row.ex.targetSets}
 						<span class="badge badge-sm badge-outline font-medium"
-							>{row.ex.targetSets} set{row.ex.targetSets > 1 ? 's' : ''}</span
+							>{counted(row.ex.targetSets, 'set')}</span
 						>
 					{/if}
 					{#if row.ex.minReps || row.ex.maxReps}
@@ -206,7 +206,7 @@
 	<div class="mx-auto flex w-full max-w-lg flex-col gap-4">
 		<div class="flex items-center justify-between gap-2">
 			<p class="text-base-content/50 text-xs">
-				{rows.length} exercise{rows.length !== 1 ? 's' : ''}
+				{counted(rows.length, 'exercise')}
 			</p>
 			<div class="flex items-center gap-1">
 				{#if rows.length}

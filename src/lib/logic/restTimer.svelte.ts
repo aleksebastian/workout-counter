@@ -9,6 +9,7 @@ import { REST_OFFER_ANSWERED_KEY as OFFER_ANSWERED_KEY } from '$lib/logic/accoun
 import { currentSubscription } from '$lib/push';
 import type { Duration } from '$lib/types';
 import { readStorage, removeStorage, writeStorage } from '$lib/storage';
+import { formatSeconds } from '$lib/logic/measure';
 
 /**
  * The rest countdown, as a module rather than a pile of state in the root
@@ -60,12 +61,8 @@ const push = createRestPush({
 	}
 });
 
-function format(ms: number): string {
-	const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
-	const m = Math.floor(totalSeconds / 60);
-	const s = totalSeconds % 60;
-	return `${m}:${s < 10 ? '0' : ''}${s}`;
-}
+/** A countdown rounds up: it shows 0:00 only once the rest is over. */
+const format = (ms: number) => formatSeconds(Math.ceil(ms / 1000));
 
 /** An explicit duration wins; otherwise see `pickRest`. */
 function resolve(opts: StartOptions): Rest | null {

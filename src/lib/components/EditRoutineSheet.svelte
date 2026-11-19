@@ -22,7 +22,7 @@
 	let timerMinutes = $state(1);
 	let timerSeconds = $state(30);
 
-	let timerPreview = $derived(`${timerMinutes}:${timerSeconds < 10 ? '0' : ''}${timerSeconds}`);
+	let timerPreview = $derived(formatDuration({ minutes: timerMinutes, seconds: timerSeconds }));
 
 	$effect(() => {
 		if (!open || !routine) return;

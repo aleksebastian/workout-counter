@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { datetimeLocal } from '$lib/utils';
 	import BottomSheet from '$lib/components/BottomSheet.svelte';
 	import SetAdjuster from '$lib/components/SetAdjuster.svelte';
 	import { session } from '$lib/session.svelte';
@@ -51,14 +52,8 @@
 		!isTimed(measure) || (seconds > 0 && (measure !== 'distance' || meters > 0))
 	);
 
-	function nowDatetimeLocal(): string {
-		const now = new Date();
-		const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
-		return local.toISOString().slice(0, 16);
-	}
-
 	let notes = $state('');
-	let date = $state(nowDatetimeLocal());
+	let date = $state(datetimeLocal(new Date()));
 	let showDetails = $state(false);
 	let notesInput = $state<HTMLInputElement>();
 
@@ -66,7 +61,7 @@
 		if (!open) {
 			showDetails = false;
 			notes = '';
-			date = nowDatetimeLocal();
+			date = datetimeLocal(new Date());
 		}
 	});
 
@@ -85,7 +80,7 @@
 			measureValues(measure, { seconds, meters, holdSeconds })
 		);
 		notes = '';
-		date = nowDatetimeLocal();
+		date = datetimeLocal(new Date());
 		showDetails = false;
 		open = false;
 	}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { datetimeLocal } from '$lib/utils';
 	import BottomSheet from '$lib/components/BottomSheet.svelte';
 	import SetAdjuster from '$lib/components/SetAdjuster.svelte';
 	import { session } from '$lib/session.svelte';
@@ -35,12 +36,6 @@
 	let localDatetime = $state('');
 	let confirmingDelete = $state(false);
 
-	function toDatetimeLocal(iso: string): string {
-		const d = new Date(iso);
-		const pad = (n: number) => String(n).padStart(2, '0');
-		return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-	}
-
 	// Seed from whichever set the sheet was opened for.
 	$effect(() => {
 		if (!open || !set) return;
@@ -50,7 +45,7 @@
 		meters = set.meters ?? 0;
 		holdSeconds = set.holdSeconds ?? 0;
 		notes = set.notes ?? '';
-		localDatetime = toDatetimeLocal(set.date);
+		localDatetime = datetimeLocal(set.date);
 		confirmingDelete = false;
 	});
 
@@ -58,7 +53,7 @@
 		// The field holds whole minutes only. Writing it back unchanged would
 		// drop the set's seconds — moving a set logged in a workout's first
 		// minute to before the workout began, so it no longer counted toward it.
-		const changed = !!set && localDatetime !== toDatetimeLocal(set.date);
+		const changed = !!set && localDatetime !== datetimeLocal(set.date);
 		const date =
 			changed && localDatetime ? new Date(localDatetime).toISOString() : (set?.date ?? '');
 		// Values of another measure stay as recorded: an exercise switched from

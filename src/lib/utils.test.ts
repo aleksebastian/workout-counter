@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getNameValidationMsg } from './utils';
+import { datetimeLocal, getNameValidationMsg } from './utils';
 
 describe('getNameValidationMsg', () => {
 	const existing = [{ name: 'Bench Press' }];
@@ -19,5 +19,13 @@ describe('getNameValidationMsg', () => {
 	it('accepts a new name', () => {
 		expect(getNameValidationMsg('Workout', 'Squat', existing)).toBeUndefined();
 		expect(getNameValidationMsg('Workout', 'Squat', undefined)).toBeUndefined();
+	});
+});
+
+describe('datetimeLocal', () => {
+	it('gives local time to the minute, as a datetime-local input wants', () => {
+		const d = new Date(2026, 0, 5, 7, 3, 59);
+		expect(datetimeLocal(d)).toBe('2026-01-05T07:03');
+		expect(datetimeLocal(d.toISOString())).toBe('2026-01-05T07:03');
 	});
 });

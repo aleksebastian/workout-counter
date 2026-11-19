@@ -43,6 +43,22 @@ export const setVolume = (set: Set) => set.reps * (set.weight ?? 0);
 
 export const volume = (sets: Set[]) => sets.reduce((sum, s) => sum + setVolume(s), 0);
 
+/** When an exercise was last done (epoch ms), or 0 if never. */
+export const lastDoneAt = (workout: Workout) =>
+	workout.sets.reduce((latest, s) => Math.max(latest, Date.parse(s.date)), 0);
+
+/** Sets grouped by calendar day, newest day first; each day keeps its sets' order. */
+export function setsByDay(sets: Set[]): { date: string; sets: Set[] }[] {
+	const days = new Map<string, Set[]>();
+	for (const set of sets) {
+		const key = new Date(set.date).toDateString();
+		days.set(key, [...(days.get(key) ?? []), set]);
+	}
+	return [...days.values()]
+		.map((day) => ({ date: day[0].date, sets: day }))
+		.sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
+}
+
 /**
  * For the measures other than reps, whether `set` beats every set before it:
  * the longest time; the longest distance or the best pace; the longest hold,
