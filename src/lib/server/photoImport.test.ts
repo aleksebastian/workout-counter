@@ -92,6 +92,13 @@ describe('claimImport', () => {
 		expect(claimImport({ day: '2026-10-25', count: 20 }, '2026-10-25')).toBeNull();
 	});
 
+	it('treats a count it could not have written as the limit', () => {
+		const day = '2026-10-25';
+		for (const count of [-100000, 1.5, Number.NaN, '3' as unknown as number]) {
+			expect(claimImport({ day, count }, day)).toBeNull();
+		}
+	});
+
 	it('starts over on a new day', () => {
 		expect(claimImport({ day: '2026-10-24', count: 20 }, '2026-10-25')).toEqual({
 			day: '2026-10-25',

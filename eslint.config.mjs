@@ -21,7 +21,9 @@ export default [
 			'!**/.env.example',
 			'**/pnpm-lock.yaml',
 			'**/package-lock.json',
-			'**/yarn.lock'
+			'**/yarn.lock',
+			// Local tool state, including git worktrees with their own builds.
+			'.claude/'
 		]
 	},
 	{

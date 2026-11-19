@@ -70,12 +70,15 @@ function toDevice(doc: FirebaseFirestore.DocumentSnapshot): Device | null {
 /**
  * Registers (or refreshes) a device for `uid`, taking it over from any other
  * account. Also folds in a subscription still in the old single-device field,
- * and trims devices that are stale or over the cap. Returns the device id.
+ * and trims devices that are stale or over the cap. Returns the device id, or
+ * null when `uid` has no user document — a deleted account whose session
+ * cookie hasn't run out, which mustn't leave a device behind.
  */
 export async function saveDevice(uid: string, subscription: PushSubscription, now = Date.now()) {
 	const id = deviceIdFor(subscription.endpoint);
 	const userRef = adminDB.doc(`users/${uid}`);
 	const [user, owned] = await Promise.all([userRef.get(), devices().where('uid', '==', uid).get()]);
+	if (!user.exists) return null;
 
 	const batch = adminDB.batch();
 	batch.set(devices().doc(id), { ...subscription, uid, updatedAt: now });

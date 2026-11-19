@@ -21,6 +21,14 @@ export interface ChangelogEntry {
 /** Newest first. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.20.2',
+		date: '2026-11-19',
+		fixed: [
+			'Tightened security across the app: your account can only be set up with the details sign-up asks for, and pages can no longer be shown inside other sites',
+			'Rest-timer notifications only come from SetCount, and a deleted account no longer gets them on a device that was still signed in'
+		]
+	},
+	{
 		version: '0.20.1',
 		date: '2026-11-19',
 		improved: [

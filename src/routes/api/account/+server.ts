@@ -14,7 +14,7 @@ const RECENT_AUTH_S = 5 * 60;
  * forbid deleting the user and username documents, and a subcollection
  * doesn't go away when its parent document does.
  *
- * The session cookie alone isn't enough — it lasts five days, so anyone with
+ * The session cookie alone isn't enough — it lasts 14 days, so anyone with
  * an unlocked device could wipe the account. The client re-signs in with
  * Google first and sends that fresh ID token.
  */

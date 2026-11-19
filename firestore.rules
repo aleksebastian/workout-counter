@@ -46,7 +46,10 @@ service cloud.firestore {
 			let username = request.resource.data.username;
 			// must own the username doc that exists after this batch — prevents claiming someone else's username
 			let ownsUsername = getAfter(/databases/$(database)/documents/usernames/$(username)).data.uid == request.auth.uid;
-			return isOwner && ownsUsername;
+			// Only what onboarding writes. The server-owned fields (see update) would
+			// otherwise be settable here, e.g. a negative photo-import count.
+			let onlyProfile = request.resource.data.keys().hasOnly(['username', 'photoURL', 'preferences']);
+			return isOwner && ownsUsername && onlyProfile;
 		}
 	}
 }
