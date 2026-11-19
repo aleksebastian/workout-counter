@@ -4,11 +4,19 @@ import { redirect } from '@sveltejs/kit';
 import type { UserData } from '$lib/types';
 import { getRequiredOnboardingRoute } from '$lib/logic/onboarding';
 
-export const load = (async ({ locals, url }) => {
+/**
+ * The server-side guard, for full page loads. The path is read untracked:
+ * tracked, every client navigation and every hover preload re-ran this — a
+ * session check and a Firestore read each — for a guard the client already
+ * applies in the root layout (signed out → login, no username yet → username
+ * setup).
+ */
+export const load = (async ({ locals, url, untrack }) => {
 	const uid = locals.userID;
+	const pathname = untrack(() => url.pathname);
 
 	if (!uid) {
-		if (!url.pathname.startsWith('/login')) {
+		if (!pathname.startsWith('/login')) {
 			throw redirect(302, '/login');
 		}
 		return;
@@ -17,7 +25,7 @@ export const load = (async ({ locals, url }) => {
 	const userDoc = await adminDB.collection('users').doc(uid).get();
 	const userData = userDoc.data() as UserData | undefined;
 
-	const redirectTarget = getRequiredOnboardingRoute(url.pathname, userData ?? null);
+	const redirectTarget = getRequiredOnboardingRoute(pathname, userData ?? null);
 	if (redirectTarget) {
 		throw redirect(302, redirectTarget);
 	}
