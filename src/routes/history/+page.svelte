@@ -16,7 +16,9 @@
 	import { historyItemHref } from '$lib/routes';
 	import { programDays, SLOT_LABEL, type SessionLog } from '$lib/types';
 	import Chevron from '$lib/components/Chevron.svelte';
-	import { olderSessionLogs, SESSION_PAGE } from '$lib/firebase';
+	import { untrack } from 'svelte';
+	import { olderSessionLogs, SESSION_PAGE, type SessionCursor } from '$lib/firebase';
+	import { pwa } from '$lib/logic/pwa.svelte';
 	import { toaster } from '$lib/toast.svelte';
 
 	/**
@@ -31,36 +33,64 @@
 	let loading = $derived(session.workouts === null || session.sessionLogs === null);
 
 	// ── Older history ───────────────────────────────────────────────────────────
-	// Only the latest SESSION_PAGE sessions are live; older pages load on request.
+	// Only the latest SESSION_PAGE sessions are live. Older ones load a page at
+	// a time, in the same order (newest first, id settling ties), and stay here.
+	let recent = $derived(session.sessionLogs ?? []);
 	let older = $state<SessionLog[]>([]);
+	/** Where the older pages loaded so far end; null until the first one. */
+	let cursor = $state<SessionCursor | null>(null);
 	let olderDone = $state(false);
 	let loadingOlder = $state(false);
+
+	/** `a` comes after `b` in History's order. */
+	const after = (a: SessionCursor, b: SessionCursor) =>
+		a.createdAt < b.createdAt || (a.createdAt === b.createdAt && a.id < b.id);
+
+	// Once older pages are loaded, a new session (say, from another device)
+	// pushes the live list's last one out, above the first older page: keep it,
+	// or it'd fall in the gap. Dropped while the list is still full means
+	// pushed out; dropped from a shorter list means deleted.
+	let lastRecent: SessionLog[] = [];
+	$effect(() => {
+		const now = recent;
+		const end = now.at(-1);
+		untrack(() => {
+			if (cursor && end && now.length >= SESSION_PAGE) {
+				const ids = new globalThis.Set(now.map((l) => l.id));
+				const pushedOut = lastRecent.filter((l) => !ids.has(l.id) && after(l, end));
+				if (pushedOut.length) older = [...pushedOut, ...older];
+			}
+		});
+		lastRecent = now;
+	});
+
 	let logs = $derived.by(() => {
-		const recent = session.sessionLogs ?? [];
 		const ids = new globalThis.Set(recent.map((l) => l.id));
-		// A new session pushes the oldest live one out into the pages loaded.
 		return [...recent, ...older.filter((l) => !ids.has(l.id))];
 	});
+	/** Where the next older page starts: after the pages loaded, or after the live list. */
+	let from = $derived<SessionCursor | null>(cursor ?? recent.at(-1) ?? null);
 	/** Every page so far came back full, so there may be more. */
-	let more = $derived(!olderDone && logs.length >= SESSION_PAGE);
-	/** The oldest session loaded; sets before it may belong to sessions that aren't. */
-	let oldestLoaded = $derived(logs.reduce((t, l) => Math.min(t, l.createdAt), Infinity));
+	let more = $derived(!olderDone && !!from && (!!cursor || recent.length >= SESSION_PAGE));
 
 	async function loadOlder() {
 		const uid = session.uid;
-		if (!uid || loadingOlder) return;
+		const start = from;
+		if (!uid || !start || loadingOlder) return;
 		loadingOlder = true;
 		try {
-			const page = await olderSessionLogs(uid, oldestLoaded);
+			const page = await olderSessionLogs(uid, { createdAt: start.createdAt, id: start.id });
 			older = [...older, ...page.logs];
-			if (page.fromCache && !page.logs.length) {
-				toaster.error('Older workouts need a connection', 'history-older');
-			} else if (!page.full && !page.fromCache) {
-				olderDone = true;
-			}
+			if (page.next) cursor = page.next;
+			if (!page.full) olderDone = true;
 		} catch (err) {
 			console.error('[history] loading older sessions failed:', err);
-			toaster.error("Couldn't load older workouts — try again", 'history-older');
+			toaster.error(
+				pwa.online
+					? "Couldn't load older workouts — try again"
+					: 'Older workouts need a connection',
+				'history-older'
+			);
 		} finally {
 			loadingOlder = false;
 		}
@@ -76,10 +106,10 @@
 				: []
 		)
 	);
-	// Until every session is loaded, sets older than the oldest one stay out:
-	// they'd show as single sets when they're part of a workout not loaded yet.
+	// Until every session is loaded, sets older than where loading stopped stay
+	// out: they'd show as single sets when they're part of a workout not loaded yet.
 	let feed = $derived(
-		more ? allRows.filter((r) => r.kind === 'session' || r.at >= oldestLoaded) : allRows
+		more && from ? allRows.filter((r) => r.kind === 'session' || r.at >= from.createdAt) : allRows
 	);
 
 	// ── This week ───────────────────────────────────────────────────────────────

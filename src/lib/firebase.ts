@@ -6,7 +6,8 @@ import {
 	orderBy,
 	limit,
 	startAfter,
-	getDocs,
+	getDocsFromServer,
+	documentId,
 	type QueryConstraint,
 	getFirestore,
 	initializeFirestore,
@@ -239,6 +240,14 @@ function userCollection<T>(
 export const workouts = userCollection<Workout>('workouts', parseWorkout);
 export const routines = userCollection<Routine>('routines', parseRoutine);
 export const programs = userCollection<Program>('programs', parseProgram);
+/**
+ * One session of the signed-in user's, kept live — for a workout older than
+ * `sessionLogs` holds, opened from History's older pages or a link.
+ */
+export function sessionLogStore(uid: string, id: string) {
+	return docStore<SessionLog | null>(`users/${uid}/sessions/${id}`, parseSessionLog);
+}
+
 /** How many sessions `sessionLogs` keeps live, and History loads per page. */
 export const SESSION_PAGE = 100;
 
@@ -252,25 +261,37 @@ export const sessionLogs = userCollection<SessionLog | null>('sessions', parseSe
 	limit(SESSION_PAGE)
 ]);
 
+/** Where a page of sessions ends, in `sessionLogs`' order. */
+export type SessionCursor = { createdAt: number; id: string };
+
 /**
- * One page of the signed-in user's sessions created before `before` (a
- * `createdAt`), newest first: a one-off read, not a listener, since old
- * history rarely changes. `full` says a further page may exist; `fromCache`
- * that the server couldn't be reached, so the page may be short.
+ * The page of the signed-in user's sessions after `after`, newest first,
+ * in the order `sessionLogs` uses (`createdAt`, then id, both descending:
+ * the id settles sessions created in the same millisecond). A one-off read,
+ * not a listener, since old history rarely changes, and from the server
+ * only: a page from the local cache could leave out sessions it never saw,
+ * and paging on from it would skip them. Offline, it throws.
  */
-export async function olderSessionLogs(uid: string, before: number) {
-	const snapshot = await getDocs(
+export async function olderSessionLogs(uid: string, after: SessionCursor) {
+	const snapshot = await getDocsFromServer(
 		query(
 			collection(db, `users/${uid}/sessions`),
 			orderBy('createdAt', 'desc'),
-			startAfter(before),
+			orderBy(documentId(), 'desc'),
+			startAfter(after.createdAt, after.id),
 			limit(SESSION_PAGE)
 		)
 	);
 	const logs = snapshot.docs
 		.map((d) => parseSessionLog(d.data(), d.id))
 		.filter((l): l is SessionLog => l !== null);
-	return { logs, full: snapshot.size === SESSION_PAGE, fromCache: snapshot.metadata.fromCache };
+	// From the last document, even one that didn't parse, so paging moves on.
+	const last = snapshot.docs.at(-1);
+	return {
+		logs,
+		next: last ? { createdAt: Number(last.get('createdAt')) || 0, id: last.id } : null,
+		full: snapshot.size === SESSION_PAGE
+	};
 }
 
 export const userData: Readable<UserData | null | undefined> = derived(user, ($user, set) => {
