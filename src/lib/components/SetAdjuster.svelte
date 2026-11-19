@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { holdRepeat } from '$lib/actions/holdRepeat';
 	import { WEIGHT_STEP, bigWeightStep } from '$lib/constants';
 	import { session } from '$lib/session.svelte';
 	import NumberField from './NumberField.svelte';
+	import StepperButton from './StepperButton.svelte';
 
 	/**
 	 * Reps and weight for the next set, side by side so the whole set reads as
@@ -57,30 +57,10 @@
 	</div>
 {/snippet}
 
-<!-- Reps' pair is always 36pt wide: at 44pt its − sat far from the number and
-     its + ran up against the divider, reading as the weight's. -->
-{#snippet glyph(label: string, action: () => void, path: string, wide: boolean)}
-	<button
-		class="btn btn-ghost hover:bg-base-300 h-11 min-h-0 rounded-full border-none px-0 shadow-none {wide
-			? 'w-9 @min-[22rem]:w-11'
-			: 'w-9'}"
-		use:holdRepeat={action}
-		aria-label={label}
-	>
-		<svg
-			xmlns="http://www.w3.org/2000/svg"
-			class="h-4 w-4"
-			fill="none"
-			viewBox="0 0 24 24"
-			stroke="currentColor"
-			stroke-width="2.5"
-			aria-hidden="true"><path stroke-linecap="round" d={path} /></svg
-		>
-	</button>
-{/snippet}
-
 <!-- − step + : the step size sits between its buttons. Reps leaves it out,
-     since 1 goes without saying. -->
+     since 1 goes without saying, and keeps its pair compact: at 44pt its − sat
+     far from the number and its + ran up against the divider, reading as the
+     weight's. -->
 {#snippet stepper(
 	name: string,
 	delta: number,
@@ -88,25 +68,41 @@
 	onUp: () => void,
 	showStep = true
 )}
-	<!-- Held for repeat, so iOS mustn't treat the hold as a long press on the
-	     step label: no text selection, no Copy / Look Up callout. -->
+	<!-- The step label is selection-proof too: a hold on a button beside it
+	     otherwise selects it. -->
 	<div class="flex items-center select-none [-webkit-touch-callout:none]">
-		{@render glyph(`Decrease ${name} by ${delta}`, onDown, 'M5 12h14', showStep)}
+		<StepperButton
+			label={`Decrease ${name} by ${delta}`}
+			kind="decrease"
+			action={onDown}
+			compact={!showStep}
+		/>
 		{#if showStep}
 			<span
 				class="text-base-content/60 w-5 text-center text-xs font-semibold tabular-nums @min-[22rem]:w-6"
 				>{delta}</span
 			>
 		{/if}
-		{@render glyph(`Increase ${name} by ${delta}`, onUp, 'M12 5v14M5 12h14', showStep)}
+		<StepperButton
+			label={`Increase ${name} by ${delta}`}
+			kind="increase"
+			action={onUp}
+			compact={!showStep}
+		/>
 	</div>
 {/snippet}
 
 <!-- A size container: the steppers and numbers size to the card. -->
 <div class="@container">
-	<div class="bg-base-200 flex flex-col rounded-2xl px-2 py-4 @min-[22rem]:px-3">
+	<div
+		data-testid="set-card"
+		class="bg-base-200 flex flex-col rounded-2xl px-2 py-4 @min-[22rem]:px-3"
+	>
 		<div class="flex">
-			<div class="flex min-w-0 flex-none flex-col gap-1 pr-2.5 @min-[22rem]:flex-1">
+			<div
+				data-testid="reps-column"
+				class="flex min-w-0 flex-none flex-col gap-1 pr-2.5 @min-[22rem]:flex-1"
+			>
 				<span class="text-base-content/55 text-xs font-semibold tracking-widest uppercase"
 					>Reps</span
 				>
@@ -125,6 +121,7 @@
 			</div>
 
 			<div
+				data-testid="weight-column"
 				class="border-base-300 flex min-w-0 flex-1 flex-col gap-1 border-l pl-2.5 @min-[22rem]:flex-[1.45]"
 			>
 				<span class="text-base-content/55 truncate text-xs font-semibold tracking-widest uppercase"
