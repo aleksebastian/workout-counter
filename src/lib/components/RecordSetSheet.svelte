@@ -71,7 +71,9 @@
 	});
 
 	$effect(() => {
-		if (showDetails && notesInput) setTimeout(() => notesInput?.focus(), 50);
+		if (!showDetails || !notesInput) return;
+		const focus = setTimeout(() => notesInput?.focus(), 50);
+		return () => clearTimeout(focus);
 	});
 
 	function record() {
