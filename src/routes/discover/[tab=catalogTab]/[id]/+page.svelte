@@ -114,28 +114,26 @@
 	// Default on only when it wouldn't replace anything: someone with an active
 	// program is more likely browsing than switching.
 	let makeActive = $state(!session.activeProgramId);
-	let adding = $state(false);
+	/**
+	 * The plan last added, so a second tap before the library catches up can't
+	 * add it again; the plan is rebuilt once the write lands locally.
+	 */
+	let added = $state<typeof plan>(null);
 
-	async function add() {
-		if (!plan || adding) return;
-		const snapshot = plan;
-		adding = true;
-		// Issued together rather than one after the other: Firestore applies both
-		// locally at once, but a write's promise only settles when the server
-		// confirms it, so waiting for the add first left a program added offline
-		// (a gym with no signal) un-activated until the phone got back online.
-		const [ok] = await Promise.all([
-			libraryRepo.add(snapshot),
-			data.kind === 'program' && makeActive ? user.setActiveProgram(snapshot.root.id) : true
-		]);
-		adding = false;
-		if (ok) {
-			toaster.success(
-				snapshot.alreadyInLibrary
-					? `Linked to your “${addedName(snapshot)}”`
-					: `Added “${addedName(snapshot)}” to your Library`
-			);
-		}
+	function add() {
+		if (!plan || plan === added) return;
+		const snapshot = (added = plan);
+		// Neither write is awaited: Firestore applies both locally at once, but a
+		// write's promise only settles when the server confirms it, so offline
+		// (a gym with no signal) the button would spin until the phone got back
+		// online. A failure shows its own toast.
+		void libraryRepo.add(snapshot);
+		if (data.kind === 'program' && makeActive) void user.setActiveProgram(snapshot.root.id);
+		toaster.success(
+			snapshot.alreadyInLibrary
+				? `Linked to your “${addedName(snapshot)}”`
+				: `Added “${addedName(snapshot)}” to your Library`
+		);
 	}
 
 	function timerLabel(t: { minutes: number; seconds: number }) {
@@ -223,11 +221,8 @@
 				In your Library · Open
 			</a>
 		{:else}
-			<button class="btn btn-primary w-full" disabled={!plan || adding} onclick={add}>
-				{#if adding}
-					<span class="loading loading-spinner loading-xs" aria-hidden="true"></span>
-					Adding…
-				{:else if plan?.alreadyInLibrary}
+			<button class="btn btn-primary w-full" disabled={!plan || plan === added} onclick={add}>
+				{#if plan?.alreadyInLibrary}
 					Use my “{addedName(plan)}”
 				{:else}
 					Add to Library

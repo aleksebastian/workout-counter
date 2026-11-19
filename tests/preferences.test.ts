@@ -63,3 +63,24 @@ test('a dark theme applies and survives a reload', async ({ page }) => {
 	await page.reload();
 	await expect(html).toHaveAttribute('data-theme', 'dracula');
 });
+
+test('a change says Saved while its write is unconfirmed, and lands later', async ({ page }) => {
+	await signIn(page);
+	await page.goto('/preferences');
+	// What offline does to a write: applied locally at once, never confirmed.
+	const writes = '**/google.firestore.v1.Firestore/Write/**';
+	await page.route(writes, (route) => route.abort());
+
+	await page.getByRole('button', { name: 'kg', exact: true }).click();
+	await expect(page.getByText('✓ Saved')).toBeVisible();
+
+	// Back "online": Firestore retries now rather than after its backoff.
+	await page.unroute(writes);
+	await page.evaluate(() => {
+		window.dispatchEvent(new Event('offline'));
+		window.dispatchEvent(new Event('online'));
+	});
+	await expect
+		.poll(async () => (await savedPreferences())?.weightUnit, { timeout: 15_000 })
+		.toBe('kg');
+});

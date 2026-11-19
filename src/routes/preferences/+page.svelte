@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { user } from '$lib/data';
 	import { session } from '$lib/session.svelte';
@@ -72,8 +73,9 @@
 
 	let timerTotal = $derived((draft.timer.minutes || 0) * 60 + (draft.timer.seconds || 0));
 
-	let saveState = $state<'idle' | 'saving' | 'saved'>('idle');
+	let saveState = $state<'idle' | 'saved'>('idle');
 	let debounce: ReturnType<typeof setTimeout> | undefined;
+	let savedFade: ReturnType<typeof setTimeout> | undefined;
 
 	// A cleared number input binds as null, not NaN — which used to slip through
 	// as 0 and could silently save a 0:00 timer.
@@ -100,9 +102,11 @@
 		};
 	}
 
-	async function save() {
-		saveState = 'saving';
-		const ok = await user.setPreferences({
+	function save() {
+		debounce = undefined;
+		// Not awaited: the change applies locally at once, but offline the
+		// write only settles once back online. A failure shows its own toast.
+		const write = user.setPreferences({
 			timer: cleanTimer(),
 			timerEnabled: draft.timerEnabled,
 			theme: draft.theme,
@@ -112,13 +116,21 @@
 			weeklyGoal: clamp(draft.weeklyGoal, 1, 7, 3),
 			streaksEnabled: draft.streaksEnabled
 		});
-		if (!ok) {
-			saveState = 'idle';
-			return;
-		}
 		saveState = 'saved';
-		setTimeout(() => (saveState = 'idle'), 1000);
+		clearTimeout(savedFade);
+		savedFade = setTimeout(() => (saveState = 'idle'), 1000);
+		write.then((ok) => {
+			if (!ok) saveState = 'idle';
+		});
 	}
+
+	// Leaving within the debounce still saves the last change.
+	onDestroy(() => {
+		clearTimeout(savedFade);
+		if (debounce === undefined) return;
+		clearTimeout(debounce);
+		save();
+	});
 
 	/** Every control calls this; writes coalesce while the user is still tapping. */
 	function autoSave() {
