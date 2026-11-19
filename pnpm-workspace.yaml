@@ -2,3 +2,14 @@ allowBuilds:
   '@firebase/util': false
   esbuild: false
   protobufjs: false
+
+# Patched versions of transitive dependencies flagged by `pnpm audit`, until
+# firebase / firebase-admin ship them. Drop each once the audit stays clean
+# without it.
+overrides:
+  '@grpc/grpc-js': ^1.14.5
+  re2js: ^2.8.7
+  '@fastify/busboy': ^3.2.2
+  fast-xml-parser: ^5.12.0
+# Left as is: uuid@9 under google-auth-library / gaxios. Its advisory covers
+# v3/v5/v6 called with a buffer; those libraries only call v4().
