@@ -7,22 +7,6 @@ Tracks upcoming features and improvements. Each item includes status, priority, 
 
 ---
 
-## 1 — Notification Permission Banner Stacking
-
-**Status:** Done | **Priority:** P2
-
-> Done with the active-session work: banners now sit above whatever holds the slot over the bottom nav (rest countdown, rest-timer offer, or workout-in-progress bar) — see `bottomSlot` in `src/lib/logic/bottomSlot.svelte.ts`.
-
-The allow-notifications banner currently renders on top of the rest timer bar and overlaps it. It should stack _above_ the rest timer in the visual hierarchy so both are fully visible simultaneously.
-
-### Technical Notes
-
-- Likely a z-index / stacking-order issue between the banner and `RestTimerBar.svelte`
-- Fix: ensure the banner is positioned above the rest timer in DOM order or on the z-axis
-- May require adjusting layout flow in `+layout.svelte` so the banner pushes the rest timer down rather than overlapping it
-
----
-
 ## 2 — Guided PWA Onboarding (iOS / Android)
 
 **Status:** Backlog | **Priority:** P2
@@ -64,28 +48,6 @@ Users should be able to keep the rest timer but turn off rest-end push notificat
 - Add the toggle to the Notifications section of `src/routes/preferences/+page.svelte`, shown only in standalone mode (where `pwa.notifStatus` isn't `needs-install`/`unsupported`)
 - When it's `false`, run the timer UI but don't schedule a push: gate `push.start` in `src/lib/logic/restTimer.svelte.ts` (the `canNotify` check in its `createRestPush` api is the natural place)
 - The toggle controls whether a push is _scheduled_ — not the OS-level permission (that is handled during PWA onboarding in Enhancement #2)
-
----
-
-## 4 — Feedback Button & Page
-
-**Status:** Done | **Priority:** P3
-
-> Shipped as **Report a bug** in v0.12.0: Account → Report a bug files a GitHub issue with device diagnostics and a hashed account ref (`src/lib/components/BugReportSheet.svelte`, `src/routes/api/bug-report/+server.ts`). It took a different shape from the plan below — GitHub issues instead of a `feedback` collection and admin dashboard, and no photo upload yet.
-
-Add a "Feedback" option in the avatar/profile menu. Tapping it opens a dedicated page where users can submit a message and optionally attach a photo (bug reports, feature requests, general feedback).
-
-### Technical Notes
-
-- New Firestore collection: `feedback/{id}` with fields `uid`, `message`, `photoURL?`, `timestamp`, `status`
-- Photo upload via Firebase Storage
-- New route: `src/routes/feedback/+page.svelte`
-- Admin dashboard needed to review submissions — see Open Questions
-
-### Open Questions
-
-- [ ] Should the admin dashboard live inside this app (behind an admin role) or as a separate standalone app?
-- [ ] Who are the designated reviewers / dashboard owners?
 
 ---
 
@@ -146,56 +108,3 @@ In-app social sharing of routines (via shareable links or short codes) is a **se
 ### Open Questions
 
 - [ ] Should export be scoped per-type (e.g. export only routines) or always a full data dump?
-
----
-
-## 7 — CI: Checks and Tests on Every PR
-
-**Status:** Done | **Priority:** P2
-
-> Done: `.github/workflows/ci.yml` runs two jobs on every pull request and on pushes to `main` — `checks` (`pnpm check`, `pnpm lint`, `pnpm test:unit`) and `e2e` (Playwright against the Firebase emulators, uploading `test-results/` on failure). Making them required status checks on `main` is a repository setting, still to do.
-
-The only workflow today is `.github/workflows/release.yml`. Nothing runs type checks, lint or tests on pull requests, so a broken change is only caught if someone runs them locally.
-
-### Technical Notes
-
-- New `.github/workflows/ci.yml` on `pull_request` and pushes to `main`: checkout, pnpm (version from `packageManager`), Node 24 (from `.node-version`), `pnpm install --frozen-lockfile`
-- Steps: `pnpm check`, `pnpm lint`, `pnpm test:unit`
-- `pnpm check` and the build need the `$env/static/*` variables to exist: provide placeholders in CI (the values aren't used by type checking or unit tests)
-- Make the job a required status check on `main` once it's green
-
----
-
-## 8 — End-to-End Test Coverage
-
-**Status:** Done | **Priority:** P3
-
-> Done in v0.15.0: `pnpm test:e2e` runs Playwright against the Firebase Auth and Firestore emulators, signing in through a test-only hook (`src/lib/e2e.ts`, built only when `PUBLIC_FIREBASE_EMULATORS=true`) and starting each test from a freshly seeded database (`tests/fixtures.ts`). It covers the login redirect, logging a set and skipping the rest, finishing early and discarding, editing then deleting a set, and sign-out clearing the cache — and found a real bug on its first run (editing a set dropped it from the current workout). Programs, the Discover catalog and Preferences aren't covered yet.
-
-`tests/test.ts` has one Playwright test (the login page renders). Everything past sign-in — logging sets, the rest timer, running and finishing or discarding a workout — is only exercised by hand, most recently in the iOS Simulator.
-
-### Technical Notes
-
-- Signed-in flows need auth without Google's popup: run against the Firebase Auth and Firestore emulators with a seeded test user, and mint the `__session` cookie through the emulator
-- First flows worth covering: start a routine → log sets → rest bar appears → skip rest; finish early → discard; edit then delete a set; sign out
-- Runs in CI: the `e2e` job in `.github/workflows/ci.yml` (Enhancement #7)
-
-### Open Questions
-
-- [x] Emulators in CI, or a dedicated Firebase test project? — emulators (Java 21 via `actions/setup-java`)
-
----
-
-## 9 — Clear the Offline Data Cache on Sign-Out
-
-**Status:** Done | **Priority:** P2
-
-> Done in v0.15.0: sign-out clears the Firestore cache and the account's own localStorage keys (`wipeLocalData` in `src/lib/logic/auth.ts`, shared with account deletion), then reloads to `/login`. The account screen waits up to 5s for unsynced changes and asks before discarding them; with no signed-in user (an expired session) it clears without waiting. Best effort while another tab still has the database open.
-
-Firestore's IndexedDB persistence keeps a full copy of the signed-in user's data on the device. Account deletion already clears it (`deleteAccount` in `src/lib/logic/auth.ts`), but a plain sign-out doesn't — on a shared device the next person's browser still holds the previous user's workouts and history.
-
-### Technical Notes
-
-- In `handleSignOut`: after `signOut(auth)`, `terminate(db)` then `clearIndexedDbPersistence(db)` — the same steps `deleteAccount` uses
-- Terminating leaves the SDK unusable in that page, so end with a full page load to `/login` (`window.location.replace`) instead of `goto`
-- Also clear the app's own `localStorage` keys that belong to the account (rest timer state); keep device-level ones (theme, What's new seen)
