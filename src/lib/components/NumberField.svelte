@@ -98,6 +98,7 @@
 	type="text"
 	inputmode={mode}
 	autocomplete="off"
+	data-skip-autofocus
 	aria-label={label}
 	class="-mx-1 min-w-0 rounded-lg px-1 leading-none font-black tabular-nums transition-colors outline-none {size}"
 	class:bg-transparent={!fresh}

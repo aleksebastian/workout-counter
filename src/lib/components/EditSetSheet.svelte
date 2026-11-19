@@ -73,7 +73,7 @@
 	}
 </script>
 
-<BottomSheet bind:open size="large" title="Edit set" autofocus={false}>
+<BottomSheet bind:open size="large" title="Edit set">
 	<div class="flex flex-col gap-4">
 		{#if confirmingDelete}
 			<div class="flex flex-col items-center gap-3 py-2 text-center">
