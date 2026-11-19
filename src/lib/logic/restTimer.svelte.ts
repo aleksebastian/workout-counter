@@ -8,6 +8,7 @@ import { createRestPush } from '$lib/logic/restPush';
 import { REST_OFFER_ANSWERED_KEY as OFFER_ANSWERED_KEY } from '$lib/logic/accountStorage';
 import { currentSubscription } from '$lib/push';
 import type { Duration } from '$lib/types';
+import { readStorage, removeStorage, writeStorage } from '$lib/storage';
 
 /**
  * The rest countdown, as a module rather than a pile of state in the root
@@ -73,20 +74,13 @@ function resolve(opts: StartOptions): Rest | null {
 }
 
 function offerAnswered(): boolean {
-	try {
-		return localStorage.getItem(OFFER_ANSWERED_KEY) === 'true';
-	} catch {
-		return false;
-	}
+	return readStorage('local', OFFER_ANSWERED_KEY) === 'true';
 }
 
 function answerOffer() {
 	offering = false;
-	try {
-		localStorage.setItem(OFFER_ANSWERED_KEY, 'true');
-	} catch {
-		// Private mode: the offer may come back next session, which is harmless.
-	}
+	// Blocked storage: the offer may come back next session, which is harmless.
+	writeStorage('local', OFFER_ANSWERED_KEY, 'true');
 }
 
 function tick() {
@@ -107,22 +101,16 @@ function tick() {
 /** Keeps the running rest, and its push, across a reload. */
 function persist() {
 	if (!expiresAt) return;
-	try {
-		localStorage.setItem(
-			STORAGE_KEY,
-			JSON.stringify({ expiresAt: expiresAt.getTime(), restId: push.restId })
-		);
-	} catch {
-		// Private mode: a reload loses the countdown, which is harmless.
-	}
+	// Blocked storage: a reload loses the countdown, which is harmless.
+	writeStorage(
+		'local',
+		STORAGE_KEY,
+		JSON.stringify({ expiresAt: expiresAt.getTime(), restId: push.restId })
+	);
 }
 
 function forget() {
-	try {
-		localStorage.removeItem(STORAGE_KEY);
-	} catch {
-		// Nothing was stored.
-	}
+	removeStorage('local', STORAGE_KEY);
 }
 
 function clearHandle() {
@@ -219,11 +207,11 @@ export const restTimer = {
 	 * Accepts the offer: turns the global timer on and starts it right away,
 	 * since the user has just finished a set.
 	 */
-	async acceptOffer() {
+	acceptOffer() {
 		answerOffer();
 		const prefs = session.prefs;
 		restTimer.start({ duration: prefs.timer });
-		await user.setPreferences({ ...prefs, timerEnabled: true });
+		void user.setPreferences({ ...prefs, timerEnabled: true });
 	},
 
 	dismissOffer() {
@@ -246,12 +234,7 @@ export const restTimer = {
 	 * Returns a teardown function for the layout's `onMount`.
 	 */
 	restore() {
-		let raw: string | null = null;
-		try {
-			raw = localStorage.getItem(STORAGE_KEY);
-		} catch {
-			// Storage unavailable: nothing to restore.
-		}
+		const raw = readStorage('local', STORAGE_KEY);
 		const stored = parseStoredRest(raw);
 		if (stored) {
 			const left = stored.expiresAt - Date.now();

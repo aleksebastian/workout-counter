@@ -59,7 +59,6 @@
 	let draft = $state<Draft | null>(null);
 	let aliasChoices = $state<Record<string, AliasChoice>>({});
 	let catalog = $state<Catalog | null>(null);
-	let saving = $state(false);
 	let nameError = $state<string>();
 	let programError = $state<string>();
 	let showWhere = $state(false);
@@ -154,9 +153,9 @@
 	// ── Review ────────────────────────────────────────────────────────────────
 
 	/**
-	 * The plan being written. Held while saving: the write lands in the library
-	 * before the sheet closes, and re-planning against it would flash
-	 * "already in your library" over the draft.
+	 * The plan being written. Held once saving starts: the write lands in the
+	 * library at once, and re-planning against it would flash "already in
+	 * your library" over the draft as the sheet closes.
 	 */
 	let saved = $state<ImportPlan | null>(null);
 
@@ -367,8 +366,8 @@
 		editOpen = false;
 	}
 
-	async function save() {
-		if (!draft || !plan || saving) return;
+	function save() {
+		if (!draft || !plan || saved) return;
 		// Nothing new to write: the same routine is already there.
 		if (plan.alreadyInLibrary && draft.destination.type === 'routines') {
 			open = false;
@@ -415,14 +414,10 @@
 			}
 		}
 
-		saving = true;
+		// Not awaited: offline it would never return. A failure shows its own
+		// toast, and the library rolls back.
 		saved = plan;
-		const ok = await library.add(plan, change);
-		saving = false;
-		if (!ok) {
-			saved = null;
-			return;
-		}
+		void library.add(plan, change);
 		toaster.success(
 			d.type === 'routines'
 				? 'Routine saved'
@@ -681,7 +676,7 @@
 					<button class="btn btn-ghost" onclick={() => (step = 'pick')}>Back</button>
 				{/if}
 			{:else}
-				<button class="btn btn-primary btn-lg" disabled={!plan || saving} onclick={save}
+				<button class="btn btn-primary btn-lg" disabled={!plan || !!saved} onclick={save}
 					>{saveLabel}</button
 				>
 				<button class="btn btn-ghost" onclick={() => (step = 'pick')}>Back to photo</button>

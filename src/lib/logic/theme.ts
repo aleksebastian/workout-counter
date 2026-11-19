@@ -1,4 +1,5 @@
 import type { Preferences } from '$lib/types';
+import { writeStorage } from '$lib/storage';
 
 /** daisyUI theme names backing each user-facing choice. */
 const THEMES = { light: 'emerald', dark: 'dracula' } as const;
@@ -17,11 +18,8 @@ const THEME_COLORS = { light: '#ffffff', dark: '#282a36' } as const;
 const STORAGE_KEY = 'sc-theme';
 
 export function rememberTheme(theme: Preferences['theme']) {
-	try {
-		localStorage.setItem(STORAGE_KEY, theme);
-	} catch {
-		// Private mode: the next load paints the system scheme first, as before.
-	}
+	// Blocked storage: the next load paints the system scheme first, as before.
+	writeStorage('local', STORAGE_KEY, theme);
 }
 
 /**

@@ -10,11 +10,13 @@
 	import { logDuration, recordIds, sessionSets, volume, vsLast } from '$lib/logic/history';
 	import { runProgramHref, runRoutineHref } from '$lib/routes';
 	import { HAPTIC } from '$lib/haptic';
+	import { sessionLogStore } from '$lib/firebase';
+	import { pwa } from '$lib/logic/pwa.svelte';
 	import ActionSheet, { type SheetAction } from '$lib/components/ActionSheet.svelte';
 	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
 	import EditSetSheet from '$lib/components/EditSetSheet.svelte';
 	import DeleteIcon from '$lib/icons/delete.svg?raw';
-	import { SLOT_LABEL, type Set, type Workout } from '$lib/types';
+	import { SLOT_LABEL, type SessionLog, type Set, type Workout } from '$lib/types';
 
 	/**
 	 * One past workout: what each exercise got, how it compares with that
@@ -22,8 +24,29 @@
 	 * fix a typo; the menu deletes the whole workout.
 	 */
 
-	let log = $derived(session.sessionLogs?.find((l) => l.id === page.params.sessionId) ?? null);
-	let loading = $derived(session.sessionLogs === null || session.workouts === null);
+	let recent = $derived(session.sessionLogs?.find((l) => l.id === page.params.sessionId) ?? null);
+
+	// A workout older than the latest few: read on its own, and kept live so a
+	// delete on another device still shows. Undefined until it's known.
+	let older = $state<SessionLog | null | undefined>(undefined);
+	// A boolean, so the read isn't restarted each time the recent list changes.
+	let readOnItsOwn = $derived(!recent && session.sessionLogs !== null);
+	$effect(() => {
+		const uid = session.uid;
+		const id = page.params.sessionId;
+		older = undefined;
+		if (!readOnItsOwn || !uid || !id) return;
+		return sessionLogStore(uid, id).subscribe((value) => (older = value));
+	});
+
+	let log = $derived(recent ?? older ?? null);
+	/** Offline, an older workout this device never read can't be shown. */
+	let unreachable = $derived(!recent && older === undefined && !pwa.online);
+	let loading = $derived(
+		session.sessionLogs === null ||
+			session.workouts === null ||
+			(!recent && older === undefined && !unreachable)
+	);
 	let unit = $derived(session.prefs.weightUnit === 'kg' ? 'kg' : 'lb');
 
 	setPageNav(
@@ -117,6 +140,12 @@
 	{#if loading}
 		<div class="skeleton h-20 w-full rounded-2xl"></div>
 		<div class="skeleton h-40 w-full rounded-2xl"></div>
+	{:else if unreachable}
+		<div class="flex flex-col items-center gap-3 py-16 text-center">
+			<p class="font-semibold">You're offline</p>
+			<p class="text-base-content/55 text-sm">This workout needs a connection to open.</p>
+			<a class="btn btn-sm" href="/history">Back to History</a>
+		</div>
 	{:else if !log}
 		<div class="flex flex-col items-center gap-3 py-16 text-center">
 			<p class="font-semibold">That workout isn't in your history</p>

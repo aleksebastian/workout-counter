@@ -13,19 +13,8 @@ const ASSETS = [
 	...build, // the app itself (hashed filenames)
 	...files // everything in `static`
 ];
-
-// Hostnames whose requests the SW must never intercept.
-// The Firebase SDK manages its own offline persistence via IndexedDB —
-// caching these responses in the SW cache corrupts auth tokens and stale data.
-const BYPASS_HOSTNAMES = [
-	'firestore.googleapis.com',
-	'identitytoolkit.googleapis.com',
-	'securetoken.googleapis.com',
-	'firebase.googleapis.com',
-	'firebaseio.com',
-	'googleapis.com',
-	'gstatic.com'
-];
+/** For the per-request lookup; paths on this origin only. */
+const ASSET_PATHS = new Set(ASSETS);
 
 // ─── Lifecycle ────────────────────────────────────────────────────────────────
 
@@ -58,7 +47,18 @@ sw.addEventListener('message', (event) => {
 sw.addEventListener('push', (event) => {
 	if (!event.data) return;
 
-	const { title, body } = event.data.json() as { title: string; body: string };
+	// Only our server sends pushes, but a payload that isn't the JSON it sends
+	// mustn't throw here: no notification would show, and Safari revokes a
+	// subscription whose pushes don't show one. Defaults match _push.ts.
+	let title = 'Rest Complete! 💪';
+	let body = '';
+	try {
+		const payload = event.data.json() as { title?: unknown; body?: unknown };
+		if (typeof payload.title === 'string') title = payload.title;
+		if (typeof payload.body === 'string') body = payload.body;
+	} catch {
+		// Keep the defaults.
+	}
 
 	event.waitUntil(
 		sw.registration.showNotification(title, {
@@ -88,10 +88,11 @@ sw.addEventListener('fetch', (event) => {
 
 	const url = new URL(event.request.url);
 
-	// Let Firebase/Google API calls pass through completely — no SW involvement.
-	if (BYPASS_HOSTNAMES.some((host) => url.hostname === host || url.hostname.endsWith(`.${host}`))) {
-		return;
-	}
+	// Only this app's own requests. Firebase and Google calls pass through
+	// untouched — the Firebase SDK keeps its own offline cache in IndexedDB,
+	// and caching its responses here corrupts auth tokens and serves stale
+	// data — and other origins' files are never ours to cache.
+	if (url.origin !== sw.location.origin) return;
 
 	event.respondWith(respond(event.request, url));
 });
@@ -111,7 +112,7 @@ async function respond(request: Request, url: URL): Promise<Response> {
 
 	// ── Cache-first for versioned build assets & static files ──────────────────
 	// These are safe to serve forever — filenames include a content hash.
-	if (ASSETS.includes(url.pathname)) {
+	if (ASSET_PATHS.has(url.pathname)) {
 		const cached = await cache.match(url.pathname);
 		if (cached) return cached;
 	}

@@ -18,6 +18,7 @@ import { getPostLoginDestination } from '$lib/logic/onboarding';
 import { restTimer } from '$lib/logic/restTimer.svelte';
 import { unregisterPush } from '$lib/push';
 import { forgetAccountStorage, SESSION_RENEWED_KEY } from '$lib/logic/accountStorage';
+import { readStorage, writeStorage } from '$lib/storage';
 
 /**
  * Creates a promise that rejects after a timeout
@@ -97,11 +98,8 @@ async function mintSessionCookie(user: User): Promise<Response> {
 const RENEW_EVERY_MS = 24 * 60 * 60 * 1000;
 
 function rememberRenewal() {
-	try {
-		localStorage.setItem(SESSION_RENEWED_KEY, String(Date.now()));
-	} catch {
-		// Storage blocked: it just renews more often.
-	}
+	// Blocked storage: it just renews more often.
+	writeStorage('local', SESSION_RENEWED_KEY, String(Date.now()));
 }
 
 let renewing: Promise<void> | null = null;
@@ -118,12 +116,8 @@ export function renewSession(): Promise<void> {
 	if (!user || signingOut || !navigator.onLine || location.pathname.startsWith('/login')) {
 		return Promise.resolve();
 	}
-	try {
-		const last = Number(localStorage.getItem(SESSION_RENEWED_KEY));
-		if (last && Date.now() - last < RENEW_EVERY_MS) return Promise.resolve();
-	} catch {
-		// Storage blocked: renew anyway.
-	}
+	const last = Number(readStorage('local', SESSION_RENEWED_KEY));
+	if (last && Date.now() - last < RENEW_EVERY_MS) return Promise.resolve();
 	renewing ??= mintSessionCookie(user)
 		.then(() => {})
 		.catch(() => {})

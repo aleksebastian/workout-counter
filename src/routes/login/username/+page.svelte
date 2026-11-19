@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { doc, getDoc } from 'firebase/firestore';
 	import { db } from '$lib/firebase';
@@ -15,6 +16,8 @@
 	let submitting = $state(false);
 	let blurred = $state(false);
 	let debounceTimer: ReturnType<typeof setTimeout>;
+	// A check still waiting to run would read Firestore for a page that's gone.
+	onDestroy(() => clearTimeout(debounceTimer));
 
 	// 3–15 of letters, numbers, `.` and `_`; no `.`/`_` first, last or doubled.
 	// 15 is the Firestore rule's limit (`usernames`), so a name passing here can be saved.

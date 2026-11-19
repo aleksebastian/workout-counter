@@ -16,6 +16,10 @@
 	import { historyItemHref } from '$lib/routes';
 	import { programDays, SLOT_LABEL, type SessionLog } from '$lib/types';
 	import Chevron from '$lib/components/Chevron.svelte';
+	import { untrack } from 'svelte';
+	import { olderSessionLogs, SESSION_PAGE, type SessionCursor } from '$lib/firebase';
+	import { pwa } from '$lib/logic/pwa.svelte';
+	import { toaster } from '$lib/toast.svelte';
 
 	/**
 	 * Everything you've trained, newest first: the week's numbers, a month
@@ -26,11 +30,74 @@
 	let unit = $derived(session.prefs.weightUnit === 'kg' ? 'kg' : 'lb');
 	let weekStart = $derived(session.prefs.weekStart);
 	let workouts = $derived(session.workouts ?? []);
-	let logs = $derived(session.sessionLogs ?? []);
 	let loading = $derived(session.workouts === null || session.sessionLogs === null);
 
+	// ── Older history ───────────────────────────────────────────────────────────
+	// Only the latest SESSION_PAGE sessions are live. Older ones load a page at
+	// a time, in the same order (newest first, id settling ties), and stay here.
+	let recent = $derived(session.sessionLogs ?? []);
+	let older = $state<SessionLog[]>([]);
+	/** Where the older pages loaded so far end; null until the first one. */
+	let cursor = $state<SessionCursor | null>(null);
+	let olderDone = $state(false);
+	let loadingOlder = $state(false);
+
+	/** `a` comes after `b` in History's order. */
+	const after = (a: SessionCursor, b: SessionCursor) =>
+		a.createdAt < b.createdAt || (a.createdAt === b.createdAt && a.id < b.id);
+
+	// Once older pages are loaded, a new session (say, from another device)
+	// pushes the live list's last one out, above the first older page: keep it,
+	// or it'd fall in the gap. Dropped while the list is still full means
+	// pushed out; dropped from a shorter list means deleted.
+	let lastRecent: SessionLog[] = [];
+	$effect(() => {
+		const now = recent;
+		const end = now.at(-1);
+		untrack(() => {
+			if (cursor && end && now.length >= SESSION_PAGE) {
+				const ids = new globalThis.Set(now.map((l) => l.id));
+				const pushedOut = lastRecent.filter((l) => !ids.has(l.id) && after(l, end));
+				if (pushedOut.length) older = [...pushedOut, ...older];
+			}
+		});
+		lastRecent = now;
+	});
+
+	let logs = $derived.by(() => {
+		const ids = new globalThis.Set(recent.map((l) => l.id));
+		return [...recent, ...older.filter((l) => !ids.has(l.id))];
+	});
+	/** Where the next older page starts: after the pages loaded, or after the live list. */
+	let from = $derived<SessionCursor | null>(cursor ?? recent.at(-1) ?? null);
+	/** Every page so far came back full, so there may be more. */
+	let more = $derived(!olderDone && !!from && (!!cursor || recent.length >= SESSION_PAGE));
+
+	async function loadOlder() {
+		const uid = session.uid;
+		const start = from;
+		if (!uid || !start || loadingOlder) return;
+		loadingOlder = true;
+		try {
+			const page = await olderSessionLogs(uid, { createdAt: start.createdAt, id: start.id });
+			older = [...older, ...page.logs];
+			if (page.next) cursor = page.next;
+			if (!page.full) olderDone = true;
+		} catch (err) {
+			console.error('[history] loading older sessions failed:', err);
+			toaster.error(
+				pwa.online
+					? "Couldn't load older workouts — try again"
+					: 'Older workouts need a connection',
+				'history-older'
+			);
+		} finally {
+			loadingOlder = false;
+		}
+	}
+
 	// The workout in progress isn't history yet; its sets stay out of the feed.
-	let feed = $derived(
+	let allRows = $derived(
 		historyFeed(
 			logs,
 			workouts,
@@ -38,6 +105,11 @@
 				? [{ source: training.session.source, start: training.session.startedAt, end: Infinity }]
 				: []
 		)
+	);
+	// Until every session is loaded, sets older than where loading stopped stay
+	// out: they'd show as single sets when they're part of a workout not loaded yet.
+	let feed = $derived(
+		more && from ? allRows.filter((r) => r.kind === 'session' || r.at >= from.createdAt) : allRows
 	);
 
 	// ── This week ───────────────────────────────────────────────────────────────
@@ -330,5 +402,14 @@
 				</section>
 			{/if}
 		{/each}
+
+		{#if more}
+			<button class="btn btn-ghost btn-sm self-center" disabled={loadingOlder} onclick={loadOlder}>
+				{#if loadingOlder}
+					<span class="loading loading-spinner loading-xs" aria-hidden="true"></span>
+				{/if}
+				Load older workouts
+			</button>
+		{/if}
 	{/if}
 </div>

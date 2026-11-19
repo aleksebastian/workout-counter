@@ -5,17 +5,18 @@
 	import type { TransitionConfig } from 'svelte/transition';
 	import { browser } from '$app/environment';
 	import { training } from '$lib/logic/training.svelte';
+	import { readStorage, writeStorage } from '$lib/storage';
 
 	// Use sessionStorage to persist animation state across navigation
 	// This ensures the animation only plays once per session, even after login redirects
 	function hasLaunchedThisSession(): boolean {
 		if (!browser) return true;
-		return sessionStorage.getItem('bottom-nav-launched') === 'true';
+		return readStorage('session', 'bottom-nav-launched') === 'true';
 	}
 
 	function markAsLaunched(): void {
 		if (!browser) return;
-		sessionStorage.setItem('bottom-nav-launched', 'true');
+		writeStorage('session', 'bottom-nav-launched', 'true');
 	}
 
 	function launchSlide(node: HTMLElement): TransitionConfig {

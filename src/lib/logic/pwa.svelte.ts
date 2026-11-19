@@ -4,6 +4,7 @@ import { subscribeToPush, type PushRegistration } from '$lib/push';
 import { toaster } from '$lib/toast.svelte';
 import { effectiveNotifStatus } from '$lib/logic/notifStatus';
 import { unseenEntries } from '$lib/changelog';
+import { readStorage, removeStorage, writeStorage } from '$lib/storage';
 
 /**
  * Everything install/offline/service-worker related. The root layout used to
@@ -111,7 +112,7 @@ async function reloadIfStale(): Promise<boolean> {
 	} catch {
 		// Offline or the check failed: carry on with the build we have.
 	}
-	if (!stale || sessionStorage.getItem(STALE_RELOAD_FROM_KEY) === version) return false;
+	if (!stale || readStorage('session', STALE_RELOAD_FROM_KEY) === version) return false;
 	// The worker serves the last cached page, so a reload before the new worker
 	// takes over would come straight back to this stale build. Looked up here
 	// rather than relying on init(): a page's onMount runs before the layout's.
@@ -124,7 +125,7 @@ async function reloadIfStale(): Promise<boolean> {
 		await reg.update().catch(() => {});
 		await waitForWaitingWorker(reg, NEW_WORKER_INSTALL_TIMEOUT_MS);
 	}
-	sessionStorage.setItem(STALE_RELOAD_FROM_KEY, version);
+	writeStorage('session', STALE_RELOAD_FROM_KEY, version);
 	pwa.applyUpdate();
 	return true;
 }
@@ -136,16 +137,14 @@ async function reloadIfStale(): Promise<boolean> {
  * arrived.
  */
 function checkWhatsNew() {
-	try {
-		const seen = localStorage.getItem(CHANGELOG_SEEN_KEY);
-		if (!seen) {
-			localStorage.setItem(CHANGELOG_SEEN_KEY, __APP_VERSION__);
-			return;
-		}
-		showWhatsNew = unseenEntries(seen).length > 0;
-	} catch {
-		// Storage blocked: skip the banner rather than show it every launch.
+	// Blocked storage reads as a first launch: no banner, rather than one
+	// every launch.
+	const seen = readStorage('local', CHANGELOG_SEEN_KEY);
+	if (!seen) {
+		writeStorage('local', CHANGELOG_SEEN_KEY, __APP_VERSION__);
+		return;
 	}
+	showWhatsNew = unseenEntries(seen).length > 0;
 }
 
 export const pwa = {
@@ -180,14 +179,14 @@ export const pwa = {
 	/** Call from the layout's `onMount`; returns its teardown. */
 	init() {
 		online = navigator.onLine;
-		notifPromptShown = localStorage.getItem(NOTIF_PROMPTED_KEY) === 'true';
+		notifPromptShown = readStorage('local', NOTIF_PROMPTED_KEY) === 'true';
 		notifStatus = readNotifStatus();
 		subscribeToPush().then(noteRegistration);
 		checkWhatsNew();
 
-		const updatedFrom = sessionStorage.getItem(UPDATED_FROM_KEY);
+		const updatedFrom = readStorage('session', UPDATED_FROM_KEY);
 		if (updatedFrom) {
-			sessionStorage.removeItem(UPDATED_FROM_KEY);
+			removeStorage('session', UPDATED_FROM_KEY);
 			// The What's new banner already says the app updated.
 			if (updatedFrom !== version && !showWhatsNew) {
 				toaster.show({ id: 'app-updated', type: 'success', message: 'SetCount updated' });
@@ -259,7 +258,7 @@ export const pwa = {
 		if (restStarted && notifStatus === 'default' && !notifPromptShown) {
 			showNotifPrompt = true;
 			notifPromptShown = true;
-			localStorage.setItem(NOTIF_PROMPTED_KEY, 'true');
+			writeStorage('local', NOTIF_PROMPTED_KEY, 'true');
 		} else if (restStarted && pushBlocked && notifStatus === 'granted' && !reenablePromptShown) {
 			showNotifPrompt = true;
 			reenablePromptShown = true;
@@ -277,11 +276,8 @@ export const pwa = {
 	/** Records the current release's notes as seen and drops the banner. */
 	markWhatsNewSeen() {
 		showWhatsNew = false;
-		try {
-			localStorage.setItem(CHANGELOG_SEEN_KEY, __APP_VERSION__);
-		} catch {
-			// Storage blocked: the banner may come back next launch, which is harmless.
-		}
+		// Blocked storage: the banner may come back next launch, which is harmless.
+		writeStorage('local', CHANGELOG_SEEN_KEY, __APP_VERSION__);
 	},
 
 	async install() {
@@ -314,7 +310,7 @@ export const pwa = {
 	applyUpdate() {
 		if (updating) return;
 		updating = true;
-		sessionStorage.setItem(UPDATED_FROM_KEY, version);
+		writeStorage('session', UPDATED_FROM_KEY, version);
 
 		const waiting = registration?.waiting;
 		// Another tab may already have activated the new worker, leaving nothing

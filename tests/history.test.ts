@@ -10,7 +10,8 @@ import {
 	signIn,
 	startRoutine,
 	storedSets,
-	test
+	test,
+	writeDoc
 } from './fixtures';
 
 type SessionLog = { name?: string; endReason?: string; totals?: { sets: number; reps: number } };
@@ -92,4 +93,46 @@ test('a workout ended early can be resumed the same day, without logging it twic
 	await expect(page.getByRole('button', { name: /^Set 1: .*Edit$/ })).toBeVisible();
 	await expect.poll(async () => (await sessions()).length).toBe(0);
 	expect((await readDoc(`users/${UID}`))?.activeSession).toBeTruthy();
+});
+
+test('loads workouts older than the latest 100 on request, and opens them', async ({ page }) => {
+	const DAY = 24 * 3600_000;
+	const ended = (n: number) => Date.now() - n * DAY + 30 * 60_000;
+	await Promise.all(
+		Array.from({ length: 105 }, (_, i) => {
+			const n = i + 1;
+			const startedAt = Date.now() - n * DAY;
+			return writeDoc(`users/${UID}/sessions/old-${n}`, {
+				id: `old-${n}`,
+				source: { type: 'routine', routineId: ROUTINE.id },
+				name: `Session ${n}`,
+				startedAt,
+				endedAt: startedAt + 30 * 60_000,
+				endReason: 'finished',
+				complete: true,
+				exercises: [],
+				totals: { sets: 0, reps: 0 },
+				// 100 and 101 were created in the same millisecond, right where
+				// the first page ends: paging by time alone would skip one.
+				createdAt: n === 101 ? ended(100) : ended(n)
+			});
+		})
+	);
+	await signIn(page);
+	await openTab(page, 'History');
+
+	await expect(page.getByText('Session 99', { exact: true })).toBeVisible();
+	await expect(page.getByText('Session 105', { exact: true })).toHaveCount(0);
+	await page.getByRole('button', { name: 'Load older workouts' }).click();
+	for (const n of [100, 101, 102, 105]) {
+		await expect(page.getByText(`Session ${n}`, { exact: true })).toBeVisible();
+	}
+	// Fewer than a page came back, so that was all of them.
+	await expect(page.getByRole('button', { name: 'Load older workouts' })).toHaveCount(0);
+
+	// One from the older page opens, though the live history doesn't hold it.
+	await page.getByText('Session 105', { exact: true }).click();
+	await expect(page).toHaveURL(/\/history\/old-105$/);
+	await expect(page.getByRole('button', { name: 'Do this workout again' })).toBeVisible();
+	await expect(page.getByText("That workout isn't in your history")).toHaveCount(0);
 });
