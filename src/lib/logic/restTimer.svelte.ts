@@ -1,5 +1,4 @@
 import { add } from 'date-fns';
-import { v4 as uuidv4 } from 'uuid';
 import { HAPTIC } from '$lib/haptic';
 import { session } from '$lib/session.svelte';
 import { user } from '$lib/data';
@@ -34,7 +33,7 @@ let expiresAt: Date | undefined;
 /** The rest-end push; see `$lib/logic/restPush`. */
 const push = createRestPush({
 	canNotify: () => 'Notification' in window && Notification.permission === 'granted',
-	newId: uuidv4,
+	newId: () => crypto.randomUUID(),
 	async schedule(restId, delayMs, issuedAt) {
 		try {
 			// Names this device, so the rest's end is announced here and not on

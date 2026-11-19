@@ -14,7 +14,6 @@
 	import { formatSet, isTimed, measureOf, unitsOf } from '$lib/logic/measure';
 	import { isRecord, lastDoneAt } from '$lib/logic/history';
 	import Chevron from '$lib/components/Chevron.svelte';
-	import { v4 as uuidv4 } from 'uuid';
 	import type { Measure, Workout } from '$lib/types';
 
 	/**
@@ -150,7 +149,12 @@
 	// the exercise created just before it.
 	function create(name: string) {
 		if (getNameValidationMsg('Workout', name, session.workouts)) return;
-		const workout: Workout = { id: uuidv4(), name: name.trim(), sets: [], createdAt: Date.now() };
+		const workout: Workout = {
+			id: crypto.randomUUID(),
+			name: name.trim(),
+			sets: [],
+			createdAt: Date.now()
+		};
 		exercises.put(workout);
 		pick({ kind: 'library', workoutId: workout.id, name: workout.name });
 	}

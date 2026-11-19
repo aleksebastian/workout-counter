@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from 'uuid';
 import type { Workout } from '$lib/types';
 import type { Catalog } from './catalog';
 import { planImport, type Library } from './plan';
@@ -31,7 +30,7 @@ export function resolvePicks(
 	catalog: Catalog | null,
 	options: { newId?: () => string; now?: number } = {}
 ): ResolvedPicks {
-	const newId = options.newId ?? uuidv4;
+	const newId = options.newId ?? (() => crypto.randomUUID());
 	let clock = options.now ?? Date.now();
 	const create: Workout[] = [];
 	const byPick: (string | null)[] = [];

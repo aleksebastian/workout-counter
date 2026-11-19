@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { setsByDay } from '$lib/logic/history';
 	import { counted } from '$lib/utils';
-	import { v4 as uuidv4 } from 'uuid';
 	import { format, formatRelative } from 'date-fns';
 	import EditSetSheet from '$lib/components/EditSetSheet.svelte';
 	import {
@@ -69,7 +68,7 @@
 	function duplicate(set: Set) {
 		HAPTIC.success();
 		const copy: Set = {
-			id: uuidv4(),
+			id: crypto.randomUUID(),
 			reps: set.reps,
 			date: new Date().toISOString(),
 			...(set.weight ? { weight: set.weight } : {}),

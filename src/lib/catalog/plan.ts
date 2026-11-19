@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from 'uuid';
 import {
 	daySessions,
 	type Program,
@@ -120,7 +119,7 @@ export function planImport(
 	library: Library,
 	options: PlanOptions = {}
 ): ImportPlan {
-	const newId = options.newId ?? uuidv4;
+	const newId = options.newId ?? (() => crypto.randomUUID());
 	// Consecutive timestamps keep created items in catalog order, since every
 	// collection is listed by `createdAt`.
 	let clock = options.now ?? Date.now();

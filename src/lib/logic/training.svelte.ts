@@ -1,5 +1,4 @@
 import { formatDistanceToNow } from 'date-fns';
-import { v4 as uuidv4 } from 'uuid';
 import { sessions as repo } from '$lib/data';
 import { session } from '$lib/session.svelte';
 import { toaster } from '$lib/toast.svelte';
@@ -234,7 +233,7 @@ export const training = {
 		const plan = buildPlan(source, lookups) ?? [];
 		const now = Date.now();
 		const s: ActiveSession = {
-			id: uuidv4(),
+			id: crypto.randomUUID(),
 			source,
 			name: sourceName(source, lookups) ?? '',
 			startedAt: now,

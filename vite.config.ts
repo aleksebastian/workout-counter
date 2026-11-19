@@ -1,10 +1,9 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vitest/config';
-import svg from '@poppanator/sveltekit-svg';
 import pkg from './package.json' with { type: 'json' };
 
 export default defineConfig({
-	plugins: [sveltekit(), svg()],
+	plugins: [sveltekit()],
 	define: {
 		// The release version, for bug reports. `version` from $app/environment
 		// is the build id, which the update check relies on changing every deploy.

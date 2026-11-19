@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { v4 as uuidv4 } from 'uuid';
 	import { counted } from '$lib/utils';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
@@ -454,7 +453,7 @@
 		const items = [...kept, ...added];
 		const next = target
 			? sessions.map((s) => (s.id === target!.id ? { ...s, items } : s))
-			: [...sessions, { id: uuidv4(), items }];
+			: [...sessions, { id: crypto.randomUUID(), items }];
 		saveSessions(next, change.create);
 	}
 
@@ -464,7 +463,7 @@
 			patchSession(target.id, ({ slot: _old, ...rest }) => ({ ...rest, ...(slot && { slot }) }));
 			return;
 		}
-		const created: ProgramSession = { id: uuidv4(), ...(slot && { slot }), items: [] };
+		const created: ProgramSession = { id: crypto.randomUUID(), ...(slot && { slot }), items: [] };
 		saveSessions([...sessions, created]);
 		targetId = created.id;
 		showAdd = true;
