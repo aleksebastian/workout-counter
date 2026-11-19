@@ -2,7 +2,7 @@ import { deleteApp, initializeApp } from 'firebase/app';
 import { connectAuthEmulator, getAuth, signInWithCustomToken } from 'firebase/auth';
 import { connectFirestoreEmulator, doc, getFirestore, writeBatch } from 'firebase/firestore';
 import { getAuth as getAdminAuth } from 'firebase-admin/auth';
-import { PROJECT_ID, expect, readDoc, test } from './fixtures';
+import { DEFAULT_PREFERENCES, PROJECT_ID, expect, readDoc, test } from './fixtures';
 
 /**
  * Firestore rules, checked with the client SDK the app uses, signed in as a
@@ -25,15 +25,15 @@ async function signedInClient() {
 	return { app, db };
 }
 
+/** The batch `claimUsername` in src/lib/data.ts sends, plus any `extra` fields. */
 function claim(db: ReturnType<typeof getFirestore>, username: string, extra = {}) {
 	const batch = writeBatch(db);
 	batch.set(doc(db, 'usernames', username), { uid: NEW_UID });
-	batch.set(doc(db, 'users', NEW_UID), {
-		username,
-		photoURL: null,
-		preferences: {},
-		...extra
-	});
+	batch.set(
+		doc(db, 'users', NEW_UID),
+		{ username, photoURL: null, preferences: DEFAULT_PREFERENCES, ...extra },
+		{ merge: true }
+	);
 	return batch.commit();
 }
 
