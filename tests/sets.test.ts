@@ -70,7 +70,10 @@ test('the Record Set sheet saves what its steppers show', async ({ page }) => {
 test.describe('on a 375pt phone', () => {
 	test.use({ viewport: { width: 375, height: 667 } });
 
-	/** Types a long set into the card, then checks every stepper sits inside it. */
+	/** Clear space, in points, between a stepper and the card's edge or the divider. */
+	const MIN_ROOM = 8;
+
+	/** Types a long set into the card, then checks every stepper sits well inside it. */
 	async function expectLongSetToFit(scope: Locator) {
 		const weight = scope.getByRole('textbox', { name: 'weight', exact: true });
 		await weight.click();
@@ -80,21 +83,24 @@ test.describe('on a 375pt phone', () => {
 		await reps.fill('12');
 		await reps.blur();
 
-		const fit = await scope
-			.getByRole('button', { name: 'Increase weight by 10' })
-			.evaluate((button) => {
-				const card = button.closest('.rounded-2xl')!.getBoundingClientRect();
-				const [repsColumn, weightColumn] = button.closest('.rounded-2xl')!.firstElementChild!
-					.children as unknown as HTMLElement[];
-				const divider = weightColumn.getBoundingClientRect().left;
-				const glyphs = (el: Element) =>
-					[...el.querySelectorAll('button svg')].map((g) => g.getBoundingClientRect());
-				return {
-					weightInside: glyphs(weightColumn).every((g) => g.right <= card.right),
-					repsBeforeDivider: glyphs(repsColumn).every((g) => g.right <= divider)
-				};
-			});
-		expect(fit).toEqual({ weightInside: true, repsBeforeDivider: true });
+		// Not just inside: a glyph pressed up against the card's edge or the
+		// divider reads as cramped, or as the other column's, so leave room.
+		const room = await scope.getByTestId('set-card').evaluate((card) => {
+			const edge = card.getBoundingClientRect().right;
+			const repsColumn = card.querySelector('[data-testid="reps-column"]')!;
+			const weightColumn = card.querySelector('[data-testid="weight-column"]')!;
+			const divider = weightColumn.getBoundingClientRect().left;
+			const rightmost = (el: Element) =>
+				Math.max(
+					...[...el.querySelectorAll('button svg')].map((g) => g.getBoundingClientRect().right)
+				);
+			return {
+				weightToEdge: edge - rightmost(weightColumn),
+				repsToDivider: divider - rightmost(repsColumn)
+			};
+		});
+		expect(room.weightToEdge).toBeGreaterThanOrEqual(MIN_ROOM);
+		expect(room.repsToDivider).toBeGreaterThanOrEqual(MIN_ROOM);
 	}
 
 	test('a long set fits the Record Set sheet', async ({ page }) => {
