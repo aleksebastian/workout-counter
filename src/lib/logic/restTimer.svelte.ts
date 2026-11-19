@@ -9,6 +9,7 @@ import { currentSubscription } from '$lib/push';
 import type { Duration } from '$lib/types';
 import { readStorage, removeStorage, writeStorage } from '$lib/storage';
 import { formatSeconds } from '$lib/logic/measure';
+import { newId } from '$lib/utils';
 
 /**
  * The rest countdown, as a module rather than a pile of state in the root
@@ -33,7 +34,7 @@ let expiresAt: Date | undefined;
 /** The rest-end push; see `$lib/logic/restPush`. */
 const push = createRestPush({
 	canNotify: () => 'Notification' in window && Notification.permission === 'granted',
-	newId: () => crypto.randomUUID(),
+	newId,
 	async schedule(restId, delayMs, issuedAt) {
 		try {
 			// Names this device, so the rest's end is announced here and not on

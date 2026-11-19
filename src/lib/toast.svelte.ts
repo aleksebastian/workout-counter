@@ -1,5 +1,6 @@
 import { untrack } from 'svelte';
 import type { Toast } from '$lib/types';
+import { newId } from '$lib/utils';
 
 export type ValorizedToast = Toast & { id: string; timeout: number; dismissible: boolean };
 
@@ -22,7 +23,7 @@ export const toaster = {
 	 */
 	show(toast: Toast) {
 		untrack(() => {
-			const id = toast.id ?? crypto.randomUUID();
+			const id = toast.id ?? newId();
 			// De-dupe: a caller can pass a stable id so a repeated failure doesn't stack.
 			if (toasts.some((t) => t.id === id)) return;
 

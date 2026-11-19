@@ -52,7 +52,9 @@ export function setsByDay(sets: Set[]): { date: string; sets: Set[] }[] {
 	const days = new Map<string, Set[]>();
 	for (const set of sets) {
 		const key = new Date(set.date).toDateString();
-		days.set(key, [...(days.get(key) ?? []), set]);
+		const day = days.get(key);
+		if (day) day.push(set);
+		else days.set(key, [set]);
 	}
 	return [...days.values()]
 		.map((day) => ({ date: day[0].date, sets: day }))

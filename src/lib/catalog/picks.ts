@@ -1,6 +1,7 @@
 import type { Workout } from '$lib/types';
 import type { Catalog } from './catalog';
 import { planImport, type Library } from './plan';
+import { newId as randomId } from '$lib/utils';
 
 /**
  * Turns what the user ticked in the add-exercises sheet into library workout
@@ -30,7 +31,7 @@ export function resolvePicks(
 	catalog: Catalog | null,
 	options: { newId?: () => string; now?: number } = {}
 ): ResolvedPicks {
-	const newId = options.newId ?? (() => crypto.randomUUID());
+	const newId = options.newId ?? randomId;
 	let clock = options.now ?? Date.now();
 	const create: Workout[] = [];
 	const byPick: (string | null)[] = [];

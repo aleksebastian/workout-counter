@@ -9,6 +9,7 @@ import {
 } from '$lib/types';
 import { matchExercise, type Match } from './match';
 import type { CatalogBundle, CatalogExercise, CatalogKind } from './types';
+import { newId as randomId } from '$lib/utils';
 
 /**
  * Turns "add this catalog item" into the exact documents to write.
@@ -119,7 +120,7 @@ export function planImport(
 	library: Library,
 	options: PlanOptions = {}
 ): ImportPlan {
-	const newId = options.newId ?? (() => crypto.randomUUID());
+	const newId = options.newId ?? randomId;
 	// Consecutive timestamps keep created items in catalog order, since every
 	// collection is listed by `createdAt`.
 	let clock = options.now ?? Date.now();

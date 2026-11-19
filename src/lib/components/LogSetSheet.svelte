@@ -7,7 +7,7 @@
 	import { EQUIPMENT_LABELS, MUSCLE_LABELS, exerciseMatches } from '$lib/catalog/labels';
 	import { planImport } from '$lib/catalog/plan';
 	import { recordSet } from '$lib/logic/logSet';
-	import { getNameValidationMsg } from '$lib/utils';
+	import { getNameValidationMsg, newId } from '$lib/utils';
 	import BottomSheet from '$lib/components/BottomSheet.svelte';
 	import SetAdjuster from '$lib/components/SetAdjuster.svelte';
 	import MeasureEntry from '$lib/components/MeasureEntry.svelte';
@@ -150,7 +150,7 @@
 	function create(name: string) {
 		if (getNameValidationMsg('Workout', name, session.workouts)) return;
 		const workout: Workout = {
-			id: crypto.randomUUID(),
+			id: newId(),
 			name: name.trim(),
 			sets: [],
 			createdAt: Date.now()

@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const store = vi.hoisted(() => new Map<string, Record<string, unknown>>());
 
 vi.mock('$lib/server/admin', () => {
-	const DELETE = '__delete__';
 	const snapshot = (path: string) => ({
 		id: path.split('/').pop()!,
 		ref: docRef(path),
@@ -16,15 +15,7 @@ vi.mock('$lib/server/admin', () => {
 		return {
 			path,
 			get: async () => snapshot(path),
-			delete: async () => void store.delete(path),
-			update: async (fields: Record<string, unknown>) => {
-				const next = { ...store.get(path) };
-				for (const [k, v] of Object.entries(fields)) {
-					if (v === DELETE) delete next[k];
-					else next[k] = v;
-				}
-				store.set(path, next);
-			}
+			delete: async () => void store.delete(path)
 		};
 	}
 	const childrenOf = (path: string) =>
@@ -51,8 +42,6 @@ vi.mock('$lib/server/admin', () => {
 				return {
 					set: (ref: { path: string }, data: Record<string, unknown>) =>
 						ops.push(async () => void store.set(ref.path, data)),
-					update: (ref: ReturnType<typeof docRef>, fields: Record<string, unknown>) =>
-						ops.push(() => ref.update(fields)),
 					delete: (ref: ReturnType<typeof docRef>) => ops.push(() => ref.delete()),
 					commit: async () => {
 						for (const op of ops) await op();

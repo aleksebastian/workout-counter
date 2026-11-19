@@ -10,6 +10,7 @@ import {
 	type ProgramDay,
 	type Slot
 } from '$lib/types';
+import { newId as randomId } from '$lib/utils';
 
 /**
  * Importing a workout from a photo. The server has a model read the photo and
@@ -285,7 +286,7 @@ export function addSessions(
 	days: number[],
 	slot: Slot | undefined,
 	routineId: string,
-	newId: () => string = () => crypto.randomUUID()
+	newId: () => string = randomId
 ): ProgramDay[] {
 	return days.reduce((next, day) => {
 		if (runsRoutine(next, day, slot, routineId)) return next;

@@ -6,6 +6,7 @@ import { HAPTIC } from '$lib/haptic';
 import { toaster } from '$lib/toast.svelte';
 import { isTimed } from '$lib/logic/measure';
 import type { Measure, Set } from '$lib/types';
+import { newId } from '$lib/utils';
 
 /**
  * Recording one set, the same everywhere a set is logged (the run screen,
@@ -42,7 +43,7 @@ export function recordSet(
 	}
 ): { set: Set; saved: Promise<boolean> } {
 	const set: Set = {
-		id: crypto.randomUUID(),
+		id: newId(),
 		reps: draft.reps,
 		date: draft.date ?? new Date().toISOString(),
 		...(draft.weight > 0 ? { weight: draft.weight } : {}),
