@@ -47,8 +47,10 @@ const adminAuth = getAuth();
  * database — other workers are using it.
  */
 export async function deleteAccountData(uid: string, username: string) {
-	await adminDB.recursiveDelete(adminDB.doc(`users/${uid}`));
-	await adminDB.doc(`usernames/${username}`).delete();
+	await Promise.all([
+		adminDB.recursiveDelete(adminDB.doc(`users/${uid}`)),
+		adminDB.doc(`usernames/${username}`).delete()
+	]);
 }
 
 export const DEFAULT_PREFERENCES = {
