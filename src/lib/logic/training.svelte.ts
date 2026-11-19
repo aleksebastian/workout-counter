@@ -1,5 +1,4 @@
 import { formatDistanceToNow } from 'date-fns';
-import { v4 as uuidv4 } from 'uuid';
 import { sessions as repo } from '$lib/data';
 import { session } from '$lib/session.svelte';
 import { toaster } from '$lib/toast.svelte';
@@ -33,6 +32,7 @@ import type {
 	Set,
 	SetTimer
 } from '$lib/types';
+import { newId } from '$lib/utils';
 
 /**
  * The workout in progress. It's stored on the user document (see
@@ -234,7 +234,7 @@ export const training = {
 		const plan = buildPlan(source, lookups) ?? [];
 		const now = Date.now();
 		const s: ActiveSession = {
-			id: uuidv4(),
+			id: newId(),
 			source,
 			name: sourceName(source, lookups) ?? '',
 			startedAt: now,

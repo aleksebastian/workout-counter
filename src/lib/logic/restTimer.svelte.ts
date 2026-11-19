@@ -1,5 +1,4 @@
 import { add } from 'date-fns';
-import { v4 as uuidv4 } from 'uuid';
 import { HAPTIC } from '$lib/haptic';
 import { session } from '$lib/session.svelte';
 import { user } from '$lib/data';
@@ -9,6 +8,8 @@ import { REST_OFFER_ANSWERED_KEY as OFFER_ANSWERED_KEY } from '$lib/logic/accoun
 import { currentSubscription } from '$lib/push';
 import type { Duration } from '$lib/types';
 import { readStorage, removeStorage, writeStorage } from '$lib/storage';
+import { formatSeconds } from '$lib/logic/measure';
+import { newId } from '$lib/utils';
 
 /**
  * The rest countdown, as a module rather than a pile of state in the root
@@ -33,7 +34,7 @@ let expiresAt: Date | undefined;
 /** The rest-end push; see `$lib/logic/restPush`. */
 const push = createRestPush({
 	canNotify: () => 'Notification' in window && Notification.permission === 'granted',
-	newId: uuidv4,
+	newId,
 	async schedule(restId, delayMs, issuedAt) {
 		try {
 			// Names this device, so the rest's end is announced here and not on
@@ -60,12 +61,8 @@ const push = createRestPush({
 	}
 });
 
-function format(ms: number): string {
-	const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
-	const m = Math.floor(totalSeconds / 60);
-	const s = totalSeconds % 60;
-	return `${m}:${s < 10 ? '0' : ''}${s}`;
-}
+/** A countdown rounds up: it shows 0:00 only once the rest is over. */
+const format = (ms: number) => formatSeconds(Math.ceil(ms / 1000));
 
 /** An explicit duration wins; otherwise see `pickRest`. */
 function resolve(opts: StartOptions): Rest | null {

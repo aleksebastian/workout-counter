@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const store = vi.hoisted(() => new Map<string, Record<string, unknown>>());
 
 vi.mock('$lib/server/admin', () => {
-	const DELETE = '__delete__';
 	const snapshot = (path: string) => ({
 		id: path.split('/').pop()!,
 		ref: docRef(path),
@@ -16,15 +15,7 @@ vi.mock('$lib/server/admin', () => {
 		return {
 			path,
 			get: async () => snapshot(path),
-			delete: async () => void store.delete(path),
-			update: async (fields: Record<string, unknown>) => {
-				const next = { ...store.get(path) };
-				for (const [k, v] of Object.entries(fields)) {
-					if (v === DELETE) delete next[k];
-					else next[k] = v;
-				}
-				store.set(path, next);
-			}
+			delete: async () => void store.delete(path)
 		};
 	}
 	const childrenOf = (path: string) =>
@@ -51,8 +42,6 @@ vi.mock('$lib/server/admin', () => {
 				return {
 					set: (ref: { path: string }, data: Record<string, unknown>) =>
 						ops.push(async () => void store.set(ref.path, data)),
-					update: (ref: ReturnType<typeof docRef>, fields: Record<string, unknown>) =>
-						ops.push(() => ref.update(fields)),
 					delete: (ref: ReturnType<typeof docRef>) => ops.push(() => ref.delete()),
 					commit: async () => {
 						for (const op of ops) await op();
@@ -76,7 +65,6 @@ vi.mock('$lib/server/admin', () => {
 		}
 	};
 });
-vi.mock('firebase-admin/firestore', () => ({ FieldValue: { delete: () => '__delete__' } }));
 vi.mock('$env/static/private', () => ({ VAPID_PRIVATE_KEY: 'k', VAPID_SUBJECT: 'mailto:x' }));
 vi.mock('$env/static/public', () => ({ PUBLIC_VAPID_PUBLIC_KEY: 'p' }));
 
@@ -118,9 +106,10 @@ describe('per-device push', () => {
 	});
 
 	it('keeps every device a user registers, instead of the last one replacing the rest', async () => {
-		await saveDevice('u1', sub('phone'));
-		await saveDevice('u1', sub('ipad'));
-		await sendPushToUser('u1');
+		const phone = (await saveDevice('u1', sub('phone')))!;
+		const ipad = (await saveDevice('u1', sub('ipad')))!;
+		await sendPushToUser('u1', phone);
+		await sendPushToUser('u1', ipad);
 		expect(sent.endpoints.sort()).toEqual([sub('ipad').endpoint, sub('phone').endpoint]);
 	});
 
@@ -135,7 +124,6 @@ describe('per-device push', () => {
 		const ipad = (await saveDevice('u1', sub('ipad')))!;
 		await saveDevice('u2', sub('ipad'));
 		await sendPushToUser('u1', ipad);
-		await sendPushToUser('u1');
 		expect(sent.endpoints).toEqual([]);
 		await sendPushToUser('u2', ipad);
 		expect(sent.endpoints).toEqual([sub('ipad').endpoint]);
@@ -165,41 +153,19 @@ describe('per-device push', () => {
 		expect(store.has(deviceDoc('phone'))).toBe(false);
 	});
 
-	it('forgets an expired device and still notifies the others', async () => {
-		await saveDevice('u1', sub('phone'));
+	it('forgets an expired device, without a retry, and keeps the others', async () => {
+		const phone = (await saveDevice('u1', sub('phone')))!;
 		await saveDevice('u1', sub('ipad'));
 		sent.gone.add(sub('phone').endpoint);
-		await sendPushToUser('u1');
-		expect(sent.endpoints).toEqual([sub('ipad').endpoint]);
+		await expect(sendPushToUser('u1', phone)).resolves.toBeUndefined();
 		expect(store.has(deviceDoc('phone'))).toBe(false);
+		expect(store.has(deviceDoc('ipad'))).toBe(true);
 	});
 
-	it("doesn't fail — and so get retried — when one device of several is down", async () => {
-		await saveDevice('u1', sub('phone'));
-		await saveDevice('u1', sub('ipad'));
-		sent.down.add(sub('ipad').endpoint);
-		await expect(sendPushToUser('u1')).resolves.toBeUndefined();
-		expect(sent.endpoints).toEqual([sub('phone').endpoint]);
-	});
-
-	it('fails, so the send is retried, when no device could be reached', async () => {
+	it('fails, so the send is retried, when the push service is down', async () => {
 		const phone = (await saveDevice('u1', sub('phone')))!;
 		sent.down.add(sub('phone').endpoint);
 		await expect(sendPushToUser('u1', phone)).rejects.toThrow('down');
-	});
-
-	it('still reaches a subscription in the old single-device field', async () => {
-		store.set('users/u1', { username: 'coach', pushSubscription: sub('old') });
-		await sendPushToUser('u1');
-		expect(sent.endpoints).toEqual([sub('old').endpoint]);
-	});
-
-	it("moves the old field over as a device of its own, even when it's another device", async () => {
-		store.set('users/u1', { username: 'coach', pushSubscription: sub('ipad') });
-		await saveDevice('u1', sub('phone'));
-		expect(store.get('users/u1')).toEqual({ username: 'coach' });
-		await sendPushToUser('u1');
-		expect(sent.endpoints.sort()).toEqual([sub('ipad').endpoint, sub('phone').endpoint]);
 	});
 
 	it('keeps at most the most recently used devices, and drops stale ones', async () => {

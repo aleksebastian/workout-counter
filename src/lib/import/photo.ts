@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from 'uuid';
 import { catalogExerciseNamed, normalizeName } from '$lib/catalog/match';
 import { DAY_FULL, DAY_NAMES } from '$lib/constants';
 import type { CatalogBundle, CatalogExercise } from '$lib/catalog/types';
@@ -11,6 +10,7 @@ import {
 	type ProgramDay,
 	type Slot
 } from '$lib/types';
+import { newId as randomId } from '$lib/utils';
 
 /**
  * Importing a workout from a photo. The server has a model read the photo and
@@ -286,7 +286,7 @@ export function addSessions(
 	days: number[],
 	slot: Slot | undefined,
 	routineId: string,
-	newId: () => string = uuidv4
+	newId: () => string = randomId
 ): ProgramDay[] {
 	return days.reduce((next, day) => {
 		if (runsRoutine(next, day, slot, routineId)) return next;

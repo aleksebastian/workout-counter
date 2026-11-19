@@ -32,8 +32,9 @@ export const POST: RequestHandler = async ({ request, url }) => {
 		throw error(400, 'Invalid request body');
 	}
 	if (!uid || typeof uid !== 'string') throw error(400, 'Missing uid');
+	if (!deviceId || typeof deviceId !== 'string') throw error(400, 'Missing deviceId');
 
-	await sendPushToUser(uid, typeof deviceId === 'string' && deviceId ? deviceId : undefined);
+	await sendPushToUser(uid, deviceId);
 
 	return json({ ok: true });
 };

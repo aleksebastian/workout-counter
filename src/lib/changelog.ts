@@ -21,6 +21,14 @@ export interface ChangelogEntry {
 /** Newest first. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.21.2',
+		date: '2026-11-19',
+		improved: ['The app is a little smaller to download, after a tidy-up behind the scenes'],
+		fixed: [
+			'The global rest timer is on only if you switched it on in Preferences; if it went quiet after this update, switch it on there again'
+		]
+	},
+	{
 		version: '0.21.1',
 		date: '2026-11-19',
 		improved: [

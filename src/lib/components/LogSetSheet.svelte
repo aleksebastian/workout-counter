@@ -7,14 +7,13 @@
 	import { EQUIPMENT_LABELS, MUSCLE_LABELS, exerciseMatches } from '$lib/catalog/labels';
 	import { planImport } from '$lib/catalog/plan';
 	import { recordSet } from '$lib/logic/logSet';
-	import { counted, getNameValidationMsg } from '$lib/utils';
+	import { getNameValidationMsg, newId } from '$lib/utils';
 	import BottomSheet from '$lib/components/BottomSheet.svelte';
 	import SetAdjuster from '$lib/components/SetAdjuster.svelte';
 	import MeasureEntry from '$lib/components/MeasureEntry.svelte';
 	import { formatSet, isTimed, measureOf, unitsOf } from '$lib/logic/measure';
-	import { isRecord } from '$lib/logic/history';
+	import { isRecord, lastDoneAt } from '$lib/logic/history';
 	import Chevron from '$lib/components/Chevron.svelte';
-	import { v4 as uuidv4 } from 'uuid';
 	import type { Measure, Workout } from '$lib/types';
 
 	/**
@@ -54,13 +53,9 @@
 		choice = null;
 	});
 
-	let unit = $derived(session.prefs.weightUnit === 'kg' ? 'kg' : 'lb');
 	let workouts = $derived(session.workouts ?? []);
 	let query = $derived(normalizeName(search));
 	const hit = (name: string) => !query || normalizeName(name).includes(query);
-
-	const lastDone = (w: Workout) =>
-		w.sets.reduce((latest, s) => Math.max(latest, Date.parse(s.date)), 0);
 
 	function lastLine(w: Workout): string {
 		const last = w.sets.at(-1);
@@ -77,7 +72,7 @@
 			? []
 			: workouts
 					.filter((w) => w.sets.length)
-					.sort((a, b) => lastDone(b) - lastDone(a))
+					.sort((a, b) => lastDoneAt(b) - lastDoneAt(a))
 					.slice(0, 5)
 	);
 	let all = $derived(
@@ -154,7 +149,12 @@
 	// the exercise created just before it.
 	function create(name: string) {
 		if (getNameValidationMsg('Workout', name, session.workouts)) return;
-		const workout: Workout = { id: uuidv4(), name: name.trim(), sets: [], createdAt: Date.now() };
+		const workout: Workout = {
+			id: newId(),
+			name: name.trim(),
+			sets: [],
+			createdAt: Date.now()
+		};
 		exercises.put(workout);
 		pick({ kind: 'library', workoutId: workout.id, name: workout.name });
 	}
@@ -188,15 +188,11 @@
 	);
 
 	let draftLabel = $derived(
-		measure !== 'reps'
-			? formatSet(
-					{ id: '', date: '', reps, seconds, meters, holdSeconds },
-					measure,
-					unitsOf(session.prefs)
-				)
-			: weight > 0
-				? `${weight} ${unit} × ${reps}`
-				: `${counted(reps, 'rep')}${weightUnset ? ' · no weight' : ''}`
+		formatSet(
+			{ id: '', date: '', reps, weight, seconds, meters, holdSeconds },
+			measure,
+			unitsOf(session.prefs)
+		) + (measure === 'reps' && !(weight > 0) && weightUnset ? ' · no weight' : '')
 	);
 </script>
 

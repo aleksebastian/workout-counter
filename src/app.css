@@ -2,8 +2,6 @@
 @import 'tailwindcss/preflight' layer(base);
 @import 'tailwindcss/utilities' layer(utilities);
 
-@plugin '@tailwindcss/typography';
-
 @plugin 'daisyui' {
 	themes:
 		emerald --default,

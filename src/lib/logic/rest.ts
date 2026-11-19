@@ -15,22 +15,14 @@ export function formatDuration(d: Duration): string {
 }
 
 /**
- * Stored preferences with defaults applied.
- *
- * The global timer used to have no on/off switch — 0:00 was the only way to
- * turn it off, and clearing the inputs could save that by accident. Now it is
- * an explicit `timerEnabled` flag next to a duration that is always usable, so
- * switching the timer back on restores a real value instead of 0:00.
- *
- * Accounts saved before the flag existed keep the behaviour they had: a stored
- * non-zero duration means on, a stored 0:00 means off. Accounts with no stored
- * timer at all get the default, which is off — the first set offers it instead.
+ * Stored preferences with defaults applied. The global timer is on only with
+ * `timerEnabled` and a duration above 0:00; a 0:00 duration is replaced by the
+ * default, so switching the timer on always restores a real value.
  */
 export function resolvePreferences(stored: Partial<Preferences> | undefined): Preferences {
 	const timer = { ...DEFAULT_PREFERENCES.timer, ...stored?.timer };
 	const usable = durationMs(timer) > 0;
-	const enabled =
-		stored?.timerEnabled ?? (stored?.timer ? usable : DEFAULT_PREFERENCES.timerEnabled);
+	const enabled = stored?.timerEnabled ?? DEFAULT_PREFERENCES.timerEnabled;
 
 	const weightUnit = stored?.weightUnit ?? DEFAULT_PREFERENCES.weightUnit;
 	return {
@@ -73,21 +65,14 @@ export function routineIdFromHref(href: string | null | undefined): string | und
 /** A running rest as kept in localStorage, so it survives a reload. */
 export type StoredRest = { expiresAt: number; restId: string | null };
 
-/**
- * Reads a stored rest back. Older builds stored just the expiry as an ISO
- * string; anything unreadable is `null`, which restores nothing.
- */
+/** Reads a stored rest back; anything unreadable is `null`, which restores nothing. */
 export function parseStoredRest(raw: string | null): StoredRest | null {
 	if (!raw) return null;
-	let value: unknown = raw;
+	let value: unknown;
 	try {
 		value = JSON.parse(raw);
 	} catch {
-		// Not JSON: the old bare ISO string.
-	}
-	if (typeof value === 'string') {
-		const expiresAt = new Date(value).getTime();
-		return Number.isFinite(expiresAt) ? { expiresAt, restId: null } : null;
+		return null;
 	}
 	const stored = value as Partial<StoredRest> | null;
 	if (typeof stored?.expiresAt !== 'number' || !Number.isFinite(stored.expiresAt)) return null;

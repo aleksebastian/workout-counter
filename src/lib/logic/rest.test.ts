@@ -18,15 +18,14 @@ describe('resolvePreferences', () => {
 		expect(prefs.timer).toEqual(DEFAULT_PREFERENCES.timer);
 	});
 
-	it('keeps an older account with a saved duration on', () => {
+	it('keeps a saved duration, off unless switched on', () => {
 		const prefs = resolvePreferences({ timer: { minutes: 2, seconds: 0 } });
-		expect(prefs.timerEnabled).toBe(true);
+		expect(prefs.timerEnabled).toBe(false);
 		expect(prefs.timer).toEqual({ minutes: 2, seconds: 0 });
 	});
 
-	it('reads a saved 0:00 as off, with a real duration to switch back on to', () => {
+	it('replaces a saved 0:00 with a real duration to switch on to', () => {
 		const prefs = resolvePreferences({ timer: { minutes: 0, seconds: 0 } });
-		expect(prefs.timerEnabled).toBe(false);
 		expect(prefs.timer).toEqual(DEFAULT_PREFERENCES.timer);
 	});
 
@@ -88,11 +87,6 @@ describe('parseStoredRest', () => {
 			expiresAt: 1000,
 			restId: 'm1'
 		});
-	});
-
-	it('reads the bare ISO string older builds stored', () => {
-		const iso = '2026-10-19T12:00:00.000Z';
-		expect(parseStoredRest(iso)).toEqual({ expiresAt: Date.parse(iso), restId: null });
 	});
 
 	it('drops a missing or malformed rest id', () => {

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { counted } from '$lib/utils';
 	import { DAY_FULL } from '$lib/constants';
 	import { discoverItemHref } from '$lib/routes';
 	import type { Catalog, CatalogProgram } from '$lib/catalog';
@@ -50,8 +51,7 @@
 									class="bg-base-200 hover:bg-base-300 rounded-box flex items-center gap-3 px-4 py-3 transition-colors active:scale-[0.99]"
 								>
 									<span class="min-w-0 flex-1 truncate text-sm font-semibold">{exercise.name}</span>
-									<span class="text-base-content/40 text-xs"
-										>{item.targetSets} set{item.targetSets > 1 ? 's' : ''}</span
+									<span class="text-base-content/40 text-xs">{counted(item.targetSets, 'set')}</span
 									>
 									<Chevron />
 								</a>

@@ -1,12 +1,11 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { untrack } from 'svelte';
-	import { v4 as uuidv4 } from 'uuid';
 	import BottomSheet from '$lib/components/BottomSheet.svelte';
 	import { library, type ProgramChange } from '$lib/data';
 	import { session } from '$lib/session.svelte';
 	import { toaster } from '$lib/toast.svelte';
-	import { getNameValidationMsg } from '$lib/utils';
+	import { getNameValidationMsg, newId } from '$lib/utils';
 	import { libraryItemHref } from '$lib/routes';
 	import {
 		loadCatalog,
@@ -404,7 +403,7 @@
 					return;
 				}
 				const program: Program = {
-					id: uuidv4(),
+					id: newId(),
 					name: d.newProgramName.trim(),
 					schedule: addSessions([], d.days, d.slot, routineId),
 					createdAt: Date.now()

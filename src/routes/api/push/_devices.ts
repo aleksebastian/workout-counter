@@ -1,5 +1,4 @@
 import { createHash } from 'node:crypto';
-import { FieldValue } from 'firebase-admin/firestore';
 import { adminDB } from '$lib/server/admin';
 
 /**
@@ -11,9 +10,6 @@ import { adminDB } from '$lib/server/admin';
  * Keyed by device rather than nested under a user so a device belongs to one
  * account at a time: when someone else signs in on it, registering moves it
  * over, and the previous account can no longer ring it.
- *
- * Before this, the user document held a single `pushSubscription`, so each
- * device that registered replaced the one before it.
  */
 export type PushSubscription = { endpoint: string; keys: { p256dh: string; auth: string } };
 export type Device = { id: string; subscription: PushSubscription };
@@ -69,35 +65,26 @@ function toDevice(doc: FirebaseFirestore.DocumentSnapshot): Device | null {
 
 /**
  * Registers (or refreshes) a device for `uid`, taking it over from any other
- * account. Also folds in a subscription still in the old single-device field,
- * and trims devices that are stale or over the cap. Returns the device id, or
- * null when `uid` has no user document — a deleted account whose session
- * cookie hasn't run out, which mustn't leave a device behind.
+ * account, and trims devices that are stale or over the cap. Returns the
+ * device id, or null when `uid` has no user document — a deleted account
+ * whose session cookie hasn't run out, which mustn't leave a device behind.
  */
 export async function saveDevice(uid: string, subscription: PushSubscription, now = Date.now()) {
 	const id = deviceIdFor(subscription.endpoint);
-	const userRef = adminDB.doc(`users/${uid}`);
-	const [user, owned] = await Promise.all([userRef.get(), devices().where('uid', '==', uid).get()]);
+	const [user, owned] = await Promise.all([
+		adminDB.doc(`users/${uid}`).get(),
+		devices().where('uid', '==', uid).get()
+	]);
 	if (!user.exists) return null;
 
 	const batch = adminDB.batch();
 	batch.set(devices().doc(id), { ...subscription, uid, updatedAt: now });
 
-	// The old field may hold this device or another one that hasn't updated
-	// yet; either way it becomes a device of its own rather than being dropped.
-	const legacy = cleanSubscription(user.get('pushSubscription'));
-	const legacyId =
-		legacy && legacy.endpoint !== subscription.endpoint ? deviceIdFor(legacy.endpoint) : null;
-	if (user.get('pushSubscription') !== undefined) {
-		batch.update(userRef, { pushSubscription: FieldValue.delete() });
-	}
-	if (legacy && legacyId) batch.set(devices().doc(legacyId), { ...legacy, uid, updatedAt: now });
-
 	const others = owned.docs
-		.filter((doc) => doc.id !== id && doc.id !== legacyId)
+		.filter((doc) => doc.id !== id)
 		.map((doc) => ({ ref: doc.ref, updatedAt: Number(doc.get('updatedAt')) || 0 }))
 		.sort((a, b) => b.updatedAt - a.updatedAt);
-	const room = MAX_DEVICES_PER_USER - 1 - (legacyId ? 1 : 0);
+	const room = MAX_DEVICES_PER_USER - 1;
 	others.forEach((doc, i) => {
 		if (i >= room || now - doc.updatedAt > STALE_AFTER_MS) batch.delete(doc.ref);
 	});
@@ -123,33 +110,13 @@ export async function removeAllDevices(uid: string) {
 	await batch.commit();
 }
 
-/**
- * The devices to notify: just `deviceId` when given, and only while it's still
- * this user's; otherwise every device, plus a subscription still in the old
- * single-device field — for clients and already-queued pushes from before
- * devices were tracked separately.
- */
-export async function devicesToNotify(uid: string, deviceId?: string): Promise<Device[]> {
-	if (deviceId) {
-		const doc = await devices().doc(deviceId).get();
-		const device = doc.get('uid') === uid ? toDevice(doc) : null;
-		return device ? [device] : [];
-	}
-
-	const [owned, user] = await Promise.all([
-		devices().where('uid', '==', uid).get(),
-		adminDB.doc(`users/${uid}`).get()
-	]);
-	const found = owned.docs.map(toDevice).filter((d): d is Device => d !== null);
-	const legacy = cleanSubscription(user.get('pushSubscription'));
-	if (legacy && !found.some((d) => d.subscription.endpoint === legacy.endpoint)) {
-		found.push({ id: '', subscription: legacy });
-	}
-	return found;
+/** The device that started a rest, while it's still this user's to notify. */
+export async function deviceToNotify(uid: string, deviceId: string): Promise<Device | null> {
+	const doc = await devices().doc(deviceId).get();
+	return doc.get('uid') === uid ? toDevice(doc) : null;
 }
 
 /** Forgets a device whose push service says it's gone. */
-export async function dropDevice(uid: string, device: Device) {
-	if (device.id) await devices().doc(device.id).delete();
-	else await adminDB.doc(`users/${uid}`).update({ pushSubscription: FieldValue.delete() });
+export async function dropDevice(device: Device) {
+	await devices().doc(device.id).delete();
 }

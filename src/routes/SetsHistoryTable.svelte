@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { counted } from '$lib/utils';
-	import { v4 as uuidv4 } from 'uuid';
+	import { setsByDay } from '$lib/logic/history';
+	import { counted, newId } from '$lib/utils';
 	import { format, formatRelative } from 'date-fns';
 	import EditSetSheet from '$lib/components/EditSetSheet.svelte';
 	import {
@@ -48,22 +48,13 @@
 
 	type DayGroup = { date: string; sets: Set[]; totalReps: number; totalSeconds: number };
 
-	let sessionDays = $derived.by((): DayGroup[] => {
-		const groups = new Map<string, Set[]>();
-		for (const set of workout.sets) {
-			const key = format(new Date(set.date), 'M/dd/yyyy');
-			if (!groups.has(key)) groups.set(key, []);
-			groups.get(key)!.push(set);
-		}
-		return [...groups.entries()]
-			.map(([date, sets]) => ({
-				date,
-				sets,
-				totalReps: sets.reduce((sum, s) => sum + s.reps, 0),
-				totalSeconds: sets.reduce((sum, s) => sum + (s.seconds ?? 0), 0)
-			}))
-			.reverse();
-	});
+	let sessionDays = $derived(
+		setsByDay(workout.sets).map((day): DayGroup => ({
+			...day,
+			totalReps: day.sets.reduce((sum, s) => sum + s.reps, 0),
+			totalSeconds: day.sets.reduce((sum, s) => sum + (s.seconds ?? 0), 0)
+		}))
+	);
 
 	function dayHeading(date: string) {
 		const relative = formatRelative(new Date(date), new Date());
@@ -77,7 +68,7 @@
 	function duplicate(set: Set) {
 		HAPTIC.success();
 		const copy: Set = {
-			id: uuidv4(),
+			id: newId(),
 			reps: set.reps,
 			date: new Date().toISOString(),
 			...(set.weight ? { weight: set.weight } : {}),

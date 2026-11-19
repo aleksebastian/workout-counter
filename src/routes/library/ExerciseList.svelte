@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { lastDoneAt } from '$lib/logic/history';
 	import { goto } from '$app/navigation';
 	import { formatDistanceToNow } from 'date-fns';
 	import { exercises } from '$lib/data';
@@ -35,8 +36,8 @@
 	let deleteDialog = $state<HTMLDialogElement>()!;
 
 	function lastSetDate(workout: Workout): Date | null {
-		if (!workout.sets.length) return null;
-		return new Date(Math.max(...workout.sets.map((s) => new Date(s.date).getTime())));
+		const at = lastDoneAt(workout);
+		return at ? new Date(at) : null;
 	}
 
 	function sortWorkouts(list: Workout[]): Workout[] {

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { counted } from '$lib/utils';
 	import BottomSheet from '$lib/components/BottomSheet.svelte';
 	import { holdRepeat } from '$lib/actions/holdRepeat';
 	import {
@@ -178,7 +179,7 @@
 		<p class="text-base-content/40 -mt-1 px-1 text-xs">
 			{draft.targetSets === null
 				? 'Free-form — you decide when to move on during a session.'
-				: `The session advances after ${draft.targetSets} set${draft.targetSets === 1 ? '' : 's'}.`}
+				: `The session advances after ${counted(draft.targetSets, 'set')}.`}
 		</p>
 
 		{#if timed}

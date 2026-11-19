@@ -3,8 +3,10 @@ import {
 	estimateMinutes,
 	historyFeed,
 	isRecord,
+	lastDoneAt,
 	logDuration,
 	recordIds,
+	setsByDay,
 	streakTarget,
 	topSet,
 	vsLast,
@@ -278,5 +280,31 @@ describe('records by measure', () => {
 			measure: 'time'
 		};
 		expect(vsLast(bike, [bike.sets[1]], 'lb')).toBe('+2:00 vs last');
+	});
+});
+
+describe('setsByDay', () => {
+	it('groups by calendar day, newest day first, keeping each day in order', () => {
+		const a = set(0, 10);
+		const b = set(5, 8);
+		const c = set(DAY, 6);
+		const days = setsByDay([a, b, c]);
+		expect(days.map((d) => d.sets)).toEqual([[c], [a, b]]);
+		expect(days[0].date).toBe(c.date);
+	});
+
+	it('is empty for no sets', () => {
+		expect(setsByDay([])).toEqual([]);
+	});
+});
+
+describe('lastDoneAt', () => {
+	it('is the latest set, whatever order they are stored in', () => {
+		const later = set(DAY, 5);
+		expect(lastDoneAt(workout('w', [later, set(0, 5)]))).toBe(Date.parse(later.date));
+	});
+
+	it('is 0 for an exercise never done', () => {
+		expect(lastDoneAt(workout('w', []))).toBe(0);
 	});
 });

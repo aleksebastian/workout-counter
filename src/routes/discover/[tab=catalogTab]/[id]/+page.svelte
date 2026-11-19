@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { counted } from '$lib/utils';
 	import { library as libraryRepo, user } from '$lib/data';
 	import { session } from '$lib/session.svelte';
 	import { setPageNav } from '$lib/nav.svelte';
@@ -59,10 +60,6 @@
 	);
 
 	// ── Summary ─────────────────────────────────────────────────────────────────
-	function counted(n: number, noun: string) {
-		return `${n} ${noun}${n === 1 ? '' : 's'}`;
-	}
-
 	/** What tapping Add will actually do, in a line or two. */
 	let summary = $derived.by(() => {
 		if (!plan || inLibrary || data.kind === 'exercise') return [];

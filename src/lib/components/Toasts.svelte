@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { toaster } from '$lib/toast.svelte';
-	import Toast from './Toast_v2.svelte';
+	import Toast from './Toast.svelte';
 
 	interface Props {
 		/** CSS `bottom`, so toasts can sit above whatever is pinned to the bottom edge. */

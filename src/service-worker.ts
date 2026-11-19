@@ -94,18 +94,13 @@ sw.addEventListener('fetch', (event) => {
 	// data — and other origins' files are never ours to cache.
 	if (url.origin !== sw.location.origin) return;
 
+	// SvelteKit's server data: the root layout's guard (the only server load)
+	// runs on full page loads, which come through as navigations below. Kept
+	// out of the cache, where an auth redirect would outlive the sign-in.
+	if (url.pathname.endsWith('/__data.json')) return;
+
 	event.respondWith(respond(event.request, url));
 });
-
-/** True when a SvelteKit data response is really a redirect instruction. */
-async function isRedirectPayload(response: Response): Promise<boolean> {
-	try {
-		const body = await response.clone().json();
-		return body?.type === 'redirect';
-	} catch {
-		return false;
-	}
-}
 
 async function respond(request: Request, url: URL): Promise<Response> {
 	const cache = await caches.open(CACHE);
@@ -115,57 +110,6 @@ async function respond(request: Request, url: URL): Promise<Response> {
 	if (ASSET_PATHS.has(url.pathname)) {
 		const cached = await cache.match(url.pathname);
 		if (cached) return cached;
-	}
-
-	// ── Stale-while-revalidate for SvelteKit data requests ────────────────────
-	// SvelteKit client-side navigation fetches /<route>/__data.json for server
-	// load data. These are NOT navigate-mode requests, so they'd fall through to
-	// network-first. For uncached routes offline this causes a fetch failure and
-	// SvelteKit renders its bare default error page. Fix: treat them like the
-	// navigation handler — stale-while-revalidate, with a cross-route fallback
-	// (valid since the layout server returns no data for any signed-in route).
-	if (url.pathname.endsWith('/__data.json')) {
-		// Routes whose data is an auth redirect while signed out (see
-		// +layout.server.ts): never cache them, or the redirect outlives sign-in.
-		const isSensitive =
-			url.pathname.startsWith('/login') ||
-			url.pathname.startsWith('/preferences') ||
-			url.pathname === '/__data.json';
-
-		const cached = isSensitive ? undefined : await cache.match(request);
-
-		const networkPromise = fetch(request)
-			.then(async (response) => {
-				// SvelteKit serialises a redirect as HTTP 200 with a {"type":"redirect"}
-				// body. Caching one pins the redirect in place for every later
-				// navigation until the next deploy changes CACHE — so an auth bounce
-				// survives the user actually signing in.
-				if (response.status === 200 && !isSensitive && !(await isRedirectPayload(response))) {
-					cache.put(request, response.clone());
-				}
-				return response;
-			})
-			.catch(() => null);
-
-		if (cached) {
-			networkPromise.catch(() => {});
-			return cached;
-		}
-
-		const fresh = await networkPromise;
-		if (fresh) return fresh;
-
-		// Offline and this exact URL was never cached — return any cached
-		// __data.json response as a stand-in (layout data is route-agnostic).
-		const allKeys = await cache.keys();
-		for (const key of allKeys) {
-			if (new URL(key.url).pathname.endsWith('/__data.json')) {
-				const fallback = await cache.match(key);
-				if (fallback) return fallback;
-			}
-		}
-
-		return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
 	}
 
 	// ── Stale-while-revalidate for navigation (HTML) ───────────────────────────

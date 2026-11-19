@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from 'uuid';
 import {
 	daySessions,
 	type Program,
@@ -10,6 +9,7 @@ import {
 } from '$lib/types';
 import { matchExercise, type Match } from './match';
 import type { CatalogBundle, CatalogExercise, CatalogKind } from './types';
+import { newId as randomId } from '$lib/utils';
 
 /**
  * Turns "add this catalog item" into the exact documents to write.
@@ -120,7 +120,7 @@ export function planImport(
 	library: Library,
 	options: PlanOptions = {}
 ): ImportPlan {
-	const newId = options.newId ?? uuidv4;
+	const newId = options.newId ?? randomId;
 	// Consecutive timestamps keep created items in catalog order, since every
 	// collection is listed by `createdAt`.
 	let clock = options.now ?? Date.now();

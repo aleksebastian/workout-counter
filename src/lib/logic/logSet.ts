@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from 'uuid';
 import { exercises } from '$lib/data';
 import { session } from '$lib/session.svelte';
 import { restTimer } from '$lib/logic/restTimer.svelte';
@@ -7,6 +6,7 @@ import { HAPTIC } from '$lib/haptic';
 import { toaster } from '$lib/toast.svelte';
 import { isTimed } from '$lib/logic/measure';
 import type { Measure, Set } from '$lib/types';
+import { newId } from '$lib/utils';
 
 /**
  * Recording one set, the same everywhere a set is logged (the run screen,
@@ -43,7 +43,7 @@ export function recordSet(
 	}
 ): { set: Set; saved: Promise<boolean> } {
 	const set: Set = {
-		id: uuidv4(),
+		id: newId(),
 		reps: draft.reps,
 		date: draft.date ?? new Date().toISOString(),
 		...(draft.weight > 0 ? { weight: draft.weight } : {}),

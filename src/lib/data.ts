@@ -9,7 +9,6 @@ import {
 	writeBatch,
 	type DocumentReference
 } from 'firebase/firestore';
-import { v4 as uuidv4 } from 'uuid';
 import { db } from '$lib/firebase';
 import { session } from '$lib/session.svelte';
 import { toaster } from '$lib/toast.svelte';
@@ -30,6 +29,7 @@ import type {
 	SetTimer,
 	Workout
 } from '$lib/types';
+import { newId } from '$lib/utils';
 
 /**
  * Every Firestore write in the app goes through here.
@@ -103,7 +103,7 @@ function saveWithNewWorkouts(
 export const exercises = {
 	create(name: string): Workout {
 		const workout: Workout = {
-			id: uuidv4(),
+			id: newId(),
 			name: name.trim(),
 			sets: [],
 			createdAt: Date.now()
@@ -192,7 +192,7 @@ export const exercises = {
 export const routines = {
 	create(name: string): Routine {
 		const routine: Routine = {
-			id: uuidv4(),
+			id: newId(),
 			name: name.trim(),
 			exercises: [],
 			createdAt: Date.now()
@@ -230,7 +230,7 @@ export const routines = {
 export const programs = {
 	create(name: string): Program {
 		const program: Program = {
-			id: uuidv4(),
+			id: newId(),
 			name: name.trim(),
 			schedule: [],
 			createdAt: Date.now()

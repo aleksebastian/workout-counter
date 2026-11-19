@@ -10,7 +10,7 @@
 	import { routineIdFromHref } from '$lib/logic/rest';
 	import { HAPTIC } from '$lib/haptic';
 	import { recordSet as recordSet_ } from '$lib/logic/logSet';
-	import { isRecord } from '$lib/logic/history';
+	import { isRecord, setsByDay, volume } from '$lib/logic/history';
 	import { measureOf, type MeasureValues } from '$lib/logic/measure';
 	import type { Set } from '$lib/types';
 
@@ -74,25 +74,13 @@
 	type StatItem = { label: string; value: string; delta: { str: string; pos: boolean | null } };
 
 	/** All sets bucketed by calendar day, newest first. */
-	let sessionDays = $derived.by(() => {
-		const all = workout?.sets ?? [];
-		if (!all.length) return [] as { date: string; sets: Set[] }[];
-		const map = new Map<string, Set[]>();
-		for (const s of all) {
-			const key = new Date(s.date).toDateString();
-			if (!map.has(key)) map.set(key, []);
-			map.get(key)!.push(s);
-		}
-		return [...map.values()]
-			.map((sets) => ({ date: sets[0].date, sets }))
-			.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-	});
+	let sessionDays = $derived(setsByDay(workout?.sets ?? []));
 
-	function summarise(sets: { reps: number; weight?: number }[]) {
+	function summarise(sets: Set[]) {
 		return {
 			sets: sets.length,
 			reps: sets.reduce((s, x) => s + x.reps, 0),
-			volume: sets.reduce((s, x) => s + x.reps * (x.weight ?? 0), 0),
+			volume: volume(sets),
 			topWeight: sets.length ? Math.max(...sets.map((x) => x.weight ?? 0)) : 0,
 			bestSetReps: sets.length ? Math.max(...sets.map((x) => x.reps)) : 0
 		};

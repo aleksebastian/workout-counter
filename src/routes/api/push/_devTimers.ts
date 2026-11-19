@@ -7,7 +7,7 @@ import { sendPushToUser } from './_push';
  */
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
 
-export function scheduleDevPush(uid: string, delayMs: number, deviceId?: string): string {
+export function scheduleDevPush(uid: string, delayMs: number, deviceId: string): string {
 	const id = `dev-${uid}-${Date.now()}`;
 	timers.set(
 		id,
