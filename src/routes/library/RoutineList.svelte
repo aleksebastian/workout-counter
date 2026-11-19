@@ -22,7 +22,7 @@
 	import AddIcon from '$lib/icons/add.svg?raw';
 	import CameraIcon from '$lib/icons/camera.svg?raw';
 	import CompassIcon from '$lib/icons/compass.svg?raw';
-	import ImportPhotoSheet from '$lib/components/ImportPhotoSheet.svelte';
+	import LazyImportPhotoSheet from '$lib/components/LazyImportPhotoSheet.svelte';
 	import type { Routine } from '$lib/types';
 
 	let showNew = $state(false);
@@ -219,6 +219,6 @@
 
 <ActionSheet bind:open={showCreate} title="New routine" actions={createActions} />
 
-<ImportPhotoSheet bind:open={showImport} />
+<LazyImportPhotoSheet bind:open={showImport} />
 
 <FAB onclick={() => (showCreate = true)} label="New routine" />
