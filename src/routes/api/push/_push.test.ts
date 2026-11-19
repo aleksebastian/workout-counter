@@ -48,15 +48,18 @@ vi.mock('$lib/server/admin', () => {
 					}
 				};
 			},
+			// Writes wait for the callback to finish, as a real transaction's do.
 			runTransaction: async <T>(
 				fn: (tx: {
-					get: (ref: ReturnType<typeof docRef>) => Promise<ReturnType<typeof snapshot>>;
+					get: <R>(refOrQuery: { get: () => Promise<R> }) => Promise<R>;
+					set: (ref: { path: string }, data: Record<string, unknown>) => void;
 					delete: (ref: ReturnType<typeof docRef>) => void;
 				}) => Promise<T>
 			) => {
 				const ops: (() => Promise<void>)[] = [];
 				const result = await fn({
-					get: (ref) => ref.get(),
+					get: (refOrQuery) => refOrQuery.get(),
+					set: (ref, data) => void ops.push(async () => void store.set(ref.path, data)),
 					delete: (ref) => void ops.push(() => ref.delete())
 				});
 				for (const op of ops) await op();

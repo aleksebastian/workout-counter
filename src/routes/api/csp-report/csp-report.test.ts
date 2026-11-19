@@ -59,6 +59,49 @@ describe('csp-report', () => {
 		expect(warn).not.toHaveBeenCalled();
 	});
 
+	it('refuses a body declared too long without reading it', async () => {
+		let pulled = 0;
+		const body = new ReadableStream<Uint8Array>({
+			pull(controller) {
+				pulled++;
+				controller.enqueue(new Uint8Array(1000));
+			}
+		});
+		const request = new Request('http://localhost/api/csp-report', {
+			method: 'POST',
+			headers: { 'content-type': 'application/csp-report', 'content-length': '20000' },
+			body,
+			duplex: 'half'
+		} as RequestInit);
+		const res = await POST({ request } as Parameters<typeof POST>[0]);
+		expect(res.status).toBe(413);
+		expect(pulled).toBeLessThanOrEqual(1);
+	});
+
+	it('stops reading an endless body once it is too long', async () => {
+		let pulled = 0;
+		let cancelled = false;
+		const body = new ReadableStream<Uint8Array>({
+			pull(controller) {
+				pulled++;
+				controller.enqueue(new Uint8Array(1000));
+			},
+			cancel() {
+				cancelled = true;
+			}
+		});
+		const request = new Request('http://localhost/api/csp-report', {
+			method: 'POST',
+			headers: { 'content-type': 'application/csp-report' },
+			body,
+			duplex: 'half'
+		} as RequestInit);
+		const res = await POST({ request } as Parameters<typeof POST>[0]);
+		expect(res.status).toBe(413);
+		expect(cancelled).toBe(true);
+		expect(pulled).toBeLessThan(20);
+	});
+
 	it('cuts long fields short', async () => {
 		await post(JSON.stringify({ 'csp-report': { 'blocked-uri': 'x'.repeat(5000) } }));
 		expect(logged()[0].blocked).toHaveLength(300);

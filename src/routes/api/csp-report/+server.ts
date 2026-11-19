@@ -1,6 +1,6 @@
 import type { RequestHandler } from './$types';
 
-/** A real report is a few hundred bytes; a longer body isn't read. */
+/** A real report is a few hundred bytes; reading stops past this many. */
 const MAX_BODY = 16_000;
 /** Reports logged per request — the Reporting API can batch several. */
 const MAX_REPORTS = 5;
@@ -43,6 +43,30 @@ function violations(body: unknown): Record<string, unknown>[] {
 }
 
 /**
+ * The body as text, or null once it runs past `max` bytes. Stops reading
+ * there and cancels the rest, so an oversized post costs no more than `max`.
+ */
+async function readBounded(request: Request, max: number): Promise<string | null> {
+	if (Number(request.headers.get('content-length')) > max) return null;
+	if (!request.body) return '';
+
+	const reader = request.body.getReader();
+	const decoder = new TextDecoder();
+	let size = 0;
+	let text = '';
+	for (;;) {
+		const { done, value } = await reader.read();
+		if (done) return text + decoder.decode();
+		size += value.byteLength;
+		if (size > max) {
+			await reader.cancel().catch(() => {});
+			return null;
+		}
+		text += decoder.decode(value, { stream: true });
+	}
+}
+
+/**
  * Where browsers send Content-Security-Policy violations while the policy
  * runs report-only (see `kit.csp` in svelte.config.js). Each one goes to the
  * server log, so the policy can be tightened, then enforced, from what real
@@ -56,8 +80,8 @@ export const POST: RequestHandler = async ({ request }) => {
 	const type = request.headers.get('content-type')?.split(';')[0].trim().toLowerCase();
 	if (!type || !REPORT_TYPES.has(type)) return new Response(null, { status: 415 });
 
-	const text = await request.text().catch(() => '');
-	if (text.length > MAX_BODY) return new Response(null, { status: 413 });
+	const text = await readBounded(request, MAX_BODY).catch(() => '');
+	if (text === null) return new Response(null, { status: 413 });
 
 	let body: unknown;
 	try {

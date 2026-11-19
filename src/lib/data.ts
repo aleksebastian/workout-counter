@@ -158,7 +158,11 @@ export const exercises = {
 		);
 	},
 
-	/** Whole-array rewrite — used by edit, which has to preserve ordering. */
+	/**
+	 * Whole-array rewrite — used by edit, which has to preserve ordering. A set
+	 * logged on another device in the instant before this lands is lost; a
+	 * transaction would close that gap but fails offline, which matters more.
+	 */
 	replaceSets(workoutId: string, sets: Set[]) {
 		return mutate('save set', () => updateDoc(ref('workouts', workoutId), { sets }));
 	},

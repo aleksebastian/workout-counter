@@ -16,12 +16,14 @@ test('a set edited and then deleted is gone', async ({ page }) => {
 	const weightBefore = (await storedSets(EXERCISES[0].id))[0].weight ?? 0;
 
 	// Edit: one more rep and 10 more pounds. The sheet opens without focusing
-	// the reps number, so nothing is selected and no keypad comes up.
+	// the reps number, so nothing is selected and no keypad comes up. Focus
+	// lands once the slide-up ends, so wait for it before checking where.
 	await loggedSet.click();
 	const sheet = page.getByRole('dialog');
-	await expect(sheet.getByRole('button', { name: 'Increase reps by 1' })).toBeVisible();
+	await expect(sheet.getByRole('button', { name: 'Decrease reps by 1' })).toBeFocused();
 	await expect(sheet.getByRole('textbox', { name: 'reps' })).not.toBeFocused();
-	await sheet.getByRole('button', { name: 'Increase reps by 1' }).click();
+	// The rep from the keyboard, the weight by tap: each counts exactly once.
+	await sheet.getByRole('button', { name: 'Increase reps by 1' }).press('Enter');
 	await sheet.getByRole('button', { name: 'Increase weight by 10' }).click();
 	await page.getByRole('button', { name: 'Save' }).click();
 	await expect
