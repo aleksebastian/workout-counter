@@ -7,6 +7,7 @@ import {
 	fromMeters,
 	isTimed,
 	measureOf,
+	summarizeSets,
 	toMeters
 } from './measure';
 import type { Set } from '$lib/types';
@@ -61,6 +62,34 @@ describe('formatSet', () => {
 			'5.2 km · 28:30'
 		);
 		expect(formatSet(set({ reps: 10, holdSeconds: 5 }), 'hold', units)).toBe('10 × 5s');
+	});
+
+	it('sums up an exercise for the done screen, by its measure', () => {
+		const holds = [set({ reps: 1, holdSeconds: 10 }), set({ reps: 1, holdSeconds: 10 })];
+		expect(summarizeSets(holds, 'hold', units)).toBe('2 sets · 1 × 10s');
+		expect(
+			summarizeSets(
+				[set({ reps: 5, holdSeconds: 10 }), set({ reps: 3, holdSeconds: 10 })],
+				'hold',
+				units
+			)
+		).toBe('2 sets · 8 reps');
+		expect(summarizeSets([set({ seconds: 300 }), set({ seconds: 270 })], 'time', units)).toBe(
+			'2 sets · 9:30 total'
+		);
+		expect(summarizeSets([set({ meters: 5200, seconds: 1710 })], 'distance', units)).toBe(
+			'1 set · 5.2 km · 28:30'
+		);
+		expect(summarizeSets([set({ meters: 5000 }), set({ meters: 4600 })], 'distance', units)).toBe(
+			'2 sets · 9.6 km total'
+		);
+		expect(
+			summarizeSets([set({ reps: 10, weight: 20 }), set({ reps: 10, weight: 25 })], 'reps', units)
+		).toBe('2 × 10 · top 25 lb');
+		expect(summarizeSets([set({ reps: 10 }), set({ reps: 8 })], 'reps', units)).toBe(
+			'2 sets · 18 reps'
+		);
+		expect(summarizeSets([], 'hold', units)).toBe('');
 	});
 
 	it('formats long times with hours', () => {

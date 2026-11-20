@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { counted, plural } from '$lib/utils';
+	import { plural } from '$lib/utils';
+	import { measureOf, summarizeSets, unitsOf } from '$lib/logic/measure';
 	import { session } from '$lib/session.svelte';
 	import { formatClock, setsSince } from '$lib/logic/training';
 	import type { SessionSummary } from '$lib/logic/training.svelte';
@@ -16,19 +17,11 @@
 
 	let { summary, unit }: Props = $props();
 
-	/** One exercise on the done screen: "3 × 10 · top 25 lb". */
+	/** One exercise on the done screen: "3 × 10 · top 25 lb", "2 sets · 1 × 10s". */
 	function summaryLine(item: SessionSummary['list'][number], since: number): string {
-		const sets = setsSince(session.workout(item.workoutId), since);
-		const reps = new globalThis.Set(sets.map((s) => s.reps));
-		const top = Math.max(0, ...sets.map((s) => s.weight ?? 0));
-		return [
-			reps.size === 1
-				? `${item.sets} × ${sets[0].reps}`
-				: `${counted(item.sets, 'set')} · ${counted(item.reps, 'rep')}`,
-			top > 0 && `top ${top} ${unit}`
-		]
-			.filter(Boolean)
-			.join(' · ');
+		const workout = session.workout(item.workoutId);
+		const units = { ...unitsOf(session.prefs), weight: unit };
+		return summarizeSets(setsSince(workout, since), measureOf(workout), units);
 	}
 </script>
 
