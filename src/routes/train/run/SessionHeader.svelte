@@ -82,7 +82,7 @@
 		<p class="truncate text-base leading-tight font-bold">{title}</p>
 		{#if startedAt !== undefined}
 			<p
-				class="text-base-content/55 mt-0.5 flex items-center justify-center gap-1.5 text-xs tabular-nums"
+				class="text-base-content/65 mt-0.5 flex items-center justify-center gap-1.5 text-xs tabular-nums"
 			>
 				<span class="bg-primary h-1.5 w-1.5 shrink-0 rounded-full" aria-hidden="true"></span>
 				{#if slot}{slot} ·{/if}

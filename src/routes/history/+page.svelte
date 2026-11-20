@@ -223,7 +223,7 @@
 						? 'ring-primary text-base-content font-bold ring-2 ring-inset'
 						: cell.future
 							? 'text-base-content/30'
-							: 'text-base-content/55'
+							: 'text-base-content/65'
 			]}>{cell.day}</span
 		>
 	{:else}
@@ -238,10 +238,10 @@
 	{:else if !feed.length}
 		<div class="flex flex-col items-center gap-3 py-16 text-center">
 			<p class="font-semibold">No workouts yet</p>
-			<p class="text-base-content/55 max-w-xs text-sm">
+			<p class="text-base-content/65 max-w-xs text-sm">
 				Finish a workout or log a set, and it shows up here.
 			</p>
-			<a class="btn btn-primary btn-sm" href="/">Go to Today</a>
+			<a class="btn btn-primary btn-sm tap-target" href="/">Go to Today</a>
 		</div>
 	{:else}
 		<section class="flex flex-col gap-2">
@@ -249,7 +249,7 @@
 				<!-- With streaks off in Preferences, the week's training days instead. -->
 				<div class="bg-base-200 rounded-2xl px-2 py-3 text-center">
 					<b class="block text-2xl font-black tabular-nums">{streaksOn ? streak : daysThisWeek}</b>
-					<span class="text-base-content/55 text-xs"
+					<span class="text-base-content/65 text-xs"
 						>{streaksOn ? 'week streak' : `${plural(daysThisWeek, 'day')} this week`}</span
 					>
 				</div>
@@ -257,7 +257,7 @@
 					<b class="block text-lg leading-8 font-black tabular-nums"
 						>{Math.round(totals.volume).toLocaleString('en')}</b
 					>
-					<span class="text-base-content/55 text-xs">{unit} this week</span>
+					<span class="text-base-content/65 text-xs">{unit} this week</span>
 				</div>
 				<div class="bg-base-200 rounded-2xl px-2 py-3 text-center">
 					<b class="block text-2xl font-black tabular-nums"
@@ -265,7 +265,7 @@
 							? `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, '0')}`
 							: minutes}</b
 					>
-					<span class="text-base-content/55 text-xs">{minutes >= 60 ? 'hrs' : 'min'} this week</span
+					<span class="text-base-content/65 text-xs">{minutes >= 60 ? 'hrs' : 'min'} this week</span
 					>
 				</div>
 				{#if showDistance}
@@ -273,12 +273,12 @@
 						<b class="block text-2xl font-black tabular-nums"
 							>{fromMeters(totals.meters, session.prefs.distanceUnit)}</b
 						>
-						<span class="text-base-content/55 text-xs">{session.prefs.distanceUnit} this week</span>
+						<span class="text-base-content/65 text-xs">{session.prefs.distanceUnit} this week</span>
 					</div>
 				{/if}
 			</div>
 			{#if streaksOn}
-				<p class="text-base-content/55 text-xs">{streakRule}</p>
+				<p class="text-base-content/65 text-xs">{streakRule}</p>
 			{/if}
 		</section>
 
@@ -311,7 +311,7 @@
 				>
 					<svg
 						class={[
-							'text-base-content/40 h-4.5 w-4.5 transition-transform',
+							'text-base-content/65 h-4.5 w-4.5 transition-transform',
 							calendarOpen && 'rotate-180'
 						]}
 						viewBox="0 0 24 24"
@@ -325,7 +325,7 @@
 			</div>
 			<div class="mt-3 grid grid-cols-7 gap-y-1.5 text-center">
 				{#each weekdayLabels as label, i (i)}
-					<span class="text-base-content/40 text-[11px] font-semibold">{label}</span>
+					<span class="text-base-content/65 text-[11px] font-semibold">{label}</span>
 				{/each}
 				{#if calendarOpen}
 					{#each month.cells as cell, i (i)}
@@ -342,7 +342,7 @@
 		{#each groups as group (group.label)}
 			{#if group.rows.length}
 				<section class="flex flex-col gap-2">
-					<p class="text-base-content/55 text-xs font-semibold tracking-widest uppercase">
+					<p class="text-base-content/65 text-xs font-semibold tracking-widest uppercase">
 						{group.label}
 					</p>
 					<div
@@ -366,12 +366,12 @@
 											{/if}
 											{#if stopped}
 												<span
-													class="badge badge-xs bg-base-content/10 text-base-content/60 shrink-0 border-none"
+													class="badge badge-xs bg-base-content/10 text-base-content/70 shrink-0 border-none"
 													>{stopped}</span
 												>
 											{/if}
 										</span>
-										<span class="text-base-content/55 truncate text-xs"
+										<span class="text-base-content/65 truncate text-xs"
 											>{dayLabel(row.at)} · {rowSlot(row.log)}{counted(row.sets, 'set')}{row.volume
 												? ` · ${weight(row.volume)}`
 												: ''} · {Math.max(1, Math.round(row.durationMs / 60_000))} min</span
@@ -388,11 +388,11 @@
 										<span class="flex items-center gap-2">
 											<span class="truncate font-semibold">{row.workout.name}</span>
 											<span
-												class="badge badge-xs bg-base-content/10 text-base-content/60 shrink-0 border-none"
+												class="badge badge-xs bg-base-content/10 text-base-content/70 shrink-0 border-none"
 												>{row.sets.length === 1 ? 'single set' : 'single sets'}</span
 											>
 										</span>
-										<span class="text-base-content/55 truncate text-xs">{singleMeta(row)}</span>
+										<span class="text-base-content/65 truncate text-xs">{singleMeta(row)}</span>
 									</span>
 									<Chevron />
 								</a>

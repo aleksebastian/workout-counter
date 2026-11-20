@@ -45,11 +45,11 @@
 			</div>
 		{:else if guide}
 			<section class="flex flex-col gap-2">
-				<h2 class="text-base-content/50 text-xs font-semibold tracking-widest uppercase">How to</h2>
+				<h2 class="text-base-content/65 text-xs font-semibold tracking-widest uppercase">How to</h2>
 				<p class="text-sm leading-relaxed">{guide.instructions}</p>
 			</section>
 			<section class="flex flex-col gap-2">
-				<h2 class="text-base-content/50 text-xs font-semibold tracking-widest uppercase">Works</h2>
+				<h2 class="text-base-content/65 text-xs font-semibold tracking-widest uppercase">Works</h2>
 				<div class="flex flex-wrap gap-1.5">
 					{#each guide.muscles as muscle, i (i)}
 						<span class="badge {i === 0 ? 'badge-primary badge-soft' : 'badge-ghost'}"
@@ -60,9 +60,9 @@
 				</div>
 			</section>
 		{:else if failed}
-			<p class="text-base-content/60 text-sm">Couldn't load the exercise guide.</p>
+			<p class="text-base-content/70 text-sm">Couldn't load the exercise guide.</p>
 		{:else}
-			<p class="text-base-content/60 text-sm">
+			<p class="text-base-content/70 text-sm">
 				There's no written guide for this exercise. A video of the movement is the next best thing.
 			</p>
 		{/if}

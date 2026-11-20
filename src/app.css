@@ -19,6 +19,23 @@
 	--color-primary-content: oklch(33.387% 0.04 162.24);
 }
 
+/*
+ * Emerald's own text colour is a mid slate. Muted text (base-content at 65%)
+ * then fell short of 4.5:1 on the grey cards; a deeper ink keeps both the
+ * main text and the muted tiers readable in light mode. Plain CSS rather than
+ * a daisyui/theme block: daisyUI's built-in emerald rule outranks a theme
+ * override's selector, and these unlayered rules win over its layer.
+ * Light is emerald chosen outright, or no choice on a phone in light mode.
+ */
+:root[data-theme='emerald'] {
+	--color-base-content: oklch(25% 0.03 262);
+}
+@media (prefers-color-scheme: light) {
+	:root:not([data-theme]) {
+		--color-base-content: oklch(25% 0.03 262);
+	}
+}
+
 :root {
 	/* Native iOS tab bar row height; the home-indicator inset is added on top. */
 	--bottom-nav-height: 49px;
@@ -75,12 +92,52 @@ svg:not([fill]) {
 }
 
 /*
- * Primary as text on a pale primary tint. Emerald's primary is too light to
- * read on white and primary-content too dark on Dracula; pulling primary
- * toward the theme's own text colour reads in both.
+ * A 44×44pt touch area around a control drawn smaller (a 32pt menu button, a
+ * chip, a compact segment), centred on it, without changing how it looks.
+ * Not for controls packed closer than 44pt apart: the areas would overlap.
+ */
+@utility tap-target {
+	position: relative;
+	&::after {
+		content: '';
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		width: max(100%, 44px);
+		height: max(100%, 44px);
+		transform: translate(-50%, -50%);
+	}
+}
+
+/*
+ * Brand colours as text. Emerald's primary (and success, and error) are too
+ * light to read on white, and primary-content too dark on Dracula; pulling
+ * the colour toward the theme's own text colour reads in both, at 4.5:1 on
+ * the cards and tints they sit on.
  */
 @utility text-primary-strong {
-	color: color-mix(in oklab, var(--color-primary) 55%, var(--color-base-content));
+	color: color-mix(in oklab, var(--color-primary) 45%, var(--color-base-content));
+}
+@utility text-success-strong {
+	color: color-mix(in oklab, var(--color-success) 45%, var(--color-base-content));
+}
+@utility text-error-strong {
+	color: color-mix(in oklab, var(--color-error) 60%, var(--color-base-content));
+}
+
+/*
+ * daisyUI components that draw their own text in a brand colour or at low
+ * opacity: a soft primary badge, an outlined error button, and the tabs that
+ * aren't selected.
+ */
+.badge-soft.badge-primary {
+	@apply text-primary-strong;
+}
+.btn-outline.btn-error:not(:hover, :active) {
+	@apply text-error-strong;
+}
+.tabs-box .tab:not(.tab-active, [aria-selected='true']) {
+	color: color-mix(in oklab, var(--color-base-content) 70%, transparent);
 }
 
 @layer utilities {

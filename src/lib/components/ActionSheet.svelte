@@ -35,7 +35,7 @@
 <BottomSheet bind:open size="large" {title}>
 	<div class="flex flex-col gap-1">
 		{#if subtitle}
-			<p class="text-base-content/50 mb-2 text-sm">{subtitle}</p>
+			<p class="text-base-content/65 mb-2 text-sm">{subtitle}</p>
 		{/if}
 		{#each actions as action, i (i)}
 			{#if action.destructive && i > 0 && !actions[i - 1].destructive}
@@ -44,14 +44,14 @@
 			{/if}
 			<button
 				class="hover:bg-base-200 flex w-full items-center gap-3 rounded-xl px-3 py-3.5 text-left transition-colors"
-				class:text-error={action.destructive}
+				class:text-error-strong={action.destructive}
 				onclick={() => select(action)}
 			>
 				{#if action.icon}
 					<span
 						class={[
 							'shrink-0 [&>svg]:h-5 [&>svg]:w-5',
-							action.destructive ? 'text-error' : 'text-base-content/60'
+							action.destructive ? 'text-error-strong' : 'text-base-content/70'
 						].join(' ')}
 					>
 						{@html action.icon}
@@ -60,7 +60,7 @@
 				{#if action.description}
 					<span class="flex min-w-0 flex-col">
 						<span class="font-medium">{action.label}</span>
-						<span class="text-base-content/50 text-xs">{action.description}</span>
+						<span class="text-base-content/65 text-xs">{action.description}</span>
 					</span>
 				{:else}
 					<span class="font-medium">{action.label}</span>

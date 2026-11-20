@@ -27,7 +27,7 @@
 					? 'bg-primary/15 text-primary-strong font-bold'
 					: day.today
 						? 'text-base-content font-bold'
-						: 'text-base-content/45'
+						: 'text-base-content/65'
 			]}
 			aria-label={dayLabel(day)}
 			aria-pressed={isSelected}

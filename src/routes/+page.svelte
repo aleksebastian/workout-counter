@@ -347,7 +347,7 @@
 	</span>
 {/snippet}
 
-{#snippet eyebrow(text: string, cls = 'text-base-content/55')}
+{#snippet eyebrow(text: string, cls = 'text-base-content/65')}
 	<p class="text-xs font-semibold tracking-widest uppercase {cls}">{text}</p>
 {/snippet}
 
@@ -373,7 +373,7 @@
 		{@render plus()}
 		<span class="flex min-w-0 flex-1 flex-col">
 			<span class="font-semibold">{name}</span>
-			<span class="text-base-content/55 text-xs">{meta}</span>
+			<span class="text-base-content/65 text-xs">{meta}</span>
 		</span>
 		<Chevron />
 	</button>
@@ -386,7 +386,7 @@
 		<div>
 			{@render eyebrow(heroEyebrow, 'text-primary-strong')}
 			<p class="mt-1 text-2xl font-extrabold">{heroTitle}</p>
-			<p class="text-base-content/55 text-sm">
+			<p class="text-base-content/65 text-sm">
 				{counted(heroPlan.length, 'exercise')}
 				{#if estimate}· about {estimate.minutes} min{/if}
 				{#if heroEnded}
@@ -445,17 +445,17 @@
 		{#if row.status === 'done' && row.log}
 			<a href={historyItemHref(row.log.id)} class="flex min-w-0 flex-1 items-center gap-3">
 				<span class="flex min-w-0 flex-1 flex-col">
-					<span class="text-base-content/55 text-xs">{slotLabel(row.session.slot)}</span>
+					<span class="text-base-content/65 text-xs">{slotLabel(row.session.slot)}</span>
 					<span class="truncate font-semibold">{name}</span>
-					<span class="text-base-content/55 text-xs tabular-nums">{rowMeta(row)}</span>
+					<span class="text-base-content/65 text-xs tabular-nums">{rowMeta(row)}</span>
 				</span>
 				<Chevron />
 			</a>
 		{:else}
 			<span class="flex min-w-0 flex-1 flex-col">
-				<span class="text-base-content/55 text-xs">{slotLabel(row.session.slot)}</span>
+				<span class="text-base-content/65 text-xs">{slotLabel(row.session.slot)}</span>
 				<span class="truncate font-semibold">{name}</span>
-				<span class="text-base-content/55 text-xs tabular-nums">{rowMeta(row)}</span>
+				<span class="text-base-content/65 text-xs tabular-nums">{rowMeta(row)}</span>
 			</span>
 			{#if row.status !== 'live' && hero !== 'progress'}
 				<button
@@ -483,7 +483,7 @@
 {:else}
 	<div class="mx-auto flex w-full max-w-lg flex-col gap-6 pb-4">
 		<div>
-			<p class="text-base-content/55 text-sm">{todayLabel}</p>
+			<p class="text-base-content/65 text-sm">{todayLabel}</p>
 			<h1 class="text-2xl font-extrabold">{greeting}</h1>
 		</div>
 
@@ -500,14 +500,14 @@
 						></span>In progress · {formatClock(now - training.clockStart)}
 					</p>
 					<p class="mt-1 text-2xl font-extrabold">{training.name || 'Workout'}</p>
-					<p class="text-base-content/55 text-sm">{progress.meta}</p>
+					<p class="text-base-content/65 text-sm">{progress.meta}</p>
 				</div>
 				<SessionProgress fills={progress.fills} index={training.index} detail="" />
 				{#if progress.current}
 					<p class="text-sm">
-						<span class="text-base-content/55">Now</span>
+						<span class="text-base-content/65">Now</span>
 						<span class="font-semibold">{progress.current}</span>
-						<span class="text-base-content/55">· {progress.setDetail}</span>
+						<span class="text-base-content/65">· {progress.setDetail}</span>
 					</p>
 				{/if}
 				<button class="btn btn-primary btn-lg h-13 rounded-2xl" onclick={() => goto('/train/run')}
@@ -533,7 +533,7 @@
 						{#each [[todayLog.totals.sets, 'sets'], [formatClock(logDuration(todayLog)), 'time'], [todayLog.totals.reps, 'reps']] as [value, label] (label)}
 							<div class="bg-base-100 rounded-xl px-2 py-3 text-center">
 								<b class="block text-xl font-black tabular-nums">{value}</b>
-								<span class="text-base-content/55 text-xs">{label}</span>
+								<span class="text-base-content/65 text-xs">{label}</span>
 							</div>
 						{/each}
 					</div>
@@ -559,7 +559,7 @@
 							</span>
 							<span class="flex min-w-0 flex-col">
 								<span class="font-semibold">{counted(records.length, 'new PR')}</span>
-								<span class="text-base-content/55 text-xs">{records.join(' · ')}</span>
+								<span class="text-base-content/65 text-xs">{records.join(' · ')}</span>
 							</span>
 						</div>
 					{/if}
@@ -598,7 +598,7 @@
 			<div class="bg-base-200 flex flex-col gap-3 rounded-2xl p-4">
 				<div class="flex items-center gap-3">
 					<span
-						class="bg-base-300 text-base-content/55 flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+						class="bg-base-300 text-base-content/65 flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
 						aria-hidden="true"
 					>
 						<svg
@@ -616,7 +616,7 @@
 					</span>
 					<div>
 						<p class="font-semibold">Rest day</p>
-						<p class="text-base-content/55 text-sm">Nothing on in {program.name} today</p>
+						<p class="text-base-content/65 text-sm">Nothing on in {program.name} today</p>
 					</div>
 				</div>
 				{#if nextUp}
@@ -625,7 +625,7 @@
 						href={`/programs/${program.id}`}
 					>
 						<span class="flex min-w-0 flex-1 flex-col">
-							<span class="text-base-content/55 text-xs">Next up · {nextUp.when}</span>
+							<span class="text-base-content/65 text-xs">Next up · {nextUp.when}</span>
 							<span class="truncate font-semibold">{nextUp.name}</span>
 						</span>
 						<Chevron />
@@ -640,7 +640,7 @@
 				<div>
 					{@render eyebrow('Get started', 'text-primary-strong')}
 					<p class="mt-1 text-2xl font-extrabold">Pick what to train</p>
-					<p class="text-base-content/55 text-sm">
+					<p class="text-base-content/65 text-sm">
 						A program plans your week. A routine is one workout you can run any day.
 					</p>
 				</div>
@@ -649,7 +649,7 @@
 						<a class="hover:bg-base-200 flex items-center gap-3 px-4 py-3" href={option.href}>
 							<span class="flex min-w-0 flex-1 flex-col">
 								<span class="font-semibold">{option.name}</span>
-								<span class="text-base-content/55 text-xs">{option.meta}</span>
+								<span class="text-base-content/65 text-xs">{option.meta}</span>
 							</span>
 							<Chevron />
 						</a>
@@ -662,7 +662,7 @@
 					<div class="flex items-center gap-3">
 						<div class="min-w-0 flex-1">
 							<p class="text-sm font-semibold">Rest timer</p>
-							<p class="text-base-content/55 text-xs">
+							<p class="text-base-content/65 text-xs">
 								{notifStatus === 'unsupported'
 									? 'Counts down after each set you log'
 									: 'Counts down after each set, with an alert when rest is up'}
@@ -685,7 +685,7 @@
 			<section class="flex flex-col gap-2" aria-label="Today's plan">
 				<div class="flex items-baseline justify-between">
 					{@render eyebrow("Today's plan")}
-					<span class="text-base-content/55 text-xs tabular-nums"
+					<span class="text-base-content/65 text-xs tabular-nums"
 						>{doneCount} of {plan.length} done</span
 					>
 				</div>
@@ -704,7 +704,7 @@
 		{/if}
 
 		{#if hero === 'done' && nextUp}
-			<p class="text-base-content/55 -mt-3 text-sm">Next up: {nextUp.name}, {nextUp.when}</p>
+			<p class="text-base-content/65 -mt-3 text-sm">Next up: {nextUp.name}, {nextUp.when}</p>
 		{/if}
 
 		{#if hero === 'rest' && lastLog}
@@ -719,7 +719,7 @@
 				>
 					<span class="flex min-w-0 flex-1 flex-col">
 						<span class="truncate font-semibold">{lastLog.name}</span>
-						<span class="text-base-content/55 text-xs"
+						<span class="text-base-content/65 text-xs"
 							>{ago(lastLog.endedAt)} · {counted(lastLog.totals.sets, 'set')} · {Math.round(
 								logDuration(lastLog) / 60_000
 							)} min</span
@@ -745,7 +745,7 @@
 						<div class="flex items-center gap-2 px-4 py-3">
 							<a href={`/routines/${routine.id}`} class="flex min-w-0 flex-1 flex-col">
 								<span class="truncate font-semibold">{routine.name}</span>
-								<span class="text-base-content/55 text-xs"
+								<span class="text-base-content/65 text-xs"
 									>{counted(routine.exercises.length, 'exercise')} · {last
 										? `last done ${ago(last)}`
 										: 'never done'}</span

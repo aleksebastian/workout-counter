@@ -280,16 +280,16 @@
 </script>
 
 {#snippet sectionLabel(text: string)}
-	<p class="text-base-content/40 mt-2 text-xs font-semibold tracking-widest uppercase">{text}</p>
+	<p class="text-base-content/65 mt-2 text-xs font-semibold tracking-widest uppercase">{text}</p>
 {/snippet}
 
 {#snippet row(r: Row)}
 	{@const circle = {
 		add: 'border-base-content/25 border-2',
 		picked: 'bg-primary text-primary-content',
-		present: 'bg-base-content/15 text-base-content/60',
+		present: 'bg-base-content/15 text-base-content/70',
 		removing: 'bg-error text-error-content',
-		locked: 'bg-base-content/10 text-base-content/40'
+		locked: 'bg-base-content/10 text-base-content/65'
 	}[r.state]}
 	<button
 		type="button"
@@ -337,8 +337,8 @@
 			>
 			<span
 				class="block truncate text-xs {r.state === 'removing'
-					? 'text-error font-medium'
-					: 'text-base-content/50'}">{r.sub}</span
+					? 'text-error-strong font-medium'
+					: 'text-base-content/65'}">{r.sub}</span
 			>
 		</span>
 	</button>
@@ -396,7 +396,7 @@
 			{#if createName}
 				<button
 					type="button"
-					class="border-primary/40 text-primary rounded-box flex items-center gap-3 border border-dashed px-4 py-3 text-left"
+					class="border-primary/40 text-primary-strong rounded-box flex items-center gap-3 border border-dashed px-4 py-3 text-left"
 					onclick={() => pickTyped(createName!)}
 				>
 					<span class="flex h-6 w-6 shrink-0 items-center justify-center text-lg leading-none"
@@ -426,7 +426,7 @@
 			{/if}
 
 			{#if query && !createName && !presentRows.length && !typedRows.length && !libraryRows.length && !catalogRows.length}
-				<p class="text-base-content/50 py-6 text-center text-sm">No match for “{search.trim()}”.</p>
+				<p class="text-base-content/65 py-6 text-center text-sm">No match for “{search.trim()}”.</p>
 			{/if}
 		{:else}
 			{#if presentRoutineRows.length}
@@ -438,7 +438,7 @@
 				{#each routineRows as r (r.key)}{@render row(r)}{/each}
 			{/if}
 			{#if !presentRoutineRows.length && !routineRows.length}
-				<p class="text-base-content/50 py-6 text-center text-sm">
+				<p class="text-base-content/65 py-6 text-center text-sm">
 					{query ? `No routine matches “${search.trim()}”.` : 'You have no routines yet.'}
 				</p>
 			{/if}

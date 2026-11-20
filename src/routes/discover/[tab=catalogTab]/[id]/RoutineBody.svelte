@@ -21,7 +21,7 @@
 </script>
 
 <section class="flex flex-col gap-2">
-	<h2 class="text-base-content/50 text-xs font-semibold tracking-widest uppercase">Exercises</h2>
+	<h2 class="text-base-content/65 text-xs font-semibold tracking-widest uppercase">Exercises</h2>
 	<ol class="flex flex-col gap-2">
 		{#each routine.exercises as entry, i (entry.exerciseId)}
 			{@const exercise = catalog.exercise(entry.exerciseId)}
@@ -31,7 +31,7 @@
 						href={discoverItemHref('exercises', exercise.id)}
 						class="bg-base-200 hover:bg-base-300 rounded-box flex items-center gap-3 px-4 py-3 transition-colors active:scale-[0.99]"
 					>
-						<span class="text-base-content/40 w-5 shrink-0 text-right text-xs font-medium"
+						<span class="text-base-content/65 w-5 shrink-0 text-right text-xs font-medium"
 							>{i + 1}</span
 						>
 						<div class="flex min-w-0 flex-1 flex-col gap-1">
@@ -48,7 +48,7 @@
 									>
 								{/if}
 								{#if owned.has(exercise.id)}
-									<span class="text-success text-xs font-medium">In your library</span>
+									<span class="text-success-strong text-xs font-medium">In your library</span>
 								{/if}
 							</div>
 						</div>

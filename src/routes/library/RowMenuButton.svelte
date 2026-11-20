@@ -10,7 +10,7 @@
 </script>
 
 <button
-	class="btn btn-circle btn-ghost btn-sm text-base-content/40 shrink-0"
+	class="btn btn-circle btn-ghost btn-sm text-base-content/65 tap-target shrink-0"
 	aria-label={label}
 	onclick={(e) => {
 		e.preventDefault();

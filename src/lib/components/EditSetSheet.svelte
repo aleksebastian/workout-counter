@@ -73,13 +73,13 @@
 		{#if confirmingDelete}
 			<div class="flex flex-col items-center gap-3 py-2 text-center">
 				<div
-					class="bg-error/10 text-error flex items-center justify-center rounded-full p-3 [&>svg]:h-6 [&>svg]:w-6"
+					class="bg-error/10 text-error-strong flex items-center justify-center rounded-full p-3 [&>svg]:h-6 [&>svg]:w-6"
 				>
 					{@html DeleteIcon}
 				</div>
 				<div>
 					<p class="font-semibold">Delete this set?</p>
-					<p class="text-base-content/50 mt-1 text-sm">
+					<p class="text-base-content/65 mt-1 text-sm">
 						{measure === 'reps'
 							? `${reps} reps${weight > 0 ? ` · ${weight} ${unit}` : ''}`
 							: formatSet(
@@ -112,7 +112,7 @@
 
 			<div class="flex flex-col gap-1.5">
 				<label
-					class="text-base-content/50 text-xs font-semibold tracking-widest uppercase"
+					class="text-base-content/65 text-xs font-semibold tracking-widest uppercase"
 					for="edit-set-notes">Notes</label
 				>
 				<input
@@ -126,7 +126,7 @@
 
 			<div class="flex flex-col gap-1.5">
 				<label
-					class="text-base-content/50 text-xs font-semibold tracking-widest uppercase"
+					class="text-base-content/65 text-xs font-semibold tracking-widest uppercase"
 					for="edit-set-date">Date &amp; Time</label
 				>
 				<input
@@ -139,7 +139,7 @@
 
 			<div class="flex gap-2">
 				<button
-					class="btn btn-ghost text-error flex-1 gap-1.5"
+					class="btn btn-ghost text-error-strong flex-1 gap-1.5"
 					onclick={() => (confirmingDelete = true)}
 				>
 					<span class="[&>svg]:h-4 [&>svg]:w-4">{@html DeleteIcon}</span>

@@ -87,9 +87,9 @@
 				bind:value={description}
 				oninput={() => (error = undefined)}></textarea>
 			{#if error}
-				<p class="text-error text-sm">{error}</p>
+				<p class="text-error-strong text-sm">{error}</p>
 			{:else}
-				<p class="text-base-content/40 text-xs">
+				<p class="text-base-content/65 text-xs">
 					Reports are posted publicly on GitHub, so leave out personal info. The app version and
 					device details are attached.
 				</p>

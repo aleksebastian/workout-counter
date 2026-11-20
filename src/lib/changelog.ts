@@ -21,6 +21,19 @@ export interface ChangelogEntry {
 /** Newest first. */
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		version: '0.21.5',
+		date: '2026-11-20',
+		improved: [
+			'Easier to read in light mode: grey and green text is darker and clearer, and so are the tab labels at the bottom',
+			'Small buttons like the ⋮ menus, sort chips and Preferences toggles are easier to hit, without looking any bigger',
+			'Preferences shows the option you picked in green, so it’s clear which unit or theme is on',
+			'Each screen has its own name for VoiceOver and the app switcher'
+		],
+		fixed: [
+			'The end-of-workout summary now shows holds, times and distances properly, instead of “2 × 1” for two 10-second holds'
+		]
+	},
+	{
 		version: '0.21.4',
 		date: '2026-11-19',
 		fixed: [

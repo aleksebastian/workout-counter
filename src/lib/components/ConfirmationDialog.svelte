@@ -40,7 +40,7 @@
 		<!-- Icon -->
 		{#if icon}
 			<div
-				class="bg-error/15 text-error flex h-12 w-12 flex-none items-center justify-center rounded-full [&_svg]:h-6 [&_svg]:w-6 [&_svg]:fill-current"
+				class="bg-error/15 text-error-strong flex h-12 w-12 flex-none items-center justify-center rounded-full [&_svg]:h-6 [&_svg]:w-6 [&_svg]:fill-current"
 			>
 				{@html DeleteIcon}
 			</div>
@@ -52,22 +52,26 @@
 			{#if children}
 				{@render children()}
 			{:else if content}
-				<p class="text-base-content/55 mt-1 text-sm">{content}</p>
+				<p class="text-base-content/65 mt-1 text-sm">{content}</p>
 			{/if}
 		</div>
 
 		<!-- Actions — stacked, full width -->
 		<div class="mt-1 flex w-full flex-col gap-2">
 			<button
-				class={destructive ? 'btn btn-error w-full' : 'btn btn-primary w-full'}
+				class={destructive
+					? 'btn btn-error tap-target w-full'
+					: 'btn btn-primary tap-target w-full'}
 				value="default"
 			>
 				{actionLabel}
 			</button>
 			{#if secondaryLabel}
-				<button class="btn btn-ghost text-error w-full" value="secondary">{secondaryLabel}</button>
+				<button class="btn btn-ghost text-error-strong tap-target w-full" value="secondary"
+					>{secondaryLabel}</button
+				>
 			{/if}
-			<button class="btn btn-ghost w-full" value="cancel">{cancelLabel}</button>
+			<button class="btn btn-ghost tap-target w-full" value="cancel">{cancelLabel}</button>
 		</div>
 	</form>
 </dialog>

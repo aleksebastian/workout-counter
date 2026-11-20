@@ -118,6 +118,43 @@ export function formatSet(set: Set, measure: Measure, units: Units): string {
 	}
 }
 
+/**
+ * One exercise's sets in a single line, for the done screen: "3 × 10 · top 25 lb",
+ * "3 sets · 30 reps", "2 sets · 1 × 10s", "2 sets · 9:30 total", "3 sets · 9.6 km total".
+ * Sets that all read the same show once; otherwise time and distance add up.
+ */
+export function summarizeSets(sets: Set[], measure: Measure, units: Units): string {
+	if (!sets.length) return '';
+	const n = sets.length;
+	const reps = sets.reduce((sum, s) => sum + s.reps, 0);
+	if (measure === 'reps') {
+		const top = Math.max(0, ...sets.map((s) => s.weight ?? 0));
+		const sameReps = sets.every((s) => s.reps === sets[0].reps);
+		return [
+			sameReps ? `${n} × ${sets[0].reps}` : `${counted(n, 'set')} · ${counted(reps, 'rep')}`,
+			top > 0 && `top ${top} ${units.weight}`
+		]
+			.filter(Boolean)
+			.join(' · ');
+	}
+	const shown = new globalThis.Set(sets.map((s) => formatSet(s, measure, units)));
+	const seconds = sets.reduce((t, s) => t + (s.seconds ?? 0), 0);
+	const meters = sets.reduce((t, s) => t + (s.meters ?? 0), 0);
+	let detail: string;
+	if (shown.size === 1) detail = [...shown][0];
+	// Distance sets logged with only a time add up as time, not "0 km".
+	else if (measure === 'distance' && meters > 0)
+		detail = `${formatDistance(meters, units.distance)} total`;
+	else if (measure === 'time' || measure === 'distance') detail = `${formatSeconds(seconds)} total`;
+	else {
+		// Holds of different lengths: every rep, and the range they were held for.
+		const holds = sets.map((s) => s.holdSeconds ?? 0);
+		const [low, high] = [Math.min(...holds), Math.max(...holds)];
+		detail = `${reps} × ${low === high ? low : `${low}–${high}`}s`;
+	}
+	return `${counted(n, 'set')} · ${detail}`;
+}
+
 /** The user's units, with distance following weight until it's chosen. */
 export function unitsOf(prefs: Pick<Preferences, 'weightUnit' | 'distanceUnit'>): Units {
 	return { weight: prefs.weightUnit === 'kg' ? 'kg' : 'lb', distance: prefs.distanceUnit };

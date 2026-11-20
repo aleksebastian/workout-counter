@@ -108,7 +108,7 @@
 
 	<div class="flex flex-col gap-4">
 		{#if showDetails}
-			<p class="text-base-content/50 text-sm">
+			<p class="text-base-content/65 text-sm">
 				{#if measure === 'reps'}
 					<strong class="text-base-content">{reps}</strong> reps
 					{#if weight > 0}· <strong class="text-base-content">{weight}</strong> {unit}{/if}
@@ -125,7 +125,7 @@
 
 			<div class="flex flex-col gap-1.5">
 				<label
-					class="text-base-content/50 text-xs font-semibold tracking-widest uppercase"
+					class="text-base-content/65 text-xs font-semibold tracking-widest uppercase"
 					for="set-notes">Notes</label
 				>
 				<input
@@ -140,7 +140,7 @@
 
 			<div class="flex flex-col gap-1.5">
 				<label
-					class="text-base-content/50 text-xs font-semibold tracking-widest uppercase"
+					class="text-base-content/65 text-xs font-semibold tracking-widest uppercase"
 					for="set-date">Date &amp; Time</label
 				>
 				<input

@@ -173,7 +173,7 @@
 {#snippet row(title: string, blurb: string)}
 	<div>
 		<p class="font-medium">{title}</p>
-		<p class="text-base-content/50 text-xs">{blurb}</p>
+		<p class="text-base-content/65 text-xs">{blurb}</p>
 	</div>
 {/snippet}
 
@@ -182,10 +182,10 @@
 		<!-- "Saved" shares the first heading's line rather than reserving an
 		     empty row of its own above everything. -->
 		<div class="flex h-5 items-center justify-between">
-			<p class="text-base-content/40 text-xs font-semibold tracking-widest uppercase">Appearance</p>
+			<p class="text-base-content/65 text-xs font-semibold tracking-widest uppercase">Appearance</p>
 			{#if saveState === 'saved'}
 				<span
-					class="text-success text-sm font-semibold whitespace-nowrap"
+					class="text-success-strong text-sm font-semibold whitespace-nowrap"
 					in:fade={{ duration: 200 }}
 					out:fade={{ duration: 150 }}>✓ Saved</span
 				>
@@ -197,8 +197,9 @@
 				{#each [['light', 'Light'], ['system', 'System'], ['dark', 'Dark']] as const as [value, label] (value)}
 					<button
 						type="button"
-						class="btn btn-sm join-item"
-						class:btn-active={draft.theme === value}
+						class="btn btn-sm join-item tap-target"
+						class:btn-primary={draft.theme === value}
+						aria-pressed={draft.theme === value}
 						onclick={() => {
 							draft.theme = value;
 							autoSave();
@@ -210,7 +211,7 @@
 	</section>
 
 	<section class="flex flex-col gap-3">
-		<p class="text-base-content/40 text-xs font-semibold tracking-widest uppercase">Training</p>
+		<p class="text-base-content/65 text-xs font-semibold tracking-widest uppercase">Training</p>
 
 		<div class="bg-base-200 flex items-center justify-between gap-4 rounded-2xl px-4 py-4">
 			{@render row('Weight unit', 'Used across all exercises')}
@@ -218,8 +219,9 @@
 				{#each ['lbs', 'kg'] as const as value (value)}
 					<button
 						type="button"
-						class="btn btn-sm join-item px-6"
-						class:btn-active={draft.weightUnit === value}
+						class="btn btn-sm join-item tap-target px-6"
+						class:btn-primary={draft.weightUnit === value}
+						aria-pressed={draft.weightUnit === value}
 						onclick={() => {
 							draft.weightUnit = value;
 							autoSave();
@@ -235,8 +237,9 @@
 				{#each ['km', 'mi'] as const as value (value)}
 					<button
 						type="button"
-						class="btn btn-sm join-item px-6"
-						class:btn-active={draft.distanceUnit === value}
+						class="btn btn-sm join-item tap-target px-6"
+						class:btn-primary={draft.distanceUnit === value}
+						aria-pressed={draft.distanceUnit === value}
 						onclick={() => {
 							draft.distanceUnit = value;
 							autoSave();
@@ -251,18 +254,21 @@
 				{@render row('Global rest timer', 'Counts down after each set you record')}
 				<div class="flex shrink-0 items-center gap-3">
 					{#if draft.timerEnabled}
-						<span class="text-primary text-2xl font-black tabular-nums">{timerPreview}</span>
+						<span class="text-primary-strong text-2xl font-black tabular-nums">{timerPreview}</span>
 					{/if}
-					<input
-						type="checkbox"
-						class="toggle toggle-primary"
-						aria-label="Global rest timer"
-						bind:checked={draft.timerEnabled}
-						onchange={autoSave}
-					/>
+					<!-- The label pads the 24pt toggle out to a 44pt touch area. -->
+					<label class="-m-2.5 flex shrink-0 p-2.5">
+						<input
+							type="checkbox"
+							class="toggle toggle-primary"
+							aria-label="Global rest timer"
+							bind:checked={draft.timerEnabled}
+							onchange={autoSave}
+						/>
+					</label>
 				</div>
 			</div>
-			<p class="text-base-content/40 -mt-2 text-xs">
+			<p class="text-base-content/65 -mt-2 text-xs">
 				Routines with their own rest timer use that instead.
 			</p>
 			{#if draft.timerEnabled}
@@ -282,14 +288,18 @@
 							}}
 						>
 							<span class="flex items-baseline justify-between gap-3">
-								<span class="text-sm font-medium" class:text-primary={active}>{goal.label}</span>
-								<span class="text-primary text-sm font-semibold tabular-nums">{goal.range}</span>
+								<span class="text-sm font-medium" class:text-primary-strong={active}
+									>{goal.label}</span
+								>
+								<span class="text-primary-strong text-sm font-semibold tabular-nums"
+									>{goal.range}</span
+								>
 							</span>
-							<span class="text-base-content/50 text-xs">{goal.blurb}</span>
+							<span class="text-base-content/65 text-xs">{goal.blurb}</span>
 						</button>
 					{/each}
 				</div>
-				<p class="text-base-content/40 -mb-2 text-xs">Or set your own</p>
+				<p class="text-base-content/65 -mb-2 text-xs">Or set your own</p>
 				<div class="flex items-center gap-3">
 					<div class="flex flex-1 items-center gap-2">
 						<input
@@ -303,7 +313,7 @@
 							onblur={fillBlanks}
 							onfocus={(e) => (e.currentTarget as HTMLInputElement).select()}
 						/>
-						<span class="text-base-content/50 text-sm">min</span>
+						<span class="text-base-content/65 text-sm">min</span>
 					</div>
 					<span class="text-base-content/30 text-xl font-bold">:</span>
 					<div class="flex flex-1 items-center gap-2">
@@ -318,7 +328,7 @@
 							onblur={fillBlanks}
 							onfocus={(e) => (e.currentTarget as HTMLInputElement).select()}
 						/>
-						<span class="text-base-content/50 text-sm">sec</span>
+						<span class="text-base-content/65 text-sm">sec</span>
 					</div>
 				</div>
 			{/if}
@@ -326,7 +336,7 @@
 	</section>
 
 	<section class="flex flex-col gap-3">
-		<p class="text-base-content/40 text-xs font-semibold tracking-widest uppercase">Streaks</p>
+		<p class="text-base-content/65 text-xs font-semibold tracking-widest uppercase">Streaks</p>
 
 		<div class="bg-base-200 flex items-center justify-between gap-4 rounded-2xl px-4 py-4">
 			{@render row('Week starts on', 'Defines the start of each streak week')}
@@ -334,8 +344,9 @@
 				{#each [[0, 'Sun'], [1, 'Mon']] as const as [value, label] (value)}
 					<button
 						type="button"
-						class="btn btn-sm join-item px-5"
-						class:btn-active={draft.weekStart === value}
+						class="btn btn-sm join-item tap-target px-5"
+						class:btn-primary={draft.weekStart === value}
+						aria-pressed={draft.weekStart === value}
 						onclick={() => {
 							draft.weekStart = value;
 							autoSave();
@@ -347,26 +358,35 @@
 
 		<div class="bg-base-200 flex items-center justify-between gap-4 rounded-2xl px-4 py-4">
 			{@render row('Streak tracking', 'Show streak stats on your dashboard')}
-			<input
-				type="checkbox"
-				class="toggle toggle-primary"
-				aria-label="Streak tracking"
-				bind:checked={draft.streaksEnabled}
-				onchange={autoSave}
-			/>
+			<label class="-m-2.5 flex shrink-0 p-2.5">
+				<input
+					type="checkbox"
+					class="toggle toggle-primary"
+					aria-label="Streak tracking"
+					bind:checked={draft.streaksEnabled}
+					onchange={autoSave}
+				/>
+			</label>
 		</div>
 
+		<!-- The day counts get a row of their own under the label, so each is a
+		     full 44pt target; beside the label they had room for 24pt. -->
 		<div
-			class="bg-base-200 flex items-center justify-between gap-4 rounded-2xl px-4 py-4 transition-opacity"
+			class="bg-base-200 flex flex-col gap-3 rounded-2xl px-4 py-4 transition-opacity"
 			class:opacity-40={!draft.streaksEnabled}
 		>
 			{@render row('Weekly goal', 'Days/week needed to earn a streak')}
-			<div class="join">
+			<div class="join grid grid-cols-7">
 				{#each [1, 2, 3, 4, 5, 6, 7] as n (n)}
 					<button
 						type="button"
-						class="btn btn-xs join-item px-2"
-						class:btn-active={draft.weeklyGoal === n}
+						class={[
+							'btn join-item h-11 px-0',
+							// Still shown while streaks are off: the card fades, the choice stays visible.
+							draft.weeklyGoal === n &&
+								'btn-primary disabled:bg-primary disabled:text-primary-content'
+						]}
+						aria-pressed={draft.weeklyGoal === n}
 						disabled={!draft.streaksEnabled}
 						onclick={() => {
 							draft.weeklyGoal = n;
@@ -380,7 +400,7 @@
 
 	{#if notifStatus && notifStatus !== 'unsupported'}
 		<section class="flex flex-col gap-3">
-			<p class="text-base-content/40 text-xs font-semibold tracking-widest uppercase">
+			<p class="text-base-content/65 text-xs font-semibold tracking-widest uppercase">
 				Notifications
 			</p>
 			<div class="bg-base-200 flex items-center justify-between gap-4 rounded-2xl px-4 py-4">
@@ -388,13 +408,13 @@
 				{#if notifStatus === 'granted'}
 					<span class="badge badge-success badge-lg">On</span>
 				{:else if notifStatus === 'needs-install'}
-					<p class="text-base-content/50 max-w-36 text-right text-xs">
+					<p class="text-base-content/65 max-w-36 text-right text-xs">
 						Add SetCount to your Home Screen to turn this on
 					</p>
 				{:else if notifStatus === 'denied'}
 					<div class="text-right">
 						<span class="badge badge-ghost badge-lg">Blocked</span>
-						<p class="text-base-content/40 mt-1 text-xs">Allow in Settings</p>
+						<p class="text-base-content/65 mt-1 text-xs">Allow in Settings</p>
 					</div>
 				{:else}
 					<button class="btn btn-primary btn-sm" onclick={() => pwa.requestNotifications()}>
@@ -406,7 +426,7 @@
 	{/if}
 
 	<section class="flex flex-col gap-3 pb-4">
-		<p class="text-base-content/40 text-xs font-semibold tracking-widest uppercase">Account</p>
+		<p class="text-base-content/65 text-xs font-semibold tracking-widest uppercase">Account</p>
 		<div class="bg-base-200 flex items-center justify-between gap-4 rounded-2xl px-4 py-4">
 			{@render row('Delete account', 'Removes your exercises, history and username for good')}
 			<button

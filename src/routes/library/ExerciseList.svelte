@@ -86,10 +86,11 @@
 		<div class="flex gap-1.5" role="group" aria-label="Sort by">
 			{#each SORTS as [key, label] (key)}
 				<button
-					class="btn btn-xs rounded-full transition-all"
-					class:btn-primary={sortKey === key}
-					class:btn-ghost={sortKey !== key}
-					class:opacity-50={sortKey !== key}
+					class={[
+						'btn btn-xs tap-target rounded-full transition-all',
+						sortKey === key ? 'btn-primary' : 'btn-ghost text-base-content/65'
+					]}
+					aria-pressed={sortKey === key}
 					onclick={() => (sortKey = key)}>{label}</button
 				>
 			{/each}
@@ -104,7 +105,7 @@
 			/>
 			{#if search}
 				<button
-					class="text-base-content/30 hover:text-base-content/60 absolute top-1/2 right-2.5 -translate-y-1/2 transition-colors"
+					class="text-base-content/65 hover:text-base-content tap-target absolute top-1/2 right-2.5 -translate-y-1/2 transition-colors"
 					onclick={() => (search = '')}
 					aria-label="Clear search"
 				>
@@ -125,7 +126,7 @@
 	<Async data={session.workouts} rows={5} rowClass="h-14 w-full rounded-xl">
 		{#snippet empty()}
 			<div class="flex flex-col items-center gap-3 pt-8">
-				<p class="text-base-content/50 text-center text-sm">No exercises yet.</p>
+				<p class="text-base-content/65 text-center text-sm">No exercises yet.</p>
 				<button class="btn btn-primary btn-sm" onclick={() => (showNew = true)}>
 					{@html AddIcon} Add your first exercise
 				</button>
@@ -145,13 +146,13 @@
 							<div class="flex min-w-0 flex-1 flex-col overflow-hidden">
 								<span class="truncate text-sm font-semibold">{workout.name}</span>
 								{#if workout.notes}
-									<p class="text-base-content/50 truncate text-xs">{workout.notes}</p>
+									<p class="text-base-content/65 truncate text-xs">{workout.notes}</p>
 								{/if}
-								<span class={last ? 'text-base-content/40 text-xs' : 'text-base-content/25 text-xs'}
+								<span class="text-base-content/65 text-xs"
 									>{last ? formatDistanceToNow(last, { addSuffix: true }) : 'Never done'}</span
 								>
 							</div>
-							<span class="text-base-content/40 shrink-0 text-xs"
+							<span class="text-base-content/65 shrink-0 text-xs"
 								>{counted(workout.sets.length, 'set')}</span
 							>
 							<Chevron />
@@ -162,7 +163,7 @@
 			</ul>
 		{:else if search.trim()}
 			<div class="flex flex-col items-center gap-4 pt-4">
-				<p class="text-base-content/50 text-sm">No exercises match "{search}"</p>
+				<p class="text-base-content/65 text-sm">No exercises match "{search}"</p>
 				<button class="btn btn-primary btn-sm gap-1.5" onclick={() => create(search.trim())}>
 					{@html AddIcon} Create "{search.trim()}"
 				</button>

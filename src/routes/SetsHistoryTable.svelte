@@ -111,7 +111,7 @@
 		<div class="bg-base-200 rounded-full p-6">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
-				class="text-base-content/40 h-10 w-10"
+				class="text-base-content/65 h-10 w-10"
 				fill="none"
 				viewBox="0 0 24 24"
 				stroke="currentColor"
@@ -125,7 +125,7 @@
 			</svg>
 		</div>
 		<p class="font-semibold">No sets yet</p>
-		<p class="text-base-content/50 max-w-xs text-sm">{emptyHint}</p>
+		<p class="text-base-content/65 max-w-xs text-sm">{emptyHint}</p>
 	</div>
 {:else}
 	{#each sessionDays as group, index (group.date)}
@@ -147,7 +147,7 @@
 
 			<div
 				class={[
-					'text-base-content/40 mb-1 grid pl-1 text-xs font-semibold tracking-wide uppercase',
+					'text-base-content/65 mb-1 grid pl-1 text-xs font-semibold tracking-wide uppercase',
 					columns
 				].join(' ')}
 			>
@@ -200,10 +200,10 @@
 								{#if hasWeight}
 									<span class="text-sm">{set.weight ? `${set.weight} ${unit}` : '—'}</span>
 								{/if}
-								<span class="text-base-content/50 text-sm">{time}</span>
+								<span class="text-base-content/65 text-sm">{time}</span>
 								{#if set.notes}
 									<span
-										class="text-base-content/60 col-span-full -mt-1 line-clamp-2 text-sm break-words"
+										class="text-base-content/70 col-span-full -mt-1 line-clamp-2 text-sm break-words"
 										>{set.notes}</span
 									>
 								{/if}

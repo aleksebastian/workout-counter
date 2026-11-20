@@ -44,7 +44,7 @@
 	onSave={(name, notes) => onSave(name, notes, measure)}
 >
 	<fieldset class="flex flex-col gap-1.5">
-		<legend class="text-base-content/60 mb-1.5 text-sm font-medium">Measured by</legend>
+		<legend class="text-base-content/70 mb-1.5 text-sm font-medium">Measured by</legend>
 		{#each MEASURE_OPTIONS as option (option.value)}
 			<label
 				class={[
@@ -64,14 +64,14 @@
 				<span class="flex min-w-0 flex-1 flex-col">
 					<span class="font-medium">{option.label}</span>
 					{#if option.hint}
-						<span class="text-base-content/55 text-xs">{option.hint}</span>
+						<span class="text-base-content/65 text-xs">{option.hint}</span>
 					{/if}
 				</span>
-				<span class="text-base-content/55 shrink-0 text-xs tabular-nums">{option.example}</span>
+				<span class="text-base-content/65 shrink-0 text-xs tabular-nums">{option.example}</span>
 			</label>
 		{/each}
 		{#if workout?.sets.length && measure !== measureOf(workout)}
-			<p class="text-base-content/55 px-0.5 text-xs">Past sets keep what they recorded.</p>
+			<p class="text-base-content/65 px-0.5 text-xs">Past sets keep what they recorded.</p>
 		{/if}
 	</fieldset>
 </NameNotesSheet>

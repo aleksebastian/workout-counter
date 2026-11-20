@@ -167,7 +167,7 @@
 					<p class="text-sm font-semibold">
 						{aliasMatches.length === 1 ? 'Is this the same exercise?' : 'Are these the same?'}
 					</p>
-					<p class="text-base-content/60 text-xs">
+					<p class="text-base-content/70 text-xs">
 						Using yours keeps your history and last weights together.
 					</p>
 				</div>
@@ -176,9 +176,9 @@
 					<div class="flex flex-col gap-1.5">
 						<p class="text-sm">
 							<span class="font-semibold">{m.exercise.name}</span>
-							<span class="text-base-content/60">looks like your</span>
+							<span class="text-base-content/70">looks like your</span>
 							<span class="font-semibold">“{m.match!.workout.name}”</span>
-							<span class="text-base-content/40 text-xs"
+							<span class="text-base-content/65 text-xs"
 								>· {counted(m.match!.workout.sets.length, 'set')} logged</span
 							>
 						</p>
@@ -205,7 +205,7 @@
 			<label class="flex cursor-pointer items-center justify-between gap-3 py-1">
 				<span class="text-sm">
 					Make it my active program
-					<span class="text-base-content/50 block text-xs"
+					<span class="text-base-content/65 block text-xs"
 						>Train will guide you through each day</span
 					>
 				</span>
@@ -227,7 +227,7 @@
 				{/if}
 			</button>
 			{#each summary as line, i (i)}
-				<p class="text-base-content/50 -mt-1 text-center text-xs">{line}</p>
+				<p class="text-base-content/65 -mt-1 text-center text-xs">{line}</p>
 			{/each}
 		{/if}
 	</section>

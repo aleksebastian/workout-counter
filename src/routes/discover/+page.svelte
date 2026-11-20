@@ -69,7 +69,7 @@
 {/snippet}
 
 {#snippet noMatches()}
-	<p class="text-base-content/50 pt-6 text-center text-sm">Nothing matches “{search.trim()}”.</p>
+	<p class="text-base-content/65 pt-6 text-center text-sm">Nothing matches “{search.trim()}”.</p>
 {/snippet}
 
 <div class="mx-auto flex w-full max-w-lg flex-col gap-4">
@@ -84,7 +84,7 @@
 		/>
 		{#if search}
 			<button
-				class="text-base-content/30 hover:text-base-content/60 absolute top-1/2 right-2.5 -translate-y-1/2 transition-colors"
+				class="text-base-content/65 hover:text-base-content tap-target absolute top-1/2 right-2.5 -translate-y-1/2 transition-colors"
 				onclick={() => (search = '')}
 				aria-label="Clear search"
 			>
@@ -109,13 +109,13 @@
 				>
 				<div class="flex flex-col gap-0.5">
 					<p class="font-semibold">Have your own workout?</p>
-					<p class="text-base-content/60 text-sm">
+					<p class="text-base-content/70 text-sm">
 						Snap a photo or screenshot and turn it into a routine.
 					</p>
 				</div>
 			</div>
 			<button
-				class="btn btn-sm bg-primary/15 text-primary-strong self-start rounded-full border-none"
+				class="btn btn-sm bg-primary/15 text-primary-strong tap-target self-start rounded-full border-none"
 				onclick={() => (showImport = true)}>Upload your own</button
 			>
 		</section>
@@ -123,16 +123,16 @@
 
 	{#if tab.current === 'exercises'}
 		<div
-			class="-mx-1 flex scrollbar-none gap-1.5 overflow-x-auto px-1"
+			class="-mx-1 -my-2.5 flex scrollbar-none gap-1.5 overflow-x-auto px-1 py-2.5"
 			role="group"
 			aria-label="Muscle group"
 		>
 			{#each [{ id: null, label: 'All' }, ...MUSCLE_FILTERS] as filter (filter.id)}
 				<button
-					class="btn btn-xs shrink-0 rounded-full transition-all"
-					class:btn-primary={muscle === filter.id}
-					class:btn-ghost={muscle !== filter.id}
-					class:opacity-50={muscle !== filter.id}
+					class={[
+						'btn btn-xs tap-target shrink-0 rounded-full transition-all',
+						muscle === filter.id ? 'btn-primary' : 'btn-ghost text-base-content/65'
+					]}
 					aria-pressed={muscle === filter.id}
 					onclick={() => (muscle = filter.id)}>{filter.label}</button
 				>
@@ -152,7 +152,7 @@
 									<span class="truncate text-sm font-semibold">{exercise.name}</span>
 									{#if added.has(`exercise:${exercise.id}`)}{@render addedBadge()}{/if}
 								</div>
-								<span class="text-base-content/50 truncate text-xs">
+								<span class="text-base-content/65 truncate text-xs">
 									{exercise.muscles.map((m) => MUSCLE_LABELS[m]).join(', ')} · {EQUIPMENT_LABELS[
 										exercise.equipment
 									]}
@@ -180,8 +180,8 @@
 									<span class="truncate font-semibold">{routine.name}</span>
 									{#if added.has(`routine:${routine.id}`)}{@render addedBadge()}{/if}
 								</div>
-								<p class="text-base-content/50 line-clamp-2 text-xs">{routine.description}</p>
-								<p class="text-base-content/60 text-xs">
+								<p class="text-base-content/65 line-clamp-2 text-xs">{routine.description}</p>
+								<p class="text-base-content/70 text-xs">
 									{routine.exercises.length} exercises · {LEVEL_LABELS[routine.level]}
 								</p>
 							</div>
@@ -207,10 +207,10 @@
 								<span class="truncate font-semibold">{program.name}</span>
 								{#if added.has(`program:${program.id}`)}{@render addedBadge()}{/if}
 							</div>
-							<p class="text-base-content/50 line-clamp-2 text-xs">{program.description}</p>
+							<p class="text-base-content/65 line-clamp-2 text-xs">{program.description}</p>
 							<div class="flex items-center justify-between gap-2">
 								<WeekStrip {days} />
-								<span class="text-base-content/40 text-xs"
+								<span class="text-base-content/65 text-xs"
 									>{days.length}×/week · {LEVEL_LABELS[program.level]}</span
 								>
 							</div>

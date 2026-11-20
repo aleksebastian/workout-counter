@@ -135,7 +135,7 @@
 		<div class="bg-primary/10 flex h-16 w-16 items-center justify-center rounded-2xl">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
-				class="text-primary h-8 w-8"
+				class="text-primary-strong h-8 w-8"
 				fill="none"
 				style="fill: none"
 				viewBox="0 0 24 24"
@@ -151,7 +151,7 @@
 		</div>
 		<div class="text-center">
 			<h1 class="text-2xl font-black tracking-tight">SetCount</h1>
-			<p class="text-base-content/50 mt-1 text-sm">Your minimalist workout tracker</p>
+			<p class="text-base-content/65 mt-1 text-sm">Your minimalist workout tracker</p>
 		</div>
 	</div>
 
@@ -161,7 +161,7 @@
 			<div class="bg-base-200 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
-					class="text-base-content/60 h-4 w-4"
+					class="text-base-content/70 h-4 w-4"
 					fill="none"
 					style="fill: none"
 					viewBox="0 0 24 24"
@@ -173,7 +173,7 @@
 			</div>
 			<div>
 				<p class="text-sm font-semibold">Log sets instantly</p>
-				<p class="text-base-content/40 text-xs">
+				<p class="text-base-content/65 text-xs">
 					Tap once to record reps and weight with no friction
 				</p>
 			</div>
@@ -182,7 +182,7 @@
 			<div class="bg-base-200 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
-					class="text-base-content/60 h-4 w-4"
+					class="text-base-content/70 h-4 w-4"
 					fill="none"
 					style="fill: none"
 					viewBox="0 0 24 24"
@@ -198,14 +198,14 @@
 			</div>
 			<div>
 				<p class="text-sm font-semibold">Track volume &amp; intensity</p>
-				<p class="text-base-content/40 text-xs">See relevant stats at a glance</p>
+				<p class="text-base-content/65 text-xs">See relevant stats at a glance</p>
 			</div>
 		</li>
 		<li class="flex items-start gap-3">
 			<div class="bg-base-200 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
-					class="text-base-content/60 h-4 w-4"
+					class="text-base-content/70 h-4 w-4"
 					fill="none"
 					style="fill: none"
 					viewBox="0 0 24 24"
@@ -221,7 +221,7 @@
 			</div>
 			<div>
 				<p class="text-sm font-semibold">Built-in rest timer</p>
-				<p class="text-base-content/40 text-xs">Auto-starts after each set so you stay on pace</p>
+				<p class="text-base-content/65 text-xs">Auto-starts after each set so you stay on pace</p>
 			</div>
 		</li>
 	</ul>
@@ -261,13 +261,15 @@
 		</button>
 
 		{#if error}
-			<p class="text-error rounded-xl bg-red-500/10 px-4 py-3 text-center text-xs">{error}</p>
+			<p class="text-error-strong rounded-xl bg-red-500/10 px-4 py-3 text-center text-xs">
+				{error}
+			</p>
 		{:else if loading}
-			<button class="btn btn-ghost btn-xs text-base-content/50 w-full" onclick={cancel}>
+			<button class="btn btn-ghost btn-xs text-base-content/65 w-full" onclick={cancel}>
 				Cancel
 			</button>
 		{:else}
-			<p class="text-base-content/30 text-center text-xs">No password needed</p>
+			<p class="text-base-content/65 text-center text-xs">No password needed</p>
 		{/if}
 		<!-- <p class="text-base-content/30 text-center text-xs">No password needed · free forever</p> -->
 	</div>

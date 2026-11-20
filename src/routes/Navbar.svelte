@@ -4,7 +4,7 @@
 	import { beforeNavigate } from '$app/navigation';
 	import { fade } from 'svelte/transition';
 	import { session } from '$lib/session.svelte';
-	import { navState } from '$lib/nav.svelte';
+	import { navState, TAB_TITLES } from '$lib/nav.svelte';
 	import { TAB_ROUTES } from '$lib/routes';
 	import Avatar from './Avatar.svelte';
 
@@ -19,12 +19,6 @@
 	$effect(() => {
 		if (ready && !animated) animated = true;
 	});
-
-	const TAB_TITLES: Record<string, string> = {
-		'/history': 'History',
-		'/library': 'Library',
-		'/discover': 'Discover'
-	};
 
 	let pathname = $derived(page.url.pathname);
 	let isHome = $derived(pathname === '/');
@@ -73,7 +67,7 @@
 				<span class="btn btn-square invisible"></span>
 			{:else if isHome}
 				<!-- Preferences icon -->
-				<a href="/preferences" aria-label="Settings" class="btn btn-square btn-ghost">
+				<a href="/preferences" aria-label="Settings" class="btn btn-square btn-ghost tap-target">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						class="h-6 w-6"
@@ -98,7 +92,7 @@
 				<span class="btn btn-square invisible" aria-hidden="true"></span>
 			{:else}
 				<!-- Back button -->
-				<button class="btn btn-square btn-ghost" onclick={handleBack} aria-label="Back">
+				<button class="btn btn-square btn-ghost tap-target" onclick={handleBack} aria-label="Back">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						class="h-6 w-6"
@@ -127,11 +121,13 @@
 			{#if !hasUser}
 				<a class="btn btn-ghost text-xl" href="/">SetCount</a>
 			{:else if isHome}
+				<!-- Not a heading: Today's greeting is the page's own h1. -->
 				<span class="text-xl font-bold">Today</span>
 			{:else if isTab}
-				<span class="text-xl font-bold">{tabTitle}</span>
-			{:else}
-				<span class="max-w-[45vw] truncate text-base font-bold">{navState.title}</span>
+				<h1 class="text-xl font-bold">{tabTitle}</h1>
+			{:else if navState.title}
+				<!-- Only once the page has named itself: an empty heading reads as nothing. -->
+				<h1 class="max-w-[45vw] truncate text-base font-bold">{navState.title}</h1>
 			{/if}
 		</div>
 	{/key}

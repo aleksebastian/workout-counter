@@ -204,7 +204,7 @@
 	>
 		<span class="flex min-w-0 flex-1 flex-col">
 			<span class="truncate font-semibold">{name}</span>
-			<span class="text-base-content/55 truncate text-xs">{meta}</span>
+			<span class="text-base-content/65 truncate text-xs">{meta}</span>
 		</span>
 		{#if add}
 			<span
@@ -227,7 +227,7 @@
 
 {#snippet group(label: string, rows: import('svelte').Snippet)}
 	<section class="flex flex-col gap-2">
-		<p class="text-base-content/55 text-xs font-semibold tracking-widest uppercase">{label}</p>
+		<p class="text-base-content/65 text-xs font-semibold tracking-widest uppercase">{label}</p>
 		<div class="bg-base-200 divide-base-300 flex flex-col divide-y overflow-hidden rounded-2xl">
 			{@render rows()}
 		</div>
@@ -253,14 +253,14 @@
 					>
 					All exercises
 				</button>
-				<span class="text-base-content/55 ml-auto truncate text-xs">
+				<span class="text-base-content/65 ml-auto truncate text-xs">
 					{chosenWorkout?.sets.length ? `Last time: ${lastLine(chosenWorkout)}` : 'First set'}
 				</span>
 			</div>
 		{:else}
 			<label class="input bg-base-200 flex w-full items-center gap-2 border-none">
 				<svg
-					class="text-base-content/50 h-4 w-4 shrink-0"
+					class="text-base-content/65 h-4 w-4 shrink-0"
 					viewBox="0 0 24 24"
 					fill="none"
 					stroke="currentColor"
@@ -295,7 +295,7 @@
 			<MeasureEntry {measure} bind:reps bind:seconds bind:meters bind:holdSeconds {record} />
 		{/if}
 		{#if !isTimed(measure) || choice.kind === 'catalog'}
-			<p class="text-base-content/50 mt-3 text-center text-xs">
+			<p class="text-base-content/65 mt-3 text-center text-xs">
 				{isTimed(measure)
 					? 'Adds it to your library'
 					: `Starts your rest timer${choice.kind === 'catalog' ? ' · adds it to your library' : ''}`}
@@ -340,7 +340,7 @@
 			{/if}
 
 			{#if query && !all.length && !fromDiscover.length && !createName}
-				<p class="text-base-content/55 py-6 text-center text-sm">
+				<p class="text-base-content/65 py-6 text-center text-sm">
 					Nothing matches “{search.trim()}”.
 				</p>
 			{/if}
@@ -352,7 +352,7 @@
 					onclick={() => create(createName!)}>+ New exercise “{createName}”</button
 				>
 			{:else if !query && !workouts.length}
-				<p class="text-base-content/55 py-6 text-center text-sm">
+				<p class="text-base-content/65 py-6 text-center text-sm">
 					No exercises yet. Search to find one in Discover, or type a name to create it.
 				</p>
 			{/if}
@@ -368,7 +368,7 @@
 				onclick={log}
 			>
 				<span class="font-bold">Log set</span>
-				<span class="font-medium opacity-75">{draftLabel}</span>
+				<span class="font-medium">{draftLabel}</span>
 			</button>
 		{/if}
 	{/snippet}

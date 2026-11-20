@@ -61,7 +61,7 @@
 {/snippet}
 
 {#snippet label(text: string)}
-	<span class="text-base-content/55 text-xs font-semibold tracking-widest uppercase">{text}</span>
+	<span class="text-base-content/65 text-xs font-semibold tracking-widest uppercase">{text}</span>
 {/snippet}
 
 <!-- Minutes and seconds as one m:ss value, minutes stepping by one. -->
@@ -111,7 +111,7 @@
 							mode="decimal"
 							onchange={(n) => (meters = toMeters(clamp(n, 0), unit))}
 						/>
-						<span class="text-base-content/55 text-sm font-semibold">{unit}</span>
+						<span class="text-base-content/65 text-sm font-semibold">{unit}</span>
 					</div>
 				</div>
 				<div class="border-base-300 flex min-w-0 flex-[1.3] border-l pl-2.5">
@@ -159,7 +159,7 @@
 								mode="numeric"
 								onchange={(n) => (holdSeconds = clamp(n, 0))}
 							/>
-							<span class="text-base-content/55 text-sm font-semibold">s</span>
+							<span class="text-base-content/65 text-sm font-semibold">s</span>
 						</div>
 						{@render stepper(
 							'hold',

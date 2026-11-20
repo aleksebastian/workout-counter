@@ -50,13 +50,13 @@
 			<span
 				class={[
 					'text-2xl font-black tabular-nums',
-					paused ? 'text-base-content/55' : 'text-primary'
+					paused ? 'text-base-content/65' : 'text-primary-strong'
 				]}
 				role="timer"
 				aria-live="off">{formatSeconds(seconds ?? 0)}</span
 			>
 			{#if target}
-				<span class="text-base-content/55 text-xs tabular-nums">
+				<span class="text-base-content/65 text-xs tabular-nums">
 					{over && seconds !== null
 						? `+${formatSeconds(seconds - target)}`
 						: `of ${formatSeconds(target)}`}
@@ -66,7 +66,7 @@
 	</div>
 
 	<div class="flex min-w-0 flex-1 flex-col gap-2">
-		<p class="text-base-content/55 text-xs">
+		<p class="text-base-content/65 text-xs">
 			{seconds === null
 				? 'Start when you do'
 				: paused
