@@ -20,6 +20,7 @@
 	import { session } from '$lib/session.svelte';
 	import { toaster } from '$lib/toast.svelte';
 	import { TAB_ROUTES, isRunPath } from '$lib/routes';
+	import { pageTitle } from '$lib/nav.svelte';
 
 	let { children } = $props();
 
@@ -31,6 +32,11 @@
 	 * would replay its launch animation every time you leave a workout.
 	 */
 	let immersive = $derived(isRunPath(page.url.pathname));
+	// "History · SetCount": each screen has its own name in the app switcher and to screen readers.
+	let docTitle = $derived.by(() => {
+		const title = hasUser ? pageTitle(page.url.pathname) : '';
+		return title ? `${title} · SetCount` : 'SetCount';
+	});
 
 	/**
 	 * Height of the banner stacked above the bottom bars (0 when none shows).
@@ -182,7 +188,7 @@
 </script>
 
 <svelte:head>
-	<title>SetCount</title>
+	<title>{docTitle}</title>
 	<meta name="description" content="The best way to keep track of your workouts" />
 </svelte:head>
 
