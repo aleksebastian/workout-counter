@@ -197,8 +197,9 @@
 				{#each [['light', 'Light'], ['system', 'System'], ['dark', 'Dark']] as const as [value, label] (value)}
 					<button
 						type="button"
-						class="btn btn-sm join-item"
-						class:btn-active={draft.theme === value}
+						class="btn btn-sm join-item tap-target"
+						class:btn-primary={draft.theme === value}
+						aria-pressed={draft.theme === value}
 						onclick={() => {
 							draft.theme = value;
 							autoSave();
@@ -218,8 +219,9 @@
 				{#each ['lbs', 'kg'] as const as value (value)}
 					<button
 						type="button"
-						class="btn btn-sm join-item px-6"
-						class:btn-active={draft.weightUnit === value}
+						class="btn btn-sm join-item tap-target px-6"
+						class:btn-primary={draft.weightUnit === value}
+						aria-pressed={draft.weightUnit === value}
 						onclick={() => {
 							draft.weightUnit = value;
 							autoSave();
@@ -235,8 +237,9 @@
 				{#each ['km', 'mi'] as const as value (value)}
 					<button
 						type="button"
-						class="btn btn-sm join-item px-6"
-						class:btn-active={draft.distanceUnit === value}
+						class="btn btn-sm join-item tap-target px-6"
+						class:btn-primary={draft.distanceUnit === value}
+						aria-pressed={draft.distanceUnit === value}
 						onclick={() => {
 							draft.distanceUnit = value;
 							autoSave();
@@ -251,18 +254,21 @@
 				{@render row('Global rest timer', 'Counts down after each set you record')}
 				<div class="flex shrink-0 items-center gap-3">
 					{#if draft.timerEnabled}
-						<span class="text-primary text-2xl font-black tabular-nums">{timerPreview}</span>
+						<span class="text-primary-strong text-2xl font-black tabular-nums">{timerPreview}</span>
 					{/if}
-					<input
-						type="checkbox"
-						class="toggle toggle-primary"
-						aria-label="Global rest timer"
-						bind:checked={draft.timerEnabled}
-						onchange={autoSave}
-					/>
+					<!-- The label pads the 24pt toggle out to a 44pt touch area. -->
+					<label class="-m-2.5 flex shrink-0 p-2.5">
+						<input
+							type="checkbox"
+							class="toggle toggle-primary"
+							aria-label="Global rest timer"
+							bind:checked={draft.timerEnabled}
+							onchange={autoSave}
+						/>
+					</label>
 				</div>
 			</div>
-			<p class="text-base-content/40 -mt-2 text-xs">
+			<p class="text-base-content/65 -mt-2 text-xs">
 				Routines with their own rest timer use that instead.
 			</p>
 			{#if draft.timerEnabled}
@@ -338,8 +344,9 @@
 				{#each [[0, 'Sun'], [1, 'Mon']] as const as [value, label] (value)}
 					<button
 						type="button"
-						class="btn btn-sm join-item px-5"
-						class:btn-active={draft.weekStart === value}
+						class="btn btn-sm join-item tap-target px-5"
+						class:btn-primary={draft.weekStart === value}
+						aria-pressed={draft.weekStart === value}
 						onclick={() => {
 							draft.weekStart = value;
 							autoSave();
@@ -351,26 +358,31 @@
 
 		<div class="bg-base-200 flex items-center justify-between gap-4 rounded-2xl px-4 py-4">
 			{@render row('Streak tracking', 'Show streak stats on your dashboard')}
-			<input
-				type="checkbox"
-				class="toggle toggle-primary"
-				aria-label="Streak tracking"
-				bind:checked={draft.streaksEnabled}
-				onchange={autoSave}
-			/>
+			<label class="-m-2.5 flex shrink-0 p-2.5">
+				<input
+					type="checkbox"
+					class="toggle toggle-primary"
+					aria-label="Streak tracking"
+					bind:checked={draft.streaksEnabled}
+					onchange={autoSave}
+				/>
+			</label>
 		</div>
 
+		<!-- The day counts get a row of their own under the label, so each is a
+		     full 44pt target; beside the label they had room for 24pt. -->
 		<div
-			class="bg-base-200 flex items-center justify-between gap-4 rounded-2xl px-4 py-4 transition-opacity"
+			class="bg-base-200 flex flex-col gap-3 rounded-2xl px-4 py-4 transition-opacity"
 			class:opacity-40={!draft.streaksEnabled}
 		>
 			{@render row('Weekly goal', 'Days/week needed to earn a streak')}
-			<div class="join">
+			<div class="join grid grid-cols-7">
 				{#each [1, 2, 3, 4, 5, 6, 7] as n (n)}
 					<button
 						type="button"
-						class="btn btn-xs join-item px-2"
-						class:btn-active={draft.weeklyGoal === n}
+						class="btn join-item h-11 px-0"
+						class:btn-primary={draft.weeklyGoal === n}
+						aria-pressed={draft.weeklyGoal === n}
 						disabled={!draft.streaksEnabled}
 						onclick={() => {
 							draft.weeklyGoal = n;

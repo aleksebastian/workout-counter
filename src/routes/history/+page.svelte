@@ -238,10 +238,10 @@
 	{:else if !feed.length}
 		<div class="flex flex-col items-center gap-3 py-16 text-center">
 			<p class="font-semibold">No workouts yet</p>
-			<p class="text-base-content/55 max-w-xs text-sm">
+			<p class="text-base-content/65 max-w-xs text-sm">
 				Finish a workout or log a set, and it shows up here.
 			</p>
-			<a class="btn btn-primary btn-sm" href="/">Go to Today</a>
+			<a class="btn btn-primary btn-sm tap-target" href="/">Go to Today</a>
 		</div>
 	{:else}
 		<section class="flex flex-col gap-2">

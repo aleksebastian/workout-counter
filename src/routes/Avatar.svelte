@@ -20,7 +20,7 @@
 
 {#if hasUser}
 	<button
-		class="btn btn-circle bg-neutral text-neutral-content"
+		class="btn btn-circle bg-neutral text-neutral-content tap-target"
 		onclick={openAccount}
 		aria-haspopup="dialog"
 		aria-expanded={!!page.state.account}

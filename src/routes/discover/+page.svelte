@@ -115,7 +115,7 @@
 				</div>
 			</div>
 			<button
-				class="btn btn-sm bg-primary/15 text-primary-strong self-start rounded-full border-none"
+				class="btn btn-sm bg-primary/15 text-primary-strong tap-target self-start rounded-full border-none"
 				onclick={() => (showImport = true)}>Upload your own</button
 			>
 		</section>
@@ -129,10 +129,10 @@
 		>
 			{#each [{ id: null, label: 'All' }, ...MUSCLE_FILTERS] as filter (filter.id)}
 				<button
-					class="btn btn-xs shrink-0 rounded-full transition-all"
-					class:btn-primary={muscle === filter.id}
-					class:btn-ghost={muscle !== filter.id}
-					class:opacity-50={muscle !== filter.id}
+					class={[
+						'btn btn-xs tap-target shrink-0 rounded-full transition-all',
+						muscle === filter.id ? 'btn-primary' : 'btn-ghost text-base-content/65'
+					]}
 					aria-pressed={muscle === filter.id}
 					onclick={() => (muscle = filter.id)}>{filter.label}</button
 				>

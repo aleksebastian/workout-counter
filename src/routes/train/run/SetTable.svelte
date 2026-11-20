@@ -169,7 +169,7 @@
 							>
 							<span class="flex justify-end">
 								<button
-									class="border-primary hover:bg-primary/15 h-8 w-8 rounded-full border-2 transition-colors"
+									class="border-primary hover:bg-primary/15 tap-target h-8 w-8 rounded-full border-2 transition-colors"
 									aria-label="Log set {i + 1}"
 									onclick={onLog}
 								></button>

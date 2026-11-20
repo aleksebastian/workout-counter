@@ -73,7 +73,7 @@
 				<span class="btn btn-square invisible"></span>
 			{:else if isHome}
 				<!-- Preferences icon -->
-				<a href="/preferences" aria-label="Settings" class="btn btn-square btn-ghost">
+				<a href="/preferences" aria-label="Settings" class="btn btn-square btn-ghost tap-target">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						class="h-6 w-6"
@@ -98,7 +98,7 @@
 				<span class="btn btn-square invisible" aria-hidden="true"></span>
 			{:else}
 				<!-- Back button -->
-				<button class="btn btn-square btn-ghost" onclick={handleBack} aria-label="Back">
+				<button class="btn btn-square btn-ghost tap-target" onclick={handleBack} aria-label="Back">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						class="h-6 w-6"

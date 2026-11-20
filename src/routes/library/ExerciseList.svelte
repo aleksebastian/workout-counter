@@ -86,10 +86,11 @@
 		<div class="flex gap-1.5" role="group" aria-label="Sort by">
 			{#each SORTS as [key, label] (key)}
 				<button
-					class="btn btn-xs rounded-full transition-all"
-					class:btn-primary={sortKey === key}
-					class:btn-ghost={sortKey !== key}
-					class:opacity-50={sortKey !== key}
+					class={[
+						'btn btn-xs tap-target rounded-full transition-all',
+						sortKey === key ? 'btn-primary' : 'btn-ghost text-base-content/65'
+					]}
+					aria-pressed={sortKey === key}
 					onclick={() => (sortKey = key)}>{label}</button
 				>
 			{/each}

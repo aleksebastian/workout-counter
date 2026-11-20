@@ -59,15 +59,19 @@
 		<!-- Actions — stacked, full width -->
 		<div class="mt-1 flex w-full flex-col gap-2">
 			<button
-				class={destructive ? 'btn btn-error w-full' : 'btn btn-primary w-full'}
+				class={destructive
+					? 'btn btn-error tap-target w-full'
+					: 'btn btn-primary tap-target w-full'}
 				value="default"
 			>
 				{actionLabel}
 			</button>
 			{#if secondaryLabel}
-				<button class="btn btn-ghost text-error w-full" value="secondary">{secondaryLabel}</button>
+				<button class="btn btn-ghost text-error-strong tap-target w-full" value="secondary"
+					>{secondaryLabel}</button
+				>
 			{/if}
-			<button class="btn btn-ghost w-full" value="cancel">{cancelLabel}</button>
+			<button class="btn btn-ghost tap-target w-full" value="cancel">{cancelLabel}</button>
 		</div>
 	</form>
 </dialog>

@@ -210,7 +210,9 @@
 			</p>
 			<div class="flex items-center gap-1">
 				{#if rows.length}
-					<button class="btn btn-primary btn-sm" onclick={() => goto(runRoutineHref(routine.id))}
+					<button
+						class="btn btn-primary btn-sm tap-target"
+						onclick={() => goto(runRoutineHref(routine.id))}
 						>{training.isRunning({ type: 'routine', routineId: routine.id })
 							? 'Resume'
 							: 'Start'}</button
@@ -321,10 +323,10 @@
 					</svg>
 				</div>
 				<p class="font-semibold">No exercises yet</p>
-				<p class="text-base-content/50 max-w-xs text-sm">
+				<p class="text-base-content/65 max-w-xs text-sm">
 					Add a few exercises and you'll be able to run this routine start to finish.
 				</p>
-				<button class="btn btn-primary btn-sm mt-1" onclick={() => (showAdd = true)}>
+				<button class="btn btn-primary btn-sm tap-target mt-1" onclick={() => (showAdd = true)}>
 					{@html AddIcon} Add exercises
 				</button>
 			</div>
@@ -333,8 +335,8 @@
 {:else}
 	<div class="mx-auto flex max-w-lg flex-col items-center gap-4 py-16 text-center">
 		<p class="font-semibold">That routine isn't available</p>
-		<p class="text-base-content/50 text-sm">It may have been deleted on another device.</p>
-		<a class="btn btn-primary btn-sm" href={libraryHref('routines')}>Back to Library</a>
+		<p class="text-base-content/65 text-sm">It may have been deleted on another device.</p>
+		<a class="btn btn-primary btn-sm tap-target" href={libraryHref('routines')}>Back to Library</a>
 	</div>
 {/if}
 
