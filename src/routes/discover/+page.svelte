@@ -84,7 +84,7 @@
 		/>
 		{#if search}
 			<button
-				class="text-base-content/30 hover:text-base-content/70 absolute top-1/2 right-2.5 -translate-y-1/2 transition-colors"
+				class="text-base-content/65 hover:text-base-content tap-target absolute top-1/2 right-2.5 -translate-y-1/2 transition-colors"
 				onclick={() => (search = '')}
 				aria-label="Clear search"
 			>

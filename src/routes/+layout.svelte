@@ -34,7 +34,8 @@
 	let immersive = $derived(isRunPath(page.url.pathname));
 	// "History · SetCount": each screen has its own name in the app switcher and to screen readers.
 	let docTitle = $derived.by(() => {
-		const title = hasUser ? pageTitle(page.url.pathname) : '';
+		// The run screen has no header title of its own: it's named for the workout.
+		const title = !hasUser ? '' : immersive ? training.name : pageTitle(page.url.pathname);
 		return title ? `${title} · SetCount` : 'SetCount';
 	});
 

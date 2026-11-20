@@ -87,8 +87,8 @@
 						isToday
 							? 'text-primary-strong'
 							: isScheduled
-								? 'text-base-content/65'
-								: 'text-base-content/20'
+								? 'text-base-content'
+								: 'text-base-content/65'
 					].join(' ')}>{label}</span
 				>
 				<div

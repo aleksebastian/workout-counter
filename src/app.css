@@ -131,10 +131,10 @@ svg:not([fill]) {
  * aren't selected.
  */
 .badge-soft.badge-primary {
-	color: color-mix(in oklab, var(--color-primary) 45%, var(--color-base-content));
+	@apply text-primary-strong;
 }
 .btn-outline.btn-error:not(:hover, :active) {
-	color: color-mix(in oklab, var(--color-error) 60%, var(--color-base-content));
+	@apply text-error-strong;
 }
 .tabs-box .tab:not(.tab-active, [aria-selected='true']) {
 	color: color-mix(in oklab, var(--color-base-content) 70%, transparent);

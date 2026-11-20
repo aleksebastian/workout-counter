@@ -380,8 +380,12 @@
 				{#each [1, 2, 3, 4, 5, 6, 7] as n (n)}
 					<button
 						type="button"
-						class="btn join-item h-11 px-0"
-						class:btn-primary={draft.weeklyGoal === n}
+						class={[
+							'btn join-item h-11 px-0',
+							// Still shown while streaks are off: the card fades, the choice stays visible.
+							draft.weeklyGoal === n &&
+								'btn-primary disabled:bg-primary disabled:text-primary-content'
+						]}
 						aria-pressed={draft.weeklyGoal === n}
 						disabled={!draft.streaksEnabled}
 						onclick={() => {

@@ -73,7 +73,17 @@ describe('formatSet', () => {
 				'hold',
 				units
 			)
-		).toBe('2 sets · 8 reps');
+		).toBe('2 sets · 8 × 10s');
+		expect(
+			summarizeSets(
+				[set({ reps: 3, holdSeconds: 10 }), set({ reps: 3, holdSeconds: 15 })],
+				'hold',
+				units
+			)
+		).toBe('2 sets · 6 × 10–15s');
+		expect(summarizeSets([set({ seconds: 1710 }), set({ seconds: 1810 })], 'distance', units)).toBe(
+			'2 sets · 58:40 total'
+		);
 		expect(summarizeSets([set({ seconds: 300 }), set({ seconds: 270 })], 'time', units)).toBe(
 			'2 sets · 9:30 total'
 		);

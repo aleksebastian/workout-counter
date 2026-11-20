@@ -11,16 +11,15 @@
 
 	interface Props {
 		summary: SessionSummary;
-		/** "kg" or "lb", for the top weight of each exercise. */
-		unit: string;
 	}
 
-	let { summary, unit }: Props = $props();
+	let { summary }: Props = $props();
+
+	let units = $derived(unitsOf(session.prefs));
 
 	/** One exercise on the done screen: "3 × 10 · top 25 lb", "2 sets · 1 × 10s". */
 	function summaryLine(item: SessionSummary['list'][number], since: number): string {
 		const workout = session.workout(item.workoutId);
-		const units = { ...unitsOf(session.prefs), weight: unit };
 		return summarizeSets(setsSince(workout, since), measureOf(workout), units);
 	}
 </script>

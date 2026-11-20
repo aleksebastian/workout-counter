@@ -138,16 +138,20 @@ export function summarizeSets(sets: Set[], measure: Measure, units: Units): stri
 			.join(' · ');
 	}
 	const shown = new globalThis.Set(sets.map((s) => formatSet(s, measure, units)));
+	const seconds = sets.reduce((t, s) => t + (s.seconds ?? 0), 0);
+	const meters = sets.reduce((t, s) => t + (s.meters ?? 0), 0);
 	let detail: string;
 	if (shown.size === 1) detail = [...shown][0];
-	else if (measure === 'time')
-		detail = `${formatSeconds(sets.reduce((t, s) => t + (s.seconds ?? 0), 0))} total`;
-	else if (measure === 'distance')
-		detail = `${formatDistance(
-			sets.reduce((t, s) => t + (s.meters ?? 0), 0),
-			units.distance
-		)} total`;
-	else detail = counted(reps, 'rep');
+	// Distance sets logged with only a time add up as time, not "0 km".
+	else if (measure === 'distance' && meters > 0)
+		detail = `${formatDistance(meters, units.distance)} total`;
+	else if (measure === 'time' || measure === 'distance') detail = `${formatSeconds(seconds)} total`;
+	else {
+		// Holds of different lengths: every rep, and the range they were held for.
+		const holds = sets.map((s) => s.holdSeconds ?? 0);
+		const [low, high] = [Math.min(...holds), Math.max(...holds)];
+		detail = `${reps} × ${low === high ? low : `${low}–${high}`}s`;
+	}
 	return `${counted(n, 'set')} · ${detail}`;
 }
 

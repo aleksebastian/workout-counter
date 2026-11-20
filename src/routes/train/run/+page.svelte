@@ -549,7 +549,7 @@
 		</div>
 	</div>
 {:else if summary}
-	<DoneSummary {summary} unit={unitLabel} />
+	<DoneSummary {summary} />
 {:else if !ready || !active}
 	<SessionHeader title="" />
 	<div class="mx-auto flex w-full max-w-lg flex-col gap-4">
