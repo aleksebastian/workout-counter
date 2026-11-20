@@ -50,8 +50,8 @@
 	<div class="flex flex-col gap-3">
 		<div class="flex items-center justify-between">
 			<div>
-				<p class="text-base-content/60 text-sm font-medium">Rest Timer</p>
-				<p class="text-base-content/40 text-xs">
+				<p class="text-base-content/70 text-sm font-medium">Rest Timer</p>
+				<p class="text-base-content/65 text-xs">
 					{useCustomTimer
 						? 'Used instead of your global timer during this routine'
 						: session.prefs.timerEnabled
@@ -61,7 +61,7 @@
 			</div>
 			<div class="flex items-center gap-2">
 				{#if useCustomTimer}
-					<span class="text-primary text-xl font-black tabular-nums">{timerPreview}</span>
+					<span class="text-primary-strong text-xl font-black tabular-nums">{timerPreview}</span>
 				{/if}
 				<input
 					type="checkbox"
@@ -99,7 +99,7 @@
 							max="59"
 							onfocus={(e) => (e.currentTarget as HTMLInputElement).select()}
 						/>
-						<span class="text-base-content/50 text-xs">min</span>
+						<span class="text-base-content/65 text-xs">min</span>
 					</div>
 					<span class="text-base-content/30 font-bold">:</span>
 					<div class="flex flex-1 items-center gap-2">
@@ -112,7 +112,7 @@
 							max="59"
 							onfocus={(e) => (e.currentTarget as HTMLInputElement).select()}
 						/>
-						<span class="text-base-content/50 text-xs">sec</span>
+						<span class="text-base-content/65 text-xs">sec</span>
 					</div>
 				</div>
 			</div>

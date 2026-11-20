@@ -104,7 +104,7 @@
 				<button
 					data-sortable-handle
 					type="button"
-					class="drag-handle text-base-content/40 hover:text-base-content/70 shrink-0 cursor-grab rounded-lg p-2 transition-colors active:cursor-grabbing"
+					class="drag-handle text-base-content/65 hover:text-base-content/70 shrink-0 cursor-grab rounded-lg p-2 transition-colors active:cursor-grabbing"
 					aria-label="Reorder item {i + 1} of {order.length}. Use arrow keys to move."
 					onpointerdown={(e) => onPointerDown(e, i)}
 					onpointermove={onPointerMove}

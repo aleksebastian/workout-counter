@@ -173,7 +173,7 @@
 			<h2 id="account-title" class="text-base font-semibold">Account</h2>
 			<button
 				bind:this={doneEl}
-				class="btn btn-ghost text-primary absolute right-2 text-base font-semibold"
+				class="btn btn-ghost text-primary-strong absolute right-2 text-base font-semibold"
 				onclick={close}
 			>
 				Done
@@ -192,10 +192,10 @@
 					<p class="max-w-full truncate text-xl font-bold">{user.displayName}</p>
 				{/if}
 				{#if username}
-					<p class="text-primary max-w-full truncate text-sm font-medium">@{username}</p>
+					<p class="text-primary-strong max-w-full truncate text-sm font-medium">@{username}</p>
 				{/if}
 				{#if user?.email}
-					<p class="text-base-content/50 max-w-full truncate text-sm">{user.email}</p>
+					<p class="text-base-content/65 max-w-full truncate text-sm">{user.email}</p>
 				{/if}
 			</div>
 
@@ -207,7 +207,7 @@
 				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
-						class="text-base-content/60 h-5 w-5 shrink-0"
+						class="text-base-content/70 h-5 w-5 shrink-0"
 						fill="none"
 						viewBox="0 0 24 24"
 						stroke="currentColor"
@@ -238,7 +238,7 @@
 				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
-						class="text-base-content/60 h-5 w-5 shrink-0"
+						class="text-base-content/70 h-5 w-5 shrink-0"
 						fill="none"
 						viewBox="0 0 24 24"
 						stroke="currentColor"
@@ -259,7 +259,7 @@
 				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
-						class="text-base-content/60 h-5 w-5 shrink-0"
+						class="text-base-content/70 h-5 w-5 shrink-0"
 						fill="none"
 						viewBox="0 0 24 24"
 						stroke="currentColor"
@@ -272,13 +272,13 @@
 						/>
 					</svg>
 					<span class="flex-1 font-medium">What's new</span>
-					<span class="text-base-content/40 text-sm">v{__APP_VERSION__}</span>
+					<span class="text-base-content/65 text-sm">v{__APP_VERSION__}</span>
 				</button>
 			</div>
 
 			<div class="bg-base-100 overflow-hidden rounded-2xl">
 				<button
-					class="text-error active:bg-error/10 w-full px-4 py-3.5 text-center font-medium transition-colors"
+					class="text-error-strong active:bg-error/10 w-full px-4 py-3.5 text-center font-medium transition-colors"
 					onclick={signOut}
 					disabled={checkingSync}
 				>

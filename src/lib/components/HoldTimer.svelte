@@ -112,18 +112,18 @@
 			{/if}
 		</svg>
 		<div class="absolute inset-0 flex flex-col items-center justify-center">
-			<span class="text-primary text-2xl font-black tabular-nums" role="timer">{shown}</span>
-			<span class="text-base-content/55 text-xs">of {holdSeconds}s</span>
+			<span class="text-primary-strong text-2xl font-black tabular-nums" role="timer">{shown}</span>
+			<span class="text-base-content/65 text-xs">of {holdSeconds}s</span>
 		</div>
 	</div>
 
 	<div class="flex min-w-0 flex-1 flex-col gap-1.5">
-		<p class="text-base-content/55 text-xs font-semibold tracking-widest uppercase">
+		<p class="text-base-content/65 text-xs font-semibold tracking-widest uppercase">
 			{phase === 'relax' ? 'Relax' : phase === 'done' ? 'Done' : 'Hold'}
 		</p>
 		<p class="text-xl font-black tabular-nums">
 			Rep {phase === 'idle' ? 1 : Math.min(reps + (phase === 'done' ? 0 : 1), targetReps)}
-			<span class="text-base-content/55 text-sm font-semibold">of {targetReps}</span>
+			<span class="text-base-content/65 text-sm font-semibold">of {targetReps}</span>
 		</p>
 		<div class="flex items-center gap-3">
 			{#if phase === 'idle' || phase === 'done'}

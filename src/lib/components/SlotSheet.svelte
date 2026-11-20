@@ -60,7 +60,7 @@
 <BottomSheet bind:open size="large" {title}>
 	<div class="flex flex-col gap-1">
 		{#if subtitle}
-			<p class="text-base-content/50 mb-2 text-sm">{subtitle}</p>
+			<p class="text-base-content/65 mb-2 text-sm">{subtitle}</p>
 		{/if}
 		{#each rows as row (row.label)}
 			{@const note = taken[row.slot ?? 'anytime']}
@@ -74,13 +74,13 @@
 				aria-current={isCurrent ? 'true' : undefined}
 				onclick={() => pick(row.slot)}
 			>
-				<span class="text-base-content/60 shrink-0 [&>svg]:h-5 [&>svg]:w-5">
+				<span class="text-base-content/70 shrink-0 [&>svg]:h-5 [&>svg]:w-5">
 					{@html slotIcon(row.slot)}
 				</span>
 				<span class="flex min-w-0 flex-1 flex-col">
 					<span class="font-medium">{row.label}</span>
 					{#if note || row.hint}
-						<span class="text-base-content/50 truncate text-xs">{note ?? row.hint}</span>
+						<span class="text-base-content/65 truncate text-xs">{note ?? row.hint}</span>
 					{/if}
 				</span>
 			</button>

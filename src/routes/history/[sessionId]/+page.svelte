@@ -143,18 +143,18 @@
 	{:else if unreachable}
 		<div class="flex flex-col items-center gap-3 py-16 text-center">
 			<p class="font-semibold">You're offline</p>
-			<p class="text-base-content/55 text-sm">This workout needs a connection to open.</p>
+			<p class="text-base-content/65 text-sm">This workout needs a connection to open.</p>
 			<a class="btn btn-sm" href="/history">Back to History</a>
 		</div>
 	{:else if !log}
 		<div class="flex flex-col items-center gap-3 py-16 text-center">
 			<p class="font-semibold">That workout isn't in your history</p>
-			<p class="text-base-content/55 text-sm">It may have been deleted on another device.</p>
+			<p class="text-base-content/65 text-sm">It may have been deleted on another device.</p>
 			<a class="btn btn-sm" href="/history">Back to History</a>
 		</div>
 	{:else}
 		<div class="flex items-center gap-2">
-			<p class="text-base-content/55 min-w-0 flex-1 text-sm">{when}</p>
+			<p class="text-base-content/65 min-w-0 flex-1 text-sm">{when}</p>
 			<!-- Vertical, like the Library's row menus. -->
 			<button
 				class="btn btn-ghost btn-circle btn-sm -mr-2"
@@ -175,7 +175,7 @@
 			{#each [[totals.sets, 'sets'], [totals.reps, 'reps'], [Math.round(totals.volume).toLocaleString('en'), unit], [totals.time, 'time']] as [value, label] (label)}
 				<div class="bg-base-200 rounded-2xl px-1 py-3 text-center">
 					<b class="block text-lg font-black tabular-nums">{value}</b>
-					<span class="text-base-content/55 text-xs">{label}</span>
+					<span class="text-base-content/65 text-xs">{label}</span>
 				</div>
 			{/each}
 		</div>
@@ -198,7 +198,7 @@
 						<span
 							class={[
 								'shrink-0 text-xs font-semibold',
-								card.vs.startsWith('+') ? 'text-primary-strong' : 'text-base-content/55'
+								card.vs.startsWith('+') ? 'text-primary-strong' : 'text-base-content/65'
 							]}>{card.vs}</span
 						>
 					{/if}
@@ -211,12 +211,12 @@
 							aria-label="Edit set {i + 1}: {setLabel(set, card.workout)}"
 							onclick={() => edit(card.workout, set)}
 						>
-							<span class="text-base-content/40">{i + 1}</span>
+							<span class="text-base-content/65">{i + 1}</span>
 							<span>{setLabel(set, card.workout)}</span>
 							{#if card.records.has(set.id)}
 								<span class="text-primary-strong text-xs font-semibold">PR</span>
 							{:else if set.notes}
-								<span class="text-base-content/55 max-w-40 truncate text-xs">“{set.notes}”</span>
+								<span class="text-base-content/65 max-w-40 truncate text-xs">“{set.notes}”</span>
 							{:else}
 								<span></span>
 							{/if}
@@ -226,7 +226,7 @@
 			</section>
 		{/each}
 
-		<p class="text-base-content/50 -mt-1 text-center text-xs">Tap a set to edit it</p>
+		<p class="text-base-content/65 -mt-1 text-center text-xs">Tap a set to edit it</p>
 
 		<button
 			class="btn bg-primary/15 text-primary-strong btn-lg h-13 rounded-2xl border-none shadow-none"

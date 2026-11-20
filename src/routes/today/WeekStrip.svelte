@@ -29,15 +29,15 @@
 
 <section class="flex flex-col gap-2">
 	<div class="flex items-baseline justify-between">
-		<p class="text-base-content/55 text-xs font-semibold tracking-widest uppercase">This week</p>
-		<span class="text-base-content/55 text-xs tabular-nums">{caption}</span>
+		<p class="text-base-content/65 text-xs font-semibold tracking-widest uppercase">This week</p>
+		<span class="text-base-content/65 text-xs tabular-nums">{caption}</span>
 	</div>
 	<ul class="bg-base-200 flex justify-between rounded-2xl px-3 py-3.5">
 		{#each days as day (day.start)}
 			<li
 				class={[
 					'flex w-9 flex-col items-center gap-1.5 text-[11px]',
-					day.today ? 'text-base-content font-bold' : 'text-base-content/40'
+					day.today ? 'text-base-content font-bold' : 'text-base-content/65'
 				]}
 				aria-label={dayLabel(day)}
 			>

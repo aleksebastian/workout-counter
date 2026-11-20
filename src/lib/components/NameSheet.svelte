@@ -64,9 +64,9 @@
 				}}
 			/>
 			{#if error}
-				<p class="text-error text-sm">{error}</p>
+				<p class="text-error-strong text-sm">{error}</p>
 			{:else if hint}
-				<p class="text-base-content/40 text-xs">{hint}</p>
+				<p class="text-base-content/65 text-xs">{hint}</p>
 			{/if}
 		</div>
 

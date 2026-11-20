@@ -166,22 +166,22 @@
 				<span class="text-base font-bold">{counted(latestHeader.reps, 'rep')}</span>
 			</div>
 			<div class="bg-base-200 rounded-2xl p-4">
-				<p class="text-base-content/40 mb-3 text-[10px] font-semibold tracking-widest uppercase">
+				<p class="text-base-content/65 mb-3 text-[10px] font-semibold tracking-widest uppercase">
 					{comparisonLabel}
 				</p>
 				<div class="grid grid-cols-2 gap-x-6 gap-y-3">
 					{#each comparisonStats as stat, i (i)}
 						<div class="flex flex-col">
-							<span class="text-base-content/40 text-[10px] font-semibold tracking-wider uppercase"
+							<span class="text-base-content/65 text-[10px] font-semibold tracking-wider uppercase"
 								>{stat.label}</span
 							>
 							<span class="text-xl leading-tight font-bold tabular-nums">{stat.value}</span>
 							<span
 								class="text-xs font-semibold {stat.delta.pos === true
-									? 'text-success'
+									? 'text-success-strong'
 									: stat.delta.pos === false
-										? 'text-error'
-										: 'text-base-content/30'}">{stat.delta.str}</span
+										? 'text-error-strong'
+										: 'text-base-content/65'}">{stat.delta.str}</span
 							>
 						</div>
 					{/each}
@@ -222,7 +222,7 @@
 {:else}
 	<div class="mx-auto flex max-w-lg flex-col items-center gap-4 py-16 text-center">
 		<p class="font-semibold">That exercise isn't available</p>
-		<p class="text-base-content/50 text-sm">It may have been deleted on another device.</p>
+		<p class="text-base-content/65 text-sm">It may have been deleted on another device.</p>
 		<a class="btn btn-primary btn-sm" href="/library?tab=exercises">Back to Library</a>
 	</div>
 {/if}

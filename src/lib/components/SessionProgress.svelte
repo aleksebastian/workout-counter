@@ -26,7 +26,7 @@
 			</div>
 		{/each}
 	</div>
-	<div class="text-base-content/55 flex justify-between gap-3 text-xs font-semibold">
+	<div class="text-base-content/65 flex justify-between gap-3 text-xs font-semibold">
 		<span>Exercise {index + 1} of {fills.length}</span>
 		<span>{detail}</span>
 	</div>

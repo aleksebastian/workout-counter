@@ -88,7 +88,7 @@
 			<div class="bg-primary/10 flex h-16 w-16 items-center justify-center rounded-2xl">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
-					class="text-primary h-8 w-8"
+					class="text-primary-strong h-8 w-8"
 					fill="none"
 					viewBox="0 0 24 24"
 					stroke="currentColor"
@@ -103,7 +103,7 @@
 			</div>
 			<div>
 				<h1 class="text-2xl font-black tracking-tight">Almost there</h1>
-				<p class="text-base-content/50 mt-1.5 text-sm leading-relaxed">
+				<p class="text-base-content/65 mt-1.5 text-sm leading-relaxed">
 					Pick a username and you're in.<br />Everything else you can change later.
 				</p>
 			</div>
@@ -116,7 +116,7 @@
 				class:input-warning={isTaken}
 				class:input-success={isAvailable && isValid && !checking}
 			>
-				<span class="text-base-content/30 font-medium select-none">@</span>
+				<span class="text-base-content/65 font-medium select-none">@</span>
 				<input
 					type="text"
 					placeholder="username"
@@ -132,13 +132,13 @@
 				{#if checking}
 					<span class="loading loading-spinner loading-xs text-base-content/30"></span>
 				{:else if isAvailable && isValid}
-					<CheckIcon class="text-success h-4 w-4 shrink-0" />
+					<CheckIcon class="text-success-strong h-4 w-4 shrink-0" />
 				{/if}
 			</label>
 
 			<div class="min-h-5 px-1 text-xs">
 				{#if showInvalid}
-					<p class="text-error">
+					<p class="text-error-strong">
 						3–15 letters, numbers, dots or underscores — no dot or underscore at the start, end or
 						twice in a row
 					</p>
@@ -150,9 +150,9 @@
 				{:else if isTaken}
 					<p class="text-warning">@{normalized} is already taken</p>
 				{:else if isAvailable && isValid}
-					<p class="text-success">@{normalized} is available</p>
+					<p class="text-success-strong">@{normalized} is available</p>
 				{:else if checking}
-					<p class="text-base-content/30">Checking @{normalized}…</p>
+					<p class="text-base-content/65">Checking @{normalized}…</p>
 				{/if}
 			</div>
 

@@ -374,7 +374,7 @@
 
 {#snippet slotEyebrow(s: ProgramSession, text: string)}
 	<p
-		class="text-base-content/55 flex items-center gap-1.5 text-xs font-semibold tracking-widest uppercase [&_svg]:h-3.5 [&_svg]:w-3.5"
+		class="text-base-content/65 flex items-center gap-1.5 text-xs font-semibold tracking-widest uppercase [&_svg]:h-3.5 [&_svg]:w-3.5"
 	>
 		{#if views.length > 1}{@html slotIcon(s.slot)}{/if}
 		{text}
@@ -389,7 +389,7 @@
 			<div class="min-w-0 flex-1">
 				{#if label}{@render slotEyebrow(v.session, label)}{/if}
 				<h3 class={['text-[17px] leading-snug font-bold', label && 'mt-1']}>{v.title}</h3>
-				<p class="text-base-content/55 text-sm">{v.meta}</p>
+				<p class="text-base-content/65 text-sm">{v.meta}</p>
 			</div>
 		{/snippet}
 		{#if v.routineId}
@@ -412,7 +412,7 @@
 						class="hover:bg-base-300 flex h-11 items-center gap-3 px-4 transition-colors"
 						href="/workout/{entry.workoutId}?from=/programs/{v.source.programId}"
 					>
-						<span class="text-base-content/35 w-4 shrink-0 text-right text-xs tabular-nums"
+						<span class="text-base-content/65 w-4 shrink-0 text-right text-xs tabular-nums"
 							>{i + 1}</span
 						>
 						<span class="min-w-0 flex-1 truncate text-[15px]">{name}</span>
@@ -421,7 +421,7 @@
 								{@render check('h-4 w-4')} Done
 							</span>
 						{:else if target}
-							<span class="text-base-content/55 shrink-0 text-sm tabular-nums">{target}</span>
+							<span class="text-base-content/65 shrink-0 text-sm tabular-nums">{target}</span>
 						{/if}
 					</a>
 				</li>
@@ -460,7 +460,7 @@
 			<div class="min-w-0 flex-1">
 				{#if views.length > 1}{@render slotEyebrow(v.session, slotLabel(v.session.slot))}{/if}
 				<p class="truncate text-[17px] leading-snug font-bold">{v.title}</p>
-				<p class="text-base-content/55 text-sm">
+				<p class="text-base-content/65 text-sm">
 					{[
 						'Done',
 						...(log
@@ -489,7 +489,7 @@
 			>
 				{@html slotIcon(s.slot)}
 				{chipLabel(s, multi)}
-				<span class="text-base-content/45 [&>svg]:h-3.5 [&>svg]:w-3.5">{@html DownIcon}</span>
+				<span class="text-base-content/65 [&>svg]:h-3.5 [&>svg]:w-3.5">{@html DownIcon}</span>
 			</button>
 			<RowMenuButton
 				label="Options for the {slotLabel(s.slot).toLowerCase()} session"
@@ -508,7 +508,7 @@
 						(id) => session.workout(id)
 					)
 				: 'New session'}
-			<span class="text-base-content/40">{@html EditIcon}</span>
+			<span class="text-base-content/65">{@html EditIcon}</span>
 		</button>
 		{#if s.items.length}
 			<div class="border-base-300 border-t">
@@ -533,7 +533,7 @@
 									: `/workout/${item.workoutId}?from=/programs/${program!.id}`}
 							>
 								<span class="truncate text-[15px]">{itemName(item, training.lookups)}</span>
-								{#if detail}<span class="text-base-content/50 text-xs">{detail}</span>{/if}
+								{#if detail}<span class="text-base-content/65 text-xs">{detail}</span>{/if}
 							</a>
 							{#if item.type === 'exercise'}
 								<div class="bg-base-300 flex h-8 shrink-0 items-center rounded-full">
@@ -554,7 +554,7 @@
 								</div>
 							{/if}
 							<button
-								class="text-error flex h-11 w-9 shrink-0 items-center justify-center"
+								class="text-error-strong flex h-11 w-9 shrink-0 items-center justify-center"
 								aria-label="Remove {itemName(item, training.lookups)}"
 								onclick={() => askRemove(s, i)}
 							>
@@ -594,9 +594,9 @@
 		<section>
 			<div class="flex min-h-10 items-center justify-between gap-2">
 				{#if editing}
-					<p class="text-base-content/55 text-sm">Editing · changes save as you go</p>
+					<p class="text-base-content/65 text-sm">Editing · changes save as you go</p>
 				{:else}
-					<p class="text-base-content/55 flex min-w-0 items-center gap-1.5 text-sm">
+					<p class="text-base-content/65 flex min-w-0 items-center gap-1.5 text-sm">
 						<span
 							class={[
 								'h-1.75 w-1.75 shrink-0 rounded-full',
@@ -646,10 +646,10 @@
 				</h2>
 				{#if editing}
 					{#if sessions.length}
-						<span class="text-base-content/55 text-sm">{counted(sessions.length, 'session')}</span>
+						<span class="text-base-content/65 text-sm">{counted(sessions.length, 'session')}</span>
 					{/if}
 				{:else if views.length > 1}
-					<span class="text-base-content/55 text-sm tabular-nums">
+					<span class="text-base-content/65 text-sm tabular-nums">
 						{isToday ? `${doneCount} of ${views.length} done` : counted(views.length, 'session')}
 					</span>
 				{/if}
@@ -667,7 +667,7 @@
 					{sessions.length ? 'Add another session' : 'Add a session'}
 				</button>
 				{#if sessions.length}
-					<p class="text-base-content/55 px-6 text-center text-sm">
+					<p class="text-base-content/65 px-6 text-center text-sm">
 						Split a day into morning and evening sessions you start separately.
 					</p>
 				{/if}
@@ -684,7 +684,7 @@
 				<div class="bg-base-200 flex flex-col gap-3.5 rounded-2xl p-4">
 					<div class="flex items-center gap-3.5">
 						<span
-							class="bg-base-300 text-base-content/60 flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
+							class="bg-base-300 text-base-content/70 flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
 						>
 							<svg
 								class="h-5.5 w-5.5"
@@ -699,7 +699,7 @@
 						</span>
 						<div>
 							<p class="text-[17px] leading-snug font-bold">Rest day</p>
-							<p class="text-base-content/55 text-sm">
+							<p class="text-base-content/65 text-sm">
 								Nothing planned for {DAY_FULL[selectedDay]}.
 							</p>
 						</div>
@@ -710,7 +710,7 @@
 							onclick={() => (selectedDay = nextUp.day)}
 						>
 							<div class="min-w-0 flex-1">
-								<p class="text-base-content/55 text-sm">Next up · {nextUp.when}</p>
+								<p class="text-base-content/65 text-sm">Next up · {nextUp.when}</p>
 								<p class="truncate font-semibold">{nextUp.name}</p>
 							</div>
 							<Chevron />
@@ -730,7 +730,7 @@
 {:else}
 	<div class="mx-auto flex max-w-lg flex-col items-center gap-4 py-16 text-center">
 		<p class="font-semibold">That program isn't available</p>
-		<p class="text-base-content/50 text-sm">It may have been deleted on another device.</p>
+		<p class="text-base-content/65 text-sm">It may have been deleted on another device.</p>
 		<a class="btn btn-primary btn-sm" href={libraryHref('programs')}>Back to Library</a>
 	</div>
 {/if}

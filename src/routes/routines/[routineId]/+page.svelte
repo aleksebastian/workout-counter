@@ -152,7 +152,7 @@
 	{@const last = lastSet(row.workout)}
 	{@const doneNow = isDoneToday(row.workout, row.ex.targetSets)}
 	<div class="flex min-w-0 flex-1 items-center gap-3">
-		<span class="text-base-content/40 w-5 shrink-0 text-right text-xs font-medium">{index + 1}</span
+		<span class="text-base-content/65 w-5 shrink-0 text-right text-xs font-medium">{index + 1}</span
 		>
 		<div class="flex min-w-0 flex-1 flex-col gap-1">
 			<div class="flex items-center gap-2">
@@ -179,7 +179,7 @@
 			{/if}
 			{#if last}
 				<div class="flex flex-wrap items-center gap-1.5">
-					<span class="text-base-content/50 text-xs"
+					<span class="text-base-content/65 text-xs"
 						>{formatDistanceToNow(new Date(last.date), { addSuffix: true })}</span
 					>
 					<span class="badge badge-sm badge-ghost font-medium">{counted(last.reps, 'rep')}</span>
@@ -188,7 +188,7 @@
 					{/if}
 				</div>
 			{:else}
-				<span class="text-base-content/35 text-xs">Not done yet</span>
+				<span class="text-base-content/65 text-xs">Not done yet</span>
 			{/if}
 		</div>
 	</div>
@@ -205,7 +205,7 @@
 {:else if routine}
 	<div class="mx-auto flex w-full max-w-lg flex-col gap-4">
 		<div class="flex items-center justify-between gap-2">
-			<p class="text-base-content/50 text-xs">
+			<p class="text-base-content/65 text-xs">
 				{counted(rows.length, 'exercise')}
 			</p>
 			<div class="flex items-center gap-1">
@@ -225,12 +225,12 @@
 			     (the rest timer) behind the screen edge with no hint it was there. -->
 			<div class="grid grid-cols-2 gap-2">
 				<div class="bg-base-200 rounded-xl px-4 py-2.5 text-center">
-					<p class="text-base-content/50 text-xs">Today</p>
+					<p class="text-base-content/65 text-xs">Today</p>
 					<p class="text-sm font-semibold">{doneToday}/{rows.length}</p>
 				</div>
 				{#if lastSession}
 					<div class="bg-base-200 rounded-xl px-4 py-2.5 text-center">
-						<p class="text-base-content/50 text-xs">Last session</p>
+						<p class="text-base-content/65 text-xs">Last session</p>
 						<p class="text-sm font-semibold">
 							{formatDistanceToNow(lastSession, { addSuffix: true })}
 						</p>
@@ -238,7 +238,7 @@
 				{/if}
 				{#if totalSets > 0}
 					<div class="bg-base-200 rounded-xl px-4 py-2.5 text-center">
-						<p class="text-base-content/50 text-xs">Total sets</p>
+						<p class="text-base-content/65 text-xs">Total sets</p>
 						<p class="text-sm font-semibold">{totalSets}</p>
 					</div>
 				{/if}
@@ -248,9 +248,9 @@
 					aria-label="Edit rest timer"
 					onclick={() => (showEditRoutine = true)}
 				>
-					<p class="text-base-content/50 text-xs">Rest timer</p>
+					<p class="text-base-content/65 text-xs">Rest timer</p>
 					{#if routine.timer}
-						<p class="text-primary text-sm font-semibold tabular-nums">
+						<p class="text-primary-strong text-sm font-semibold tabular-nums">
 							{formatDuration(routine.timer)}
 						</p>
 					{:else if session.prefs.timerEnabled}
@@ -258,18 +258,18 @@
 							Global · {formatDuration(session.prefs.timer)}
 						</p>
 					{:else}
-						<p class="text-base-content/50 text-sm font-semibold">Off</p>
+						<p class="text-base-content/65 text-sm font-semibold">Off</p>
 					{/if}
 				</button>
 			</div>
 		{/if}
 
 		{#if routine.notes && !reordering}
-			<p class="text-base-content/50 text-sm">{routine.notes}</p>
+			<p class="text-base-content/65 text-sm">{routine.notes}</p>
 		{/if}
 
 		{#if reordering}
-			<div class="bg-primary/10 text-primary rounded-xl px-4 py-2.5 text-sm font-medium">
+			<div class="bg-primary/10 text-primary-strong rounded-xl px-4 py-2.5 text-sm font-medium">
 				Drag the handles to reorder, then tap Done.
 			</div>
 			<SortableList
@@ -307,7 +307,7 @@
 				<div class="bg-base-200 rounded-full p-6">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
-						class="text-base-content/40 h-10 w-10"
+						class="text-base-content/65 h-10 w-10"
 						fill="none"
 						viewBox="0 0 24 24"
 						stroke="currentColor"

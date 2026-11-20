@@ -42,14 +42,14 @@
 						{#if i === 0}<span class="badge badge-primary badge-sm ml-1 align-middle">Latest</span
 							>{/if}
 					</h3>
-					<p class="text-base-content/40 text-xs">{formatDate(entry)}</p>
+					<p class="text-base-content/65 text-xs">{formatDate(entry)}</p>
 				</div>
 				<div class="bg-base-200 flex flex-col gap-4 rounded-2xl px-4 py-4">
 					{#each SECTIONS as section (section.key)}
 						{@const items = entry[section.key]}
 						{#if items?.length}
 							<div class="flex flex-col gap-2">
-								<p class="text-base-content/40 text-xs font-semibold tracking-widest uppercase">
+								<p class="text-base-content/65 text-xs font-semibold tracking-widest uppercase">
 									{section.label}
 								</p>
 								<ul class="flex flex-col gap-1.5">

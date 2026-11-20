@@ -84,7 +84,11 @@
 					class={[
 						small ? 'text-[9px]' : 'text-[10px]',
 						'leading-none font-bold transition-colors',
-						isToday ? 'text-primary' : isScheduled ? 'text-base-content/50' : 'text-base-content/20'
+						isToday
+							? 'text-primary-strong'
+							: isScheduled
+								? 'text-base-content/65'
+								: 'text-base-content/20'
 					].join(' ')}>{label}</span
 				>
 				<div
@@ -108,7 +112,7 @@
 			<div class="bg-base-200 rounded-full p-6">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
-					class="text-base-content/40 h-10 w-10"
+					class="text-base-content/65 h-10 w-10"
 					fill="none"
 					viewBox="0 0 24 24"
 					stroke="currentColor"
@@ -123,7 +127,7 @@
 			</div>
 			<div>
 				<p class="font-semibold">No programs yet</p>
-				<p class="text-base-content/50 mt-1 max-w-xs text-sm">
+				<p class="text-base-content/65 mt-1 max-w-xs text-sm">
 					Schedule routines and exercises across the week, and Train will guide you through each
 					day.
 				</p>
@@ -143,7 +147,7 @@
 		{#if activeProgram}
 			{@const todayCount = exerciseCount(activeProgram, todayDow)}
 			<div class="flex flex-col gap-1.5">
-				<p class="text-base-content/50 text-xs font-semibold tracking-widest uppercase">
+				<p class="text-base-content/65 text-xs font-semibold tracking-widest uppercase">
 					Active Program
 				</p>
 				<div
@@ -155,7 +159,7 @@
 							<a href={`/programs/${activeProgram.id}`} class="min-w-0 flex-1">
 								<p class="text-base leading-snug font-bold">{activeProgram.name}</p>
 								{#if activeProgram.notes}
-									<p class="text-base-content/50 mt-0.5 line-clamp-2 text-xs">
+									<p class="text-base-content/65 mt-0.5 line-clamp-2 text-xs">
 										{activeProgram.notes}
 									</p>
 								{/if}
@@ -169,7 +173,7 @@
 						{#if programDays(activeProgram).length}
 							{@render weekDots(activeProgram, false)}
 						{:else}
-							<p class="text-base-content/40 text-xs">No days scheduled yet</p>
+							<p class="text-base-content/65 text-xs">No days scheduled yet</p>
 						{/if}
 
 						{#if todayCount > 0}
@@ -217,7 +221,7 @@
 								>
 							{/if}
 						{:else}
-							<a href={`/programs/${activeProgram.id}`} class="text-base-content/40 text-xs"
+							<a href={`/programs/${activeProgram.id}`} class="text-base-content/65 text-xs"
 								>Rest day{nextUpLabel(activeProgram)}</a
 							>
 						{/if}
@@ -229,7 +233,7 @@
 		{#if others.length}
 			<div class="flex flex-col gap-2">
 				{#if activeProgram}
-					<p class="text-base-content/50 text-xs font-semibold tracking-widest uppercase">
+					<p class="text-base-content/65 text-xs font-semibold tracking-widest uppercase">
 						Other Programs
 					</p>
 				{/if}
@@ -244,7 +248,7 @@
 								{#if programDays(program).length}
 									{@render weekDots(program, true)}
 								{:else}
-									<p class="text-base-content/30 text-xs">No days scheduled</p>
+									<p class="text-base-content/65 text-xs">No days scheduled</p>
 								{/if}
 							</div>
 							<Chevron />

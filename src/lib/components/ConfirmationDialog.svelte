@@ -40,7 +40,7 @@
 		<!-- Icon -->
 		{#if icon}
 			<div
-				class="bg-error/15 text-error flex h-12 w-12 flex-none items-center justify-center rounded-full [&_svg]:h-6 [&_svg]:w-6 [&_svg]:fill-current"
+				class="bg-error/15 text-error-strong flex h-12 w-12 flex-none items-center justify-center rounded-full [&_svg]:h-6 [&_svg]:w-6 [&_svg]:fill-current"
 			>
 				{@html DeleteIcon}
 			</div>
@@ -52,7 +52,7 @@
 			{#if children}
 				{@render children()}
 			{:else if content}
-				<p class="text-base-content/55 mt-1 text-sm">{content}</p>
+				<p class="text-base-content/65 mt-1 text-sm">{content}</p>
 			{/if}
 		</div>
 

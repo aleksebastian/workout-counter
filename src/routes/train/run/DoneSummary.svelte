@@ -29,7 +29,7 @@
 <div class="mx-auto flex w-full max-w-lg flex-col items-center gap-6 pt-8 pb-28 text-center">
 	{#if summary.complete}
 		<div class="bg-success/10 flex h-28 w-28 items-center justify-center rounded-full">
-			<svg class="text-success h-12 w-12" viewBox="0 0 36 36" aria-hidden="true">
+			<svg class="text-success-strong h-12 w-12" viewBox="0 0 36 36" aria-hidden="true">
 				<path
 					fill="currentColor"
 					d="M34.459 1.375a2.999 2.999 0 0 0-4.149.884L13.5 28.17l-8.198-7.58a2.999 2.999 0 1 0-4.073 4.405l10.764 9.952s.309.266.452.359a2.999 2.999 0 0 0 4.15-.884L35.343 5.524a2.999 2.999 0 0 0-.884-4.149z"
@@ -48,15 +48,15 @@
 	<div class="bg-base-200 divide-base-300 grid w-full grid-cols-3 divide-x rounded-2xl">
 		<div class="flex flex-col items-center gap-0.5 px-4 py-4">
 			<span class="text-2xl font-black tabular-nums">{summary.sets}</span>
-			<span class="text-base-content/50 text-xs">{plural(summary.sets, 'set')}</span>
+			<span class="text-base-content/65 text-xs">{plural(summary.sets, 'set')}</span>
 		</div>
 		<div class="flex flex-col items-center gap-0.5 px-4 py-4">
 			<span class="text-2xl font-black tabular-nums">{summary.reps}</span>
-			<span class="text-base-content/50 text-xs">{plural(summary.reps, 'rep')}</span>
+			<span class="text-base-content/65 text-xs">{plural(summary.reps, 'rep')}</span>
 		</div>
 		<div class="flex flex-col items-center gap-0.5 px-4 py-4">
 			<span class="text-2xl font-black tabular-nums">{formatClock(summary.durationMs)}</span>
-			<span class="text-base-content/50 text-xs">time</span>
+			<span class="text-base-content/65 text-xs">time</span>
 		</div>
 	</div>
 
@@ -67,7 +67,7 @@
 			{#each summary.list as item (item.workoutId)}
 				<li class="flex items-baseline justify-between gap-3 px-4 py-3">
 					<span class="min-w-0 truncate font-semibold">{item.name}</span>
-					<span class="text-base-content/60 shrink-0 text-sm tabular-nums"
+					<span class="text-base-content/70 shrink-0 text-sm tabular-nums"
 						>{summaryLine(item, summary.startedAt)}</span
 					>
 				</li>

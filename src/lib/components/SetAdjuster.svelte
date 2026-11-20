@@ -52,7 +52,7 @@
 	<div class="flex shrink-0 items-baseline gap-1">
 		<NumberField value={current} label={name} {mode} onchange={setValue} fit />
 		{#if suffix}
-			<span class="text-base-content/55 text-sm font-semibold">{suffix}</span>
+			<span class="text-base-content/65 text-sm font-semibold">{suffix}</span>
 		{/if}
 	</div>
 {/snippet}
@@ -79,7 +79,7 @@
 		/>
 		{#if showStep}
 			<span
-				class="text-base-content/60 w-5 text-center text-xs font-semibold tabular-nums @min-[22rem]:w-6"
+				class="text-base-content/70 w-5 text-center text-xs font-semibold tabular-nums @min-[22rem]:w-6"
 				>{delta}</span
 			>
 		{/if}
@@ -103,7 +103,7 @@
 				data-testid="reps-column"
 				class="flex min-w-0 flex-none flex-col gap-1 pr-2.5 @min-[22rem]:flex-1"
 			>
-				<span class="text-base-content/55 text-xs font-semibold tracking-widest uppercase"
+				<span class="text-base-content/65 text-xs font-semibold tracking-widest uppercase"
 					>Reps</span
 				>
 				<!-- The steppers sit right after the number, not against the divider,
@@ -124,12 +124,12 @@
 				data-testid="weight-column"
 				class="border-base-300 flex min-w-0 flex-1 flex-col gap-1 border-l pl-2.5 @min-[22rem]:flex-[1.45]"
 			>
-				<span class="text-base-content/55 truncate text-xs font-semibold tracking-widest uppercase"
+				<span class="text-base-content/65 truncate text-xs font-semibold tracking-widest uppercase"
 					>Weight{#if weightUnset}
 						<span class="text-warning tracking-normal normal-case"> · not set</span>
 					{:else if weight === 0}
 						<!-- Spelled out so an unchanged 0 is a choice, not a forgotten field. -->
-						<span class="text-base-content/40 tracking-normal normal-case">
+						<span class="text-base-content/65 tracking-normal normal-case">
 							· bodyweight</span
 						>{/if}</span
 				>

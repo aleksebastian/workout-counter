@@ -13,13 +13,13 @@
 </script>
 
 <section class="flex flex-col gap-3">
-	<h2 class="text-base-content/50 text-xs font-semibold tracking-widest uppercase">
+	<h2 class="text-base-content/65 text-xs font-semibold tracking-widest uppercase">
 		Weekly schedule
 	</h2>
 	{#each days as day (day.day)}
 		<div class="flex flex-col gap-1.5">
 			<p class="text-sm font-semibold">
-				{DAY_FULL[day.day]}{#if day.label}<span class="text-base-content/50 font-normal">
+				{DAY_FULL[day.day]}{#if day.label}<span class="text-base-content/65 font-normal">
 						· {day.label}</span
 					>{/if}
 			</p>
@@ -35,7 +35,7 @@
 								>
 									<span class="badge badge-primary badge-soft badge-xs shrink-0">Routine</span>
 									<span class="min-w-0 flex-1 truncate text-sm font-semibold">{routine.name}</span>
-									<span class="text-base-content/40 text-xs"
+									<span class="text-base-content/65 text-xs"
 										>{routine.exercises.length} exercises</span
 									>
 									<Chevron />
@@ -51,7 +51,7 @@
 									class="bg-base-200 hover:bg-base-300 rounded-box flex items-center gap-3 px-4 py-3 transition-colors active:scale-[0.99]"
 								>
 									<span class="min-w-0 flex-1 truncate text-sm font-semibold">{exercise.name}</span>
-									<span class="text-base-content/40 text-xs">{counted(item.targetSets, 'set')}</span
+									<span class="text-base-content/65 text-xs">{counted(item.targetSets, 'set')}</span
 									>
 									<Chevron />
 								</a>

@@ -173,7 +173,7 @@
 {#snippet row(title: string, blurb: string)}
 	<div>
 		<p class="font-medium">{title}</p>
-		<p class="text-base-content/50 text-xs">{blurb}</p>
+		<p class="text-base-content/65 text-xs">{blurb}</p>
 	</div>
 {/snippet}
 
@@ -182,10 +182,10 @@
 		<!-- "Saved" shares the first heading's line rather than reserving an
 		     empty row of its own above everything. -->
 		<div class="flex h-5 items-center justify-between">
-			<p class="text-base-content/40 text-xs font-semibold tracking-widest uppercase">Appearance</p>
+			<p class="text-base-content/65 text-xs font-semibold tracking-widest uppercase">Appearance</p>
 			{#if saveState === 'saved'}
 				<span
-					class="text-success text-sm font-semibold whitespace-nowrap"
+					class="text-success-strong text-sm font-semibold whitespace-nowrap"
 					in:fade={{ duration: 200 }}
 					out:fade={{ duration: 150 }}>✓ Saved</span
 				>
@@ -210,7 +210,7 @@
 	</section>
 
 	<section class="flex flex-col gap-3">
-		<p class="text-base-content/40 text-xs font-semibold tracking-widest uppercase">Training</p>
+		<p class="text-base-content/65 text-xs font-semibold tracking-widest uppercase">Training</p>
 
 		<div class="bg-base-200 flex items-center justify-between gap-4 rounded-2xl px-4 py-4">
 			{@render row('Weight unit', 'Used across all exercises')}
@@ -282,14 +282,18 @@
 							}}
 						>
 							<span class="flex items-baseline justify-between gap-3">
-								<span class="text-sm font-medium" class:text-primary={active}>{goal.label}</span>
-								<span class="text-primary text-sm font-semibold tabular-nums">{goal.range}</span>
+								<span class="text-sm font-medium" class:text-primary-strong={active}
+									>{goal.label}</span
+								>
+								<span class="text-primary-strong text-sm font-semibold tabular-nums"
+									>{goal.range}</span
+								>
 							</span>
-							<span class="text-base-content/50 text-xs">{goal.blurb}</span>
+							<span class="text-base-content/65 text-xs">{goal.blurb}</span>
 						</button>
 					{/each}
 				</div>
-				<p class="text-base-content/40 -mb-2 text-xs">Or set your own</p>
+				<p class="text-base-content/65 -mb-2 text-xs">Or set your own</p>
 				<div class="flex items-center gap-3">
 					<div class="flex flex-1 items-center gap-2">
 						<input
@@ -303,7 +307,7 @@
 							onblur={fillBlanks}
 							onfocus={(e) => (e.currentTarget as HTMLInputElement).select()}
 						/>
-						<span class="text-base-content/50 text-sm">min</span>
+						<span class="text-base-content/65 text-sm">min</span>
 					</div>
 					<span class="text-base-content/30 text-xl font-bold">:</span>
 					<div class="flex flex-1 items-center gap-2">
@@ -318,7 +322,7 @@
 							onblur={fillBlanks}
 							onfocus={(e) => (e.currentTarget as HTMLInputElement).select()}
 						/>
-						<span class="text-base-content/50 text-sm">sec</span>
+						<span class="text-base-content/65 text-sm">sec</span>
 					</div>
 				</div>
 			{/if}
@@ -326,7 +330,7 @@
 	</section>
 
 	<section class="flex flex-col gap-3">
-		<p class="text-base-content/40 text-xs font-semibold tracking-widest uppercase">Streaks</p>
+		<p class="text-base-content/65 text-xs font-semibold tracking-widest uppercase">Streaks</p>
 
 		<div class="bg-base-200 flex items-center justify-between gap-4 rounded-2xl px-4 py-4">
 			{@render row('Week starts on', 'Defines the start of each streak week')}
@@ -380,7 +384,7 @@
 
 	{#if notifStatus && notifStatus !== 'unsupported'}
 		<section class="flex flex-col gap-3">
-			<p class="text-base-content/40 text-xs font-semibold tracking-widest uppercase">
+			<p class="text-base-content/65 text-xs font-semibold tracking-widest uppercase">
 				Notifications
 			</p>
 			<div class="bg-base-200 flex items-center justify-between gap-4 rounded-2xl px-4 py-4">
@@ -388,13 +392,13 @@
 				{#if notifStatus === 'granted'}
 					<span class="badge badge-success badge-lg">On</span>
 				{:else if notifStatus === 'needs-install'}
-					<p class="text-base-content/50 max-w-36 text-right text-xs">
+					<p class="text-base-content/65 max-w-36 text-right text-xs">
 						Add SetCount to your Home Screen to turn this on
 					</p>
 				{:else if notifStatus === 'denied'}
 					<div class="text-right">
 						<span class="badge badge-ghost badge-lg">Blocked</span>
-						<p class="text-base-content/40 mt-1 text-xs">Allow in Settings</p>
+						<p class="text-base-content/65 mt-1 text-xs">Allow in Settings</p>
 					</div>
 				{:else}
 					<button class="btn btn-primary btn-sm" onclick={() => pwa.requestNotifications()}>
@@ -406,7 +410,7 @@
 	{/if}
 
 	<section class="flex flex-col gap-3 pb-4">
-		<p class="text-base-content/40 text-xs font-semibold tracking-widest uppercase">Account</p>
+		<p class="text-base-content/65 text-xs font-semibold tracking-widest uppercase">Account</p>
 		<div class="bg-base-200 flex items-center justify-between gap-4 rounded-2xl px-4 py-4">
 			{@render row('Delete account', 'Removes your exercises, history and username for good')}
 			<button

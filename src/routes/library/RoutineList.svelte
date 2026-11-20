@@ -114,7 +114,7 @@
 			<div class="bg-base-200 rounded-full p-6">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
-					class="text-base-content/40 h-10 w-10"
+					class="text-base-content/65 h-10 w-10"
 					fill="none"
 					viewBox="0 0 24 24"
 					stroke="currentColor"
@@ -129,7 +129,7 @@
 			</div>
 			<div>
 				<p class="font-semibold">No routines yet</p>
-				<p class="text-base-content/50 mt-1 max-w-xs text-sm">
+				<p class="text-base-content/65 mt-1 max-w-xs text-sm">
 					Group exercises into a routine, then run the whole thing start to finish.
 				</p>
 			</div>
@@ -170,7 +170,7 @@
 									>
 								{/if}
 							</div>
-							<span class="text-base-content/40 text-xs">
+							<span class="text-base-content/65 text-xs">
 								{#if s.lastSession}
 									Last: {formatDistanceToNow(s.lastSession, { addSuffix: true })}
 								{:else}

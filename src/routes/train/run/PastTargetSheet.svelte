@@ -22,7 +22,7 @@
 
 <BottomSheet bind:open size="large" title="You passed {formatSeconds(target ?? 0)} while away">
 	<div class="flex flex-col gap-2">
-		<p class="text-base-content/55 mb-2 text-sm">
+		<p class="text-base-content/65 mb-2 text-sm">
 			The timer kept going. Log your target, the full time, or keep going.
 		</p>
 		<button

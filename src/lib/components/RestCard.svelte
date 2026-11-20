@@ -52,7 +52,7 @@
 	>
 		<div class="min-w-0 flex-1">
 			<p class="text-sm font-semibold">Want a rest timer?</p>
-			<p class="text-base-content/55 mt-0.5 text-xs">
+			<p class="text-base-content/65 mt-0.5 text-xs">
 				Counts down after each set. Change it anytime in
 				<a href="/preferences" class="link">Preferences</a>.
 			</p>
@@ -71,13 +71,13 @@
 {:else if restTimer.active && compact}
 	<div class="bg-base-200 relative overflow-hidden rounded-2xl {className}">
 		<div class="flex h-11 items-center gap-1 pl-4">
-			<span class="text-base-content/50 shrink-0 text-xs font-semibold tracking-widest uppercase"
+			<span class="text-base-content/65 shrink-0 text-xs font-semibold tracking-widest uppercase"
 				>Rest</span
 			>
-			<span class="text-base-content/55 ml-1 min-w-0 flex-1 truncate text-sm">
+			<span class="text-base-content/65 ml-1 min-w-0 flex-1 truncate text-sm">
 				{next ?? (restTimer.source ? `${restTimer.source} timer` : 'Next set coming up')}
 			</span>
-			<span class="text-primary text-xl font-black tabular-nums">{restTimer.display}</span>
+			<span class="text-primary-strong text-xl font-black tabular-nums">{restTimer.display}</span>
 			<!-- A hard set can need longer than planned; one tap, no settings. -->
 			<button
 				class="btn btn-ghost h-11 min-h-0 rounded-full px-2.5 text-sm font-semibold"
@@ -112,12 +112,12 @@
 				onclick={() => goto('/train/run')}
 			>
 				<span class="min-w-0 flex-1">
-					<span class="text-base-content/40 block text-xs font-semibold tracking-widest uppercase"
+					<span class="text-base-content/65 block text-xs font-semibold tracking-widest uppercase"
 						>Rest</span
 					>
 					<!-- Naming the source makes the routine-over-default precedence visible,
 					     rather than leaving the user to wonder why this rest is 2:00 today. -->
-					<span class="text-base-content/55 mt-0.5 block truncate text-xs">
+					<span class="text-base-content/65 mt-0.5 block truncate text-xs">
 						{resumable
 							? `Back to ${training.name || 'workout'}`
 							: restTimer.source
@@ -126,7 +126,8 @@
 					</span>
 				</span>
 
-				<span class="text-primary text-3xl font-black tabular-nums">{restTimer.display}</span>
+				<span class="text-primary-strong text-3xl font-black tabular-nums">{restTimer.display}</span
+				>
 			</button>
 
 			<button

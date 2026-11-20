@@ -44,7 +44,7 @@
 			</svg>
 			<div>
 				<p class="text-base-content text-lg font-semibold">You're offline</p>
-				<p class="text-base-content/50 mt-1 text-sm">
+				<p class="text-base-content/65 mt-1 text-sm">
 					Go back and try again when you're reconnected
 				</p>
 			</div>
@@ -54,7 +54,7 @@
 			<span class="text-base-content/20 text-6xl font-black">{page.status}</span>
 			<div>
 				<p class="text-base-content text-lg font-semibold">Something went wrong</p>
-				<p class="text-base-content/50 mt-1 text-sm">
+				<p class="text-base-content/65 mt-1 text-sm">
 					{page.error?.message ?? 'An unexpected error occurred'}
 				</p>
 			</div>

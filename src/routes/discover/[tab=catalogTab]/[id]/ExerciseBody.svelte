@@ -12,12 +12,12 @@
 </script>
 
 <section class="flex flex-col gap-2">
-	<h2 class="text-base-content/50 text-xs font-semibold tracking-widest uppercase">How to</h2>
+	<h2 class="text-base-content/65 text-xs font-semibold tracking-widest uppercase">How to</h2>
 	<p class="text-sm leading-relaxed">{exercise.instructions}</p>
 </section>
 
 <section class="flex flex-col gap-2">
-	<h2 class="text-base-content/50 text-xs font-semibold tracking-widest uppercase">Works</h2>
+	<h2 class="text-base-content/65 text-xs font-semibold tracking-widest uppercase">Works</h2>
 	<div class="flex flex-wrap gap-1.5">
 		{#each exercise.muscles as muscle, i (i)}
 			<span class="badge {i === 0 ? 'badge-primary badge-soft' : 'badge-ghost'}"
@@ -30,7 +30,7 @@
 
 {#if exercise.aliases?.length}
 	<section class="flex flex-col gap-1">
-		<h2 class="text-base-content/50 text-xs font-semibold tracking-widest uppercase">
+		<h2 class="text-base-content/65 text-xs font-semibold tracking-widest uppercase">
 			Also called
 		</h2>
 		<p class="text-base-content/70 text-sm">{exercise.aliases.join(' · ')}</p>
@@ -39,7 +39,7 @@
 
 {#if usedIn.length}
 	<section class="flex flex-col gap-2">
-		<h2 class="text-base-content/50 text-xs font-semibold tracking-widest uppercase">
+		<h2 class="text-base-content/65 text-xs font-semibold tracking-widest uppercase">
 			In these routines
 		</h2>
 		<ul class="flex flex-col gap-2">
@@ -50,7 +50,7 @@
 						class="bg-base-200 hover:bg-base-300 rounded-box flex items-center gap-3 px-4 py-3 transition-colors active:scale-[0.99]"
 					>
 						<span class="min-w-0 flex-1 truncate text-sm font-semibold">{routine.name}</span>
-						<span class="text-base-content/40 text-xs">{routine.exercises.length} exercises</span>
+						<span class="text-base-content/65 text-xs">{routine.exercises.length} exercises</span>
 						<Chevron />
 					</a>
 				</li>

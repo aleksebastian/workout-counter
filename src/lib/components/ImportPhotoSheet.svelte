@@ -495,7 +495,7 @@
 >
 	{#if step === 'pick'}
 		<div class="flex flex-col gap-4">
-			<p class="text-base-content/60 -mt-2 text-sm">You'll check everything before it's saved.</p>
+			<p class="text-base-content/70 -mt-2 text-sm">You'll check everything before it's saved.</p>
 			{#if preview}
 				{@render photo(false)}
 			{:else}
@@ -507,7 +507,7 @@
 						>{@html CameraIcon}</span
 					>
 					<span class="font-semibold">Choose a photo</span>
-					<span class="text-base-content/50 text-sm">A screenshot, notebook page or whiteboard</span
+					<span class="text-base-content/65 text-sm">A screenshot, notebook page or whiteboard</span
 					>
 				</button>
 			{/if}
@@ -515,7 +515,7 @@
 			<div class="flex flex-col gap-2">
 				<label
 					for="import-note"
-					class="text-base-content/60 text-xs font-semibold tracking-widest uppercase"
+					class="text-base-content/70 text-xs font-semibold tracking-widest uppercase"
 					>What should we do with it?</label
 				>
 				<textarea
@@ -544,24 +544,24 @@
 			{@render photo(true)}
 			<div role="status" class="flex flex-col items-center gap-1 pt-3 text-center">
 				<p class="font-semibold">Reading your workout…</p>
-				<p class="text-base-content/60 text-sm">Usually takes a few seconds</p>
+				<p class="text-base-content/70 text-sm">Usually takes a few seconds</p>
 			</div>
 		</div>
 	{:else if step === 'error'}
 		<div class="flex flex-col items-center gap-2.5 px-2 py-4 text-center">
-			<span class="bg-base-200 text-base-content/60 rounded-full p-4 [&>svg]:h-7 [&>svg]:w-7"
+			<span class="bg-base-200 text-base-content/70 rounded-full p-4 [&>svg]:h-7 [&>svg]:w-7"
 				>{@html CameraIcon}</span
 			>
 			<p class="font-semibold">{FAILURES[failure].title}</p>
-			<p class="text-base-content/60 max-w-xs text-sm">{FAILURES[failure].body}</p>
+			<p class="text-base-content/70 max-w-xs text-sm">{FAILURES[failure].body}</p>
 		</div>
 	{:else if draft}
 		<div class="flex flex-col gap-3">
-			<p class="text-base-content/60 -mt-2 text-sm">From your photo · nothing is saved yet</p>
+			<p class="text-base-content/70 -mt-2 text-sm">From your photo · nothing is saved yet</p>
 			<div class="bg-base-200 flex flex-col gap-1 rounded-2xl px-4 py-3">
 				<label
 					for="import-name"
-					class="text-base-content/60 text-xs font-semibold tracking-widest uppercase">Name</label
+					class="text-base-content/70 text-xs font-semibold tracking-widest uppercase">Name</label
 				>
 				<input
 					id="import-name"
@@ -571,9 +571,9 @@
 					oninput={() => (nameError = undefined)}
 				/>
 				{#if nameError}
-					<p class="text-error text-xs">{nameError}</p>
+					<p class="text-error-strong text-xs">{nameError}</p>
 				{:else if nameHint}
-					<p class="text-base-content/50 text-xs">{nameHint}</p>
+					<p class="text-base-content/65 text-xs">{nameHint}</p>
 				{/if}
 			</div>
 			<button
@@ -581,7 +581,7 @@
 				onclick={() => (showWhere = true)}
 			>
 				<span class="flex min-w-0 flex-1 flex-col gap-1">
-					<span class="text-base-content/60 text-xs font-semibold tracking-widest uppercase"
+					<span class="text-base-content/70 text-xs font-semibold tracking-widest uppercase"
 						>Save to</span
 					>
 					<!-- Wraps rather than truncates: with several days, the time of day is at the end. -->
@@ -591,11 +591,11 @@
 			</button>
 
 			<div class="flex items-baseline justify-between px-1 pt-1">
-				<p class="text-base-content/60 text-xs font-semibold tracking-widest uppercase">
+				<p class="text-base-content/70 text-xs font-semibold tracking-widest uppercase">
 					{saveCount}
 					{saveCount === 1 ? 'exercise' : 'exercises'}
 				</p>
-				<p class="text-base-content/50 text-xs">Tap one to fix it</p>
+				<p class="text-base-content/65 text-xs">Tap one to fix it</p>
 			</div>
 			<ul class="-mt-1 flex flex-col gap-0.5">
 				{#each rows as row (row.index)}
@@ -606,7 +606,7 @@
 						>
 							<span class="flex min-w-0 flex-1 flex-col">
 								<span class="truncate font-medium">{row.name}</span>
-								<span class="text-base-content/50 truncate text-xs tabular-nums">
+								<span class="text-base-content/65 truncate text-xs tabular-nums">
 									{[
 										row.duplicate ? 'Listed twice · only the first is kept' : row.targets,
 										row.kind === 'alias'
@@ -658,7 +658,7 @@
 		<div class="flex flex-col gap-1.5">
 			{#if step === 'pick'}
 				<button class="btn btn-primary btn-lg" disabled={!file} onclick={read}>Read workout</button>
-				<p class="text-base-content/50 text-center text-xs">
+				<p class="text-base-content/65 text-center text-xs">
 					Your photo is sent to an AI service to read it, then deleted.
 				</p>
 			{:else if step === 'reading'}
@@ -688,7 +688,7 @@
 	{#if destination}
 		<div class="flex flex-col gap-4">
 			<div class="flex flex-col gap-1.5">
-				<p class="text-base-content/60 text-xs font-semibold tracking-widest uppercase">Program</p>
+				<p class="text-base-content/70 text-xs font-semibold tracking-widest uppercase">Program</p>
 				<div class="flex flex-col">
 					{#each programs as p (p.id)}
 						{@const on = destination.type === 'program' && destination.programId === p.id}
@@ -742,7 +742,7 @@
 								oninput={() => (programError = undefined)}
 							/>
 							{#if programError}
-								<p class="text-error px-0.5 pt-1 text-xs">{programError}</p>
+								<p class="text-error-strong px-0.5 pt-1 text-xs">{programError}</p>
 							{/if}
 						</div>
 					{/if}
@@ -773,8 +773,8 @@
 				{@const d = destination}
 				<div class="flex flex-col gap-2">
 					<div class="flex items-baseline justify-between">
-						<p class="text-base-content/60 text-xs font-semibold tracking-widest uppercase">Days</p>
-						<p class="text-base-content/50 text-xs">Pick every day it's on</p>
+						<p class="text-base-content/70 text-xs font-semibold tracking-widest uppercase">Days</p>
+						<p class="text-base-content/65 text-xs">Pick every day it's on</p>
 					</div>
 					<div class="grid grid-cols-7 gap-1" role="group" aria-label="Days">
 						{#each weekOrder([0, 1, 2, 3, 4, 5, 6], session.prefs.weekStart) as day (day)}
@@ -789,7 +789,7 @@
 					</div>
 				</div>
 				<div class="flex flex-col gap-2">
-					<p class="text-base-content/60 text-xs font-semibold tracking-widest uppercase">
+					<p class="text-base-content/70 text-xs font-semibold tracking-widest uppercase">
 						Time of day
 					</p>
 					<div class="grid grid-cols-3 gap-1">
@@ -807,7 +807,7 @@
 						>
 					</div>
 					{#if slotNote}
-						<p class="text-base-content/50 text-xs">{slotNote}</p>
+						<p class="text-base-content/65 text-xs">{slotNote}</p>
 					{/if}
 				</div>
 			{/if}
@@ -822,12 +822,12 @@
 	{#if editing}
 		<div class="flex flex-col gap-3">
 			<label class="flex flex-col gap-1.5">
-				<span class="text-base-content/60 text-sm font-medium">Name</span>
+				<span class="text-base-content/70 text-sm font-medium">Name</span>
 				<input class="input input-bordered w-full" bind:value={editing.exercise.name} />
 			</label>
 			<div class="grid grid-cols-3 gap-2">
 				<label class="flex flex-col gap-1.5">
-					<span class="text-base-content/60 text-sm font-medium">Sets</span>
+					<span class="text-base-content/70 text-sm font-medium">Sets</span>
 					<input
 						class="input input-bordered w-full"
 						type="number"
@@ -837,7 +837,7 @@
 					/>
 				</label>
 				<label class="flex flex-col gap-1.5">
-					<span class="text-base-content/60 text-sm font-medium">Min reps</span>
+					<span class="text-base-content/70 text-sm font-medium">Min reps</span>
 					<input
 						class="input input-bordered w-full"
 						type="number"
@@ -847,7 +847,7 @@
 					/>
 				</label>
 				<label class="flex flex-col gap-1.5">
-					<span class="text-base-content/60 text-sm font-medium">Max reps</span>
+					<span class="text-base-content/70 text-sm font-medium">Max reps</span>
 					<input
 						class="input input-bordered w-full"
 						type="number"
@@ -866,7 +866,7 @@
 				disabled={!editing?.exercise.name.trim()}
 				onclick={saveEdit}>Done</button
 			>
-			<button class="btn btn-ghost text-error" onclick={removeRow}>Remove exercise</button>
+			<button class="btn btn-ghost text-error-strong" onclick={removeRow}>Remove exercise</button>
 		</div>
 	{/snippet}
 </BottomSheet>

@@ -223,7 +223,7 @@
 	>
 		<div class="min-w-0">
 			<p class="text-sm font-semibold">{title}</p>
-			<p class="text-base-content/60 text-xs">{body}</p>
+			<p class="text-base-content/70 text-xs">{body}</p>
 		</div>
 		<div class="flex shrink-0 gap-2">
 			{#if dismiss}
@@ -286,7 +286,7 @@
 		<!-- Firestore stops a listener once it errors and never retries it, so a
 		     reload is the only honest recovery we can offer. -->
 		<div class="mx-auto flex max-w-lg flex-col items-center gap-4 py-16 text-center">
-			<div class="bg-error/10 text-error rounded-full p-5">
+			<div class="bg-error/10 text-error-strong rounded-full p-5">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="h-8 w-8"
@@ -305,7 +305,7 @@
 			</div>
 			<div>
 				<p class="font-semibold">Couldn't load your data</p>
-				<p class="text-base-content/50 mt-1 max-w-xs text-sm">{session.error}</p>
+				<p class="text-base-content/65 mt-1 max-w-xs text-sm">{session.error}</p>
 			</div>
 			<button class="btn btn-primary btn-sm" onclick={() => window.location.reload()}>Reload</button
 			>
@@ -333,7 +333,7 @@
 		aria-live="polite"
 		transition:fade={{ duration: 150 }}
 	>
-		<span class="loading loading-spinner loading-lg text-primary" aria-hidden="true"></span>
+		<span class="loading loading-spinner loading-lg text-primary-strong" aria-hidden="true"></span>
 		<p class="text-sm font-medium">Updating SetCount</p>
 	</div>
 {/if}

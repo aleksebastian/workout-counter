@@ -117,7 +117,7 @@
 
 <div class="flex flex-col">
 	<div
-		class="text-base-content/50 bg-base-100 sticky top-0 z-10 {COLUMNS} px-3 pb-1 text-xs font-semibold tracking-wider uppercase"
+		class="text-base-content/65 bg-base-100 sticky top-0 z-10 {COLUMNS} px-3 pb-1 text-xs font-semibold tracking-wider uppercase"
 		aria-hidden="true"
 	>
 		<span>Set</span>
@@ -142,7 +142,7 @@
 					>
 						<span class="{COLUMNS} h-14 w-full">
 							<span class="font-bold">{i + 1}</span>
-							<span class="text-base-content/55 truncate text-sm">{previousText(previous[i])}</span>
+							<span class="text-base-content/65 truncate text-sm">{previousText(previous[i])}</span>
 							<span class="text-right text-lg font-bold tabular-nums">{cells(set)[0]}</span>
 							<span class="text-right text-lg font-bold tabular-nums">{cells(set)[1]}</span>
 							<span class="flex justify-end">
@@ -160,7 +160,7 @@
 					<div class="bg-primary/10 flex flex-col rounded-xl px-3" aria-current="step">
 						<div class="{COLUMNS} h-14">
 							<span class="font-bold">{i + 1}</span>
-							<span class="text-base-content/55 truncate text-sm">{previousText(previous[i])}</span>
+							<span class="text-base-content/65 truncate text-sm">{previousText(previous[i])}</span>
 							<span class="text-right text-lg font-bold tabular-nums"
 								>{cells(draft, draft.weightUnset)[0]}</span
 							>
@@ -178,7 +178,7 @@
 						{@render notes(draft.note)}
 					</div>
 				{:else}
-					<div class="text-base-content/40 flex flex-col px-3">
+					<div class="text-base-content/65 flex flex-col px-3">
 						<div class="{COLUMNS} h-14">
 							<span class="font-semibold">{i + 1}</span>
 							<span class="truncate text-sm">{previousText(previous[i])}</span>

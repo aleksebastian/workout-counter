@@ -73,7 +73,7 @@
 <BottomSheet bind:open {size} {title}>
 	<div class="flex flex-col gap-4">
 		<div class="flex flex-col gap-1.5">
-			<label class="text-base-content/60 text-sm font-medium" for="{idPrefix}-name">Name</label>
+			<label class="text-base-content/70 text-sm font-medium" for="{idPrefix}-name">Name</label>
 			<input
 				id="{idPrefix}-name"
 				type="text"
@@ -89,12 +89,12 @@
 				}}
 			/>
 			{#if error}
-				<p class="text-error px-0.5 text-xs">{error}</p>
+				<p class="text-error-strong px-0.5 text-xs">{error}</p>
 			{/if}
 		</div>
 
 		<div class="flex flex-col gap-1.5">
-			<label class="text-base-content/60 text-sm font-medium" for="{idPrefix}-notes">Notes</label>
+			<label class="text-base-content/70 text-sm font-medium" for="{idPrefix}-notes">Notes</label>
 			<textarea
 				id="{idPrefix}-notes"
 				class={['textarea textarea-bordered w-full resize-none', notesClass]}

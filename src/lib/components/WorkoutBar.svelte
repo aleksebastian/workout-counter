@@ -49,12 +49,12 @@
 			</span>
 			<span class="min-w-0 flex-1">
 				<span class="block truncate text-sm font-semibold">{training.name || 'Workout'}</span>
-				<span class="text-base-content/55 block text-xs tabular-nums">
+				<span class="text-base-content/65 block text-xs tabular-nums">
 					In progress · {elapsed}{progress ? ` · ${progress}` : ''}
 				</span>
 			</span>
-			<span class="text-primary text-sm font-semibold">Resume</span>
-			<Chevron class="text-primary h-4 w-4 shrink-0" />
+			<span class="text-primary-strong text-sm font-semibold">Resume</span>
+			<Chevron class="text-primary-strong h-4 w-4 shrink-0" />
 		</button>
 	</div>
 {/if}

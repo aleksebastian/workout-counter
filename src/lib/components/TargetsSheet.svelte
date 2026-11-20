@@ -176,7 +176,7 @@
 			() => (draft.targetSets = stepSets(draft.targetSets, 1)),
 			(text) => (draft.targetSets = commitSets(text))
 		)}
-		<p class="text-base-content/40 -mt-1 px-1 text-xs">
+		<p class="text-base-content/65 -mt-1 px-1 text-xs">
 			{draft.targetSets === null
 				? 'Free-form — you decide when to move on during a session.'
 				: `The session advances after ${counted(draft.targetSets, 'set')}.`}
@@ -194,7 +194,7 @@
 						class="w-10 bg-transparent text-right outline-none placeholder:text-current"
 						value={minutes ?? ''}
 						onchange={(e) => (minutes = num(e.currentTarget.value))}
-					/><span class="text-base-content/55 text-sm">min</span>
+					/><span class="text-base-content/65 text-sm">min</span>
 					<input
 						type="text"
 						inputmode="numeric"
@@ -203,7 +203,7 @@
 						class="w-8 bg-transparent text-right outline-none placeholder:text-current"
 						value={secs ?? ''}
 						onchange={(e) => (secs = num(e.currentTarget.value))}
-					/><span class="text-base-content/55 text-sm">s</span>
+					/><span class="text-base-content/65 text-sm">s</span>
 				</div>
 			</div>
 		{/if}
@@ -219,7 +219,7 @@
 						class="w-14 bg-transparent text-right outline-none placeholder:text-current"
 						value={distance ?? ''}
 						onchange={(e) => (distance = num(e.currentTarget.value))}
-					/><span class="text-base-content/55 text-sm">{unit}</span>
+					/><span class="text-base-content/65 text-sm">{unit}</span>
 				</div>
 			</div>
 		{/if}
@@ -235,7 +235,7 @@
 						class="w-10 bg-transparent text-right outline-none placeholder:text-current"
 						value={hold ?? ''}
 						onchange={(e) => (hold = num(e.currentTarget.value))}
-					/><span class="text-base-content/55 text-sm">s</span>
+					/><span class="text-base-content/65 text-sm">s</span>
 				</div>
 			</div>
 		{/if}
@@ -243,7 +243,7 @@
 		<div class="flex items-center justify-between px-1 pt-1" class:hidden={timed}>
 			<div>
 				<p class="text-sm font-medium">Rep range</p>
-				<p class="text-base-content/40 text-xs">
+				<p class="text-base-content/65 text-xs">
 					{draft.rangeOn ? 'Shown on the routine as a goal' : 'No rep range'}
 				</p>
 			</div>

@@ -125,7 +125,7 @@
 			<button
 				type="button"
 				class="absolute inset-y-0 left-0 flex w-11 items-center justify-center"
-				class:text-primary={hasDraft}
+				class:text-primary-strong={hasDraft}
 				class:text-base-content={!hasDraft}
 				aria-label={hasDraft ? `Edit note for set ${setNumber}` : `Add a note to set ${setNumber}`}
 				aria-expanded={expanded}
@@ -185,15 +185,15 @@
 				>
 					{#if next}
 						<span
-							class="text-base-content/50 shrink-0 text-xs font-semibold tracking-widest uppercase"
+							class="text-base-content/65 shrink-0 text-xs font-semibold tracking-widest uppercase"
 							>Up next</span
 						>
 						<span class="min-w-0 truncate">
 							<span class="font-bold">{next.name}</span>
-							<span class="text-base-content/60">· {next.detail}</span>
+							<span class="text-base-content/70">· {next.detail}</span>
 						</span>
 					{:else}
-						<span class="text-base-content/50 text-xs font-semibold tracking-widest uppercase"
+						<span class="text-base-content/65 text-xs font-semibold tracking-widest uppercase"
 							>Last exercise</span
 						>
 					{/if}
@@ -217,7 +217,7 @@
 		>
 			{#if restTimer.active}
 				<span class="absolute inset-0 flex items-center justify-center" in:rollIn out:rollOut>
-					<span class="text-primary font-black tabular-nums">{restTimer.display}</span>
+					<span class="text-primary-strong font-black tabular-nums">{restTimer.display}</span>
 					<span class="bg-base-content/10 absolute inset-x-3 bottom-1.5 h-0.5 rounded-full">
 						<span
 							class="bg-primary block h-full rounded-full transition-[width] duration-1000 ease-linear"

@@ -173,7 +173,7 @@
 		gap: 0.125rem;
 		padding-top: 0.375rem;
 		width: 25%;
-		opacity: 0.35;
+		opacity: 0.65;
 	}
 
 	.nav-item[aria-current='page'] {

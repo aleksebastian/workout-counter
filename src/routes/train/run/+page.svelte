@@ -510,7 +510,7 @@
 	<div class="mx-auto flex max-w-lg flex-col items-center gap-4 py-16 text-center">
 		<div>
 			<p class="font-semibold">{training.name || 'A workout'} is in progress</p>
-			<p class="text-base-content/50 mt-1 text-sm">
+			<p class="text-base-content/65 mt-1 text-sm">
 				Started {formatDistanceToNow(active.startedAt, { addSuffix: true })}
 			</p>
 		</div>
@@ -531,7 +531,7 @@
 			<p class="font-semibold">
 				{endedEarlier.complete ? `You finished ${name} today` : `${name} ended early today`}
 			</p>
-			<p class="text-base-content/50 mt-1 text-sm">
+			<p class="text-base-content/65 mt-1 text-sm">
 				{endedEarlier.done} of {counted(endedEarlier.total, 'exercise')} done
 			</p>
 		</div>
@@ -568,13 +568,13 @@
 	{#if planEntries === null}
 		<div class="mx-auto flex max-w-lg flex-col items-center gap-4 py-16 text-center">
 			<p class="font-semibold">That workout isn't available</p>
-			<p class="text-base-content/50 text-sm">It may have been deleted on another device.</p>
+			<p class="text-base-content/65 text-sm">It may have been deleted on another device.</p>
 			<button class="btn btn-primary btn-sm" onclick={finish}>End workout</button>
 		</div>
 	{:else}
 		<div class="mx-auto flex max-w-lg flex-col items-center gap-4 py-16 text-center">
 			<p class="font-semibold">Nothing scheduled here yet</p>
-			<p class="text-base-content/50 max-w-xs text-sm">
+			<p class="text-base-content/65 max-w-xs text-sm">
 				Add exercises to {sourceName} and it'll be ready to run.
 			</p>
 			<a class="btn btn-primary btn-sm" href={backHref}>Set it up</a>
@@ -619,7 +619,7 @@
 									>{currentEntry.groupLabel}</span
 								>
 								{#if currentEntry.groupProgress}
-									<span class="text-base-content/40 text-xs">
+									<span class="text-base-content/65 text-xs">
 										{currentEntry.groupProgress.current}/{currentEntry.groupProgress.total}
 									</span>
 								{/if}
@@ -689,7 +689,7 @@
 					</div>
 				</div>
 				<h1 class="text-3xl leading-tight font-black">{currentWorkout?.name ?? '—'}</h1>
-				<p class="text-base-content/60 text-sm">{targetLine}</p>
+				<p class="text-base-content/70 text-sm">{targetLine}</p>
 			</div>
 
 			<div
@@ -739,7 +739,7 @@
 						</div>
 						<div class="min-w-0 flex-1">
 							<p class="font-semibold">Exercise complete</p>
-							<p class="text-base-content/50 text-sm">
+							<p class="text-base-content/65 text-sm">
 								{counted(setsDone, 'set')} · {isTimed(measure)
 									? formatSeconds(logged.reduce((sum, s) => sum + (s.seconds ?? 0), 0))
 									: counted(
@@ -817,7 +817,7 @@
 							onclick={() => logTime(timerSecs ?? 0)}
 						>
 							<span class="font-bold">Stop and log</span>
-							<span class="font-medium tabular-nums opacity-75">{formatSeconds(timerSecs)}</span>
+							<span class="font-medium tabular-nums">{formatSeconds(timerSecs)}</span>
 						</button>
 					{/if}
 				{:else}
@@ -827,7 +827,7 @@
 						onclick={recordSet}
 					>
 						<span class="font-bold">Log set {setsDone + 1}</span>
-						<span class="font-medium opacity-75">{draftLabel}</span>
+						<span class="font-medium">{draftLabel}</span>
 					</button>
 				{/if}
 				{#if isFreeForm && setsDone > 0}
